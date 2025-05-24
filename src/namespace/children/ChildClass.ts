@@ -1,7 +1,6 @@
 import { Class } from "../Class";
 import { ChildInterface } from "./ChildInterface";
 
-
 /**
  * @class ChildClass
  * @template T
@@ -32,12 +31,12 @@ export class ChildClass<T> extends Class implements ChildInterface<T> {
    * @summary Asynchronous method that returns a string
    * @description This method overrides the base class method. It returns a string
    * after a series of type assertions.
-   * 
+   *
    * @template V
    * @returns {Promise<string>} A Promise that resolves to a string
    * @override
    */
-  async method<V>(): Promise<string> {
+  override async method<V>(): Promise<string> {
     return "ok" as unknown as V as unknown as string;
   }
 
@@ -45,7 +44,7 @@ export class ChildClass<T> extends Class implements ChildInterface<T> {
    * @summary Method that throws an error
    * @description This method implements the method2 from ChildInterface.
    * It throws an error with a message that includes the input argument.
-   * 
+   *
    * @param {T} arg1 - The input argument of generic type T
    * @returns {Promise<string>} A Promise that always rejects with an error
    * @throws {Error} Always throws an error with a message including arg1
