@@ -4,34 +4,28 @@
 This repository is meant to provide an enterprise template for any standard Typescript project
 
 
-![Licence](https://img.shields.io/github/license/decaf-ts/ts-workspace.svg?style=plastic)
-![GitHub language count](https://img.shields.io/github/languages/count/decaf-ts/ts-workspace?style=plastic)
-![GitHub top language](https://img.shields.io/github/languages/top/decaf-ts/ts-workspace?style=plastic)
+![Licence](https://img.shields.io/github/license/decaf-ts/for-nest.svg?style=plastic)
+![GitHub language count](https://img.shields.io/github/languages/count/decaf-ts/for-nest?style=plastic)
+![GitHub top language](https://img.shields.io/github/languages/top/decaf-ts/for-nest?style=plastic)
 
-[![Build & Test](https://github.com/decaf-ts/ts-workspace/actions/workflows/nodejs-build-prod.yaml/badge.svg)](https://github.com/decaf-ts/ts-workspace/actions/workflows/nodejs-build-prod.yaml)
-[![CodeQL](https://github.com/decaf-ts/ts-workspace/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/decaf-ts/ts-workspace/actions/workflows/codeql-analysis.yml)[![Snyk Analysis](https://github.com/decaf-ts/ts-workspace/actions/workflows/snyk-analysis.yaml/badge.svg)](https://github.com/decaf-ts/ts-workspace/actions/workflows/snyk-analysis.yaml)
-[![Pages builder](https://github.com/decaf-ts/ts-workspace/actions/workflows/pages.yaml/badge.svg)](https://github.com/decaf-ts/ts-workspace/actions/workflows/pages.yaml)
-[![.github/workflows/release-on-tag.yaml](https://github.com/decaf-ts/ts-workspace/actions/workflows/release-on-tag.yaml/badge.svg?event=release)](https://github.com/decaf-ts/ts-workspace/actions/workflows/release-on-tag.yaml)
+[![Build & Test](https://github.com/decaf-ts/for-nest/actions/workflows/nodejs-build-prod.yaml/badge.svg)](https://github.com/decaf-ts/for-nest/actions/workflows/nodejs-build-prod.yaml)
+[![CodeQL](https://github.com/decaf-ts/for-nest/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/decaf-ts/for-nest/actions/workflows/codeql-analysis.yml)[![Snyk Analysis](https://github.com/decaf-ts/for-nest/actions/workflows/snyk-analysis.yaml/badge.svg)](https://github.com/decaf-ts/for-nest/actions/workflows/snyk-analysis.yaml)
+[![Pages builder](https://github.com/decaf-ts/for-nest/actions/workflows/pages.yaml/badge.svg)](https://github.com/decaf-ts/for-nest/actions/workflows/pages.yaml)
+[![.github/workflows/release-on-tag.yaml](https://github.com/decaf-ts/for-nest/actions/workflows/release-on-tag.yaml/badge.svg?event=release)](https://github.com/decaf-ts/for-nest/actions/workflows/release-on-tag.yaml)
 
-![Open Issues](https://img.shields.io/github/issues/decaf-ts/ts-workspace.svg)
-![Closed Issues](https://img.shields.io/github/issues-closed/decaf-ts/ts-workspace.svg)
-![Pull Requests](https://img.shields.io/github/issues-pr-closed/decaf-ts/ts-workspace.svg)
+![Open Issues](https://img.shields.io/github/issues/decaf-ts/for-nest.svg)
+![Closed Issues](https://img.shields.io/github/issues-closed/decaf-ts/for-nest.svg)
+![Pull Requests](https://img.shields.io/github/issues-pr-closed/decaf-ts/for-nest.svg)
 ![Maintained](https://img.shields.io/badge/Maintained%3F-yes-green.svg)
 
-![Line Coverage](workdocs/reports/coverage/badge-lines.svg)
-![Function Coverage](workdocs/reports/coverage/badge-functions.svg)
-![Statement Coverage](workdocs/reports/coverage/badge-statements.svg)
-![Branch Coverage](workdocs/reports/coverage/badge-branches.svg)
-
-
-![Forks](https://img.shields.io/github/forks/decaf-ts/ts-workspace.svg)
-![Stars](https://img.shields.io/github/stars/decaf-ts/ts-workspace.svg)
-![Watchers](https://img.shields.io/github/watchers/decaf-ts/ts-workspace.svg)
+![Forks](https://img.shields.io/github/forks/decaf-ts/for-nest.svg)
+![Stars](https://img.shields.io/github/stars/decaf-ts/for-nest.svg)
+![Watchers](https://img.shields.io/github/watchers/decaf-ts/for-nest.svg)
 
 ![Node Version](https://img.shields.io/badge/dynamic/json.svg?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbadges%2Fshields%2Fmaster%2Fpackage.json&label=Node&query=$.engines.node&colorB=blue)
 ![NPM Version](https://img.shields.io/badge/dynamic/json.svg?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbadges%2Fshields%2Fmaster%2Fpackage.json&label=NPM&query=$.engines.npm&colorB=purple)
 
-Documentation available [here](https://decaf-ts.github.io/ts-workspace/)
+Documentation available [here](https://decaf-ts.github.io/for-nest/)
 
 ### Description
 
@@ -43,17 +37,17 @@ Now you can create new repositories from this template and enjoy having everythi
 
 ### How to Use
 
-- [Initial Setup](./tutorials/For%20Developers.md#_initial-setup_)
-- [Installation](./tutorials/For%20Developers.md#installation)
-- [Scripts](./tutorials/For%20Developers.md#scripts)
-- [Linting](./tutorials/For%20Developers.md#testing)
-- [CI/CD](./tutorials/For%20Developers.md#continuous-integrationdeployment)
-- [Publishing](./tutorials/For%20Developers.md#publishing)
-- [Structure](./tutorials/For%20Developers.md#repository-structure)
-- [IDE Integrations](./tutorials/For%20Developers.md#ide-integrations)
-  - [VSCode(ium)](./tutorials/For%20Developers.md#visual-studio-code-vscode)
-  - [WebStorm](./tutorials/For%20Developers.md#webstorm)
-- [Considerations](./tutorials/For%20Developers.md#considerations)
+- [Initial Setup](./workdocs/tutorials/For%20Developers.md#_initial-setup_)
+- [Installation](./workdocs/tutorials/For%20Developers.md#installation)
+- [Scripts](./workdocs/tutorials/For%20Developers.md#scripts)
+- [Linting](./workdocs/tutorials/For%20Developers.md#testing)
+- [CI/CD](./workdocs/tutorials/For%20Developers.md#continuous-integrationdeployment)
+- [Publishing](./workdocs/tutorials/For%20Developers.md#publishing)
+- [Structure](./workdocs/tutorials/For%20Developers.md#repository-structure)
+- [IDE Integrations](./workdocs/tutorials/For%20Developers.md#ide-integrations)
+  - [VSCode(ium)](./workdocs/tutorials/For%20Developers.md#visual-studio-code-vscode)
+  - [WebStorm](./workdocs/tutorials/For%20Developers.md#webstorm)
+- [Considerations](./workdocs/tutorials/For%20Developers.md#considerations)
 
 
 

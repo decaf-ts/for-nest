@@ -1,7 +1,7 @@
 {
   "name": "@decaf-ts/for-nest",
   "version": "0.0.1",
-  "description": "template for ts projects",
+  "description": "NestJS decaf integration",
   "type": "module",
   "exports": {
     "require": "./lib/index.cjs",
@@ -49,7 +49,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/decaf-ts/ts-workspace.git"
+    "url": "git+https://github.com/decaf-ts/for-nest.git"
   },
   "engines": {
     "node": ">=20.0.0",
@@ -83,12 +83,16 @@
   "author": "Tiago Venceslau and Contributors",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/decaf-ts/ts-workspace/issues"
+    "url": "https://github.com/decaf-ts/for-nest/issues"
   },
-  "homepage": "https://github.com/decaf-ts/ts-workspace#readme",
+  "homepage": "https://github.com/decaf-ts/for-nest#readme",
   "devDependencies": {
-    "@decaf-ts/utils": "^0.2.6",
+    "@decaf-ts/utils": "latest",
     "@eslint/js": "^9.25.1",
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.9",
+    "@nestjs/swagger": "^11.2.0",
+    "@nestjs/testing": "^11.0.1",
     "@rollup/plugin-commonjs": "^28.0.3",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
@@ -118,5 +122,16 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.31.0"
+  },
+  "peerDependencies": {
+    "@decaf-ts/core": "latest",
+    "@decaf-ts/db-decorators": "latest",
+    "@decaf-ts/decoration": "latest",
+    "@decaf-ts/decorator-validation": "latest",
+    "@decaf-ts/injectable-decorators": "latest",
+    "@decaf-ts/logging": "latest",
+    "@decaf-ts/reflection": "latest",
+    "@decaf-ts/transactional-decorators": "latest",
+    "@nestjs/common": "^11.0.1"
   }
 }
