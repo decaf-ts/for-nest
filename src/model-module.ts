@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  DynamicModule,
+  Get,
+  Module,
+  Param,
+  Post,
+  Put,
+} from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -12,12 +22,10 @@ import {
   ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { Adapter, Repository } from "@decaf-ts/core";
+import { Adapter, Repo, Repository } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logger, Logging, toKebabCase } from "@decaf-ts/logging";
-import { repoForModel } from "./utils";
 import { RepoFactory } from "./RepoFactory";
-import { DynamicModule, Module } from "@nestjs/common";
 
 @Module({})
 export class DecafModelModule {
@@ -29,120 +37,153 @@ export class DecafModelModule {
   }
 
   private static toModelController<T extends Model<any>>(
-    modelClass: ModelConstructor<any>
+    ModelClazz: ModelConstructor<any>
   ) {
     const log = this.log.for(this.toModelController);
-    log.debug(`Creating model controller... ${modelClass.name}`);
-    const modelName = toKebabCase(Repository.table(modelClass));
-    const route = modelName;
+    const tableName = Repository.table(ModelClazz);
+    const routePath = toKebabCase(tableName);
+    const modelClazzName = ModelClazz.name;
 
-    @Controller(route)
-    @ApiTags(modelName)
-    @ApiExtraModels(modelClass)
+    log.debug(`Creating controller for model: ${modelClazzName}`);
+
+    @Controller(routePath)
+    @ApiTags(modelClazzName)
+    @ApiExtraModels(ModelClazz)
     class DynamicModelController extends LoggedClass {
-      private readonly repo: any; //= this.repoFactory.for(modelClass.name);
+      // private readonly repo = this.repoFactory.for(ModelClazz);
+      private readonly pk!: string;
+      private readonly repo!: Repo<T>; //Repository<Model<any>, any, any, any, any>;
 
       constructor(private readonly repoFactory: RepoFactory) {
         super();
+        log.info(
+          `Registering dynamic controller for model: ${modelClazzName} route: /${routePath}`
+        );
+
         try {
-          this.repo = this.repoFactory.for(modelClass.name);
-        } catch (e: unknown) {
-          log.error(
-            `Failed to get repository for ${modelClass.name}`,
-            e as Error
+          this.repo = this.repoFactory.for(ModelClazz.name);
+          this.pk = this.repo.pk as string;
+        } catch (e: any) {
+          this.log.error(
+            `Failed to initialize repository for model "${ModelClazz.name}".`,
+            e
           );
         }
       }
 
       @Post()
-      @ApiOperation({ summary: `Create a new ${modelName}.` })
+      @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
       @ApiBody({
-        description: `Payload for ${modelName}`,
-        schema: { $ref: getSchemaPath(modelClass) },
+        description: `Payload for ${modelClazzName}`,
+        schema: { $ref: getSchemaPath(ModelClazz) },
       })
-      @ApiCreatedResponse({ description: `${modelName} created successfully.` })
+      @ApiCreatedResponse({
+        description: `${modelClazzName} created successfully.`,
+      })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
       @ApiUnprocessableEntityResponse({
         description: "Repository rejected the provided payload.",
       })
       async create(@Body() data: T): Promise<Model<any>> {
         const log = this.log.for(this.create);
-        log.verbose(`creating new ${modelName}`);
-        const r = repoForModel("Account");
-        const created = await r.create(data);
-        log.info(`created new ${modelName} with id ${created[r.pk]}`);
+        log.verbose(`creating new ${modelClazzName}`);
+        let created: Model;
+        try {
+          created = await this.repo.create(data);
+        } catch (e: unknown) {
+          log.error(`Failed to create new ${modelClazzName}`, e as Error);
+          throw e;
+        }
+        log.info(`created new ${modelClazzName} with id ${created[this.pk]}`);
         return created;
       }
 
       @Get(":id")
-      @ApiOperation({ summary: `Retrieve a ${modelName} by id.` })
-      @ApiParam({
-        name: "id",
-        description: "Primary key",
-        example: "1234-5678",
+      @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
+      @ApiParam({ name: "id", description: "Primary key" })
+      @ApiOkResponse({
+        description: `${modelClazzName} retrieved successfully.`,
       })
-      @ApiOkResponse({ description: `${modelName} retrieved successfully.` })
       @ApiNotFoundResponse({
-        description: "No record matches the provided identifier.",
+        description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       async read(@Param("id") id: string) {
         const log = this.log.for(this.read);
-        log.debug(`reading ${modelName} with ${this.repo.pk as string} ${id}`);
-        const read = await this.repo.read(id);
-        log.info(`read ${modelName} with id ${read[this.repo.pk]}`);
+        let read: Model;
+        try {
+          log.debug(`reading ${modelClazzName} with ${this.pk} ${id}`);
+          read = await this.repo.read(id);
+        } catch (e: unknown) {
+          log.error(
+            `Failed to read ${modelClazzName} with id ${id}`,
+            e as Error
+          );
+          throw e;
+        }
+
+        log.info(`read ${modelClazzName} with id ${read[this.pk]}`);
         return read;
       }
 
-      // @Post()
-      // @ApiOperation({summary: "Create a new record for the given model."})
-      // @ApiCreatedResponse({description: "Record created successfully."})
-      // @ApiBadRequestResponse({description: "Payload validation failed."})
-      // @ApiUnprocessableEntityResponse({description: "Repository rejected the provided payload."})
-      // async create(@Param("model") model: string, @Body() data: any) {
-      //     const log = this.log.for(this.create);
-      //     log.verbose(`creating new ${model}`);
-      //     let repo: Repo<Model>;
-      //     let created: Model;
-      //     try {
-      //         repo = repoForModel(model);
-      //         created = await repo.create(data);
-      //     } catch (e: unknown) {
-      //         log.error(`Failed to create new ${model}`, e as Error);
-      //         throw e;
-      //     }
-      //     log.info(`created new ${model} with id ${created[repo.pk]}`);
-      //     return created;
-      // }
+      @Put(":id")
+      @ApiOperation({
+        summary: `Replace an existing ${modelClazzName} record with a new payload.`,
+      })
+      @ApiBody({
+        description: `Payload for replace a existing record of ${modelClazzName}`,
+        schema: { $ref: getSchemaPath(ModelClazz) },
+      })
+      @ApiOkResponse({
+        description: `${ModelClazz} record replaced successfully.`,
+      })
+      @ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      })
+      @ApiBadRequestResponse({ description: "Payload validation failed." })
+      async update(@Body() data: Model<any>) {
+        const log = this.log.for(this.update);
+        let updated: Model;
+        try {
+          log.info(
+            `updating ${modelClazzName} with ${this.pk} ${data[this.pk]}`
+          );
+          updated = await this.repo.create(data);
+        } catch (e: unknown) {
+          throw e;
+        }
+        return updated;
+      }
 
-      // @Get(":id")
-      // @ApiOperation({summary: "Retrieve a single record by id."})
-      // @ApiParam({
-      //     name: "model",
-      //     // description: 'Name of the model repository to target.' + `\n${modelList.map((m: string, i: number) => `${m} - ${Metadata.description(trackedModels[i])}`).join('\n')}`,
-      //     example: "agent",
-      // })
-      // @ApiParam({
-      //     name: "id",
-      //     description: "Primary key value used to load the record.",
-      //     example: "1234-5678",
-      // })
-      // @ApiOkResponse({description: "Record retrieved successfully."})
-      // @ApiNotFoundResponse({description: "No record matches the provided identifier."})
-      // async read(@Param("model") model: string, @Param("id") id: string) {
-      //     const log = this.log.for(this.read);
-      //     let repo: Repo<Model>;
-      //     let read: Model;
-      //     try {
-      //         repo = repoForModel(model);
-      //         log.debug(`reading ${model} with ${repo.pk as string} ${id}`);
-      //         read = await repo.read(id);
-      //     } catch (e: unknown) {
-      //         log.error(`Failed to read ${model} with id ${id}`, e as Error);
-      //         throw e;
-      //     }
-      //     log.info(`read ${model} with id ${read[repo.pk]}`);
-      //     return read;
-      // }
+      @Delete(":id")
+      @ApiOperation({ summary: `Delete a ${modelClazzName} record by id.` })
+      @ApiParam({
+        name: "id",
+        description: `Primary key value of the ${modelClazzName} record to delete.`,
+      })
+      @ApiOkResponse({
+        description: `${modelClazzName} record deleted successfully.`,
+      })
+      @ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      })
+      async delete(@Param("id") id: string) {
+        const log = this.log.for(this.delete);
+        let read: Model;
+        try {
+          log.debug(
+            `deleting ${modelClazzName} with ${this.pk as string} ${id}`
+          );
+          read = await this.repo.read(id);
+        } catch (e: unknown) {
+          log.error(
+            `Failed to delete ${modelClazzName} with id ${id}`,
+            e as Error
+          );
+          throw e;
+        }
+        log.info(`deleted ${modelClazzName} with id ${read[this.pk]}`);
+        return read;
+      }
     }
 
     return DynamicModelController;
