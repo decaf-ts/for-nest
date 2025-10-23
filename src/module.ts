@@ -1,16 +1,37 @@
-import { DynamicModule, Module } from "@nestjs/common";
+import { DynamicModule, ForwardReference, Module, Type } from "@nestjs/common";
 import { DecafModuleOptions } from "./types";
 import { DecafCoreModule } from "./core-module";
+import { DecafModelModule } from "./model-module";
 
 /**
  * @publicApi
  */
 @Module({})
 export class DecafModule {
-  static forRoot(options: DecafModuleOptions): DynamicModule {
+  static async forRootAsync(
+    options: DecafModuleOptions
+  ): Promise<DynamicModule> {
+    const { autoControllers } = options;
+
+    const adapter = await DecafCoreModule.createAdapter(options);
+    const flavour = adapter.flavour;
+
+    const imports:
+      | (
+          | DynamicModule
+          | Type<any>
+          | Promise<DynamicModule>
+          | ForwardReference<any>
+        )[]
+      | undefined = [DecafCoreModule.forRoot(options)];
+
+    if (autoControllers) {
+      imports.push(DecafModelModule.forRoot(flavour));
+    }
+
     return {
       module: DecafModule,
-      imports: [DecafCoreModule.forRoot(options)],
+      imports: imports,
     };
   }
 }

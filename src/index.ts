@@ -1,5 +1,5 @@
 /**
- * @module ts-workspace
+ * @module for-nest
  * @description This module serves as the main entry point for the ts-workspace library. It aggregates and exports
  * functionality from various submodules and utilities within the project.
  *
@@ -21,10 +21,15 @@
  */
 
 import { Metadata } from "@decaf-ts/decoration";
+import "./decoration";
 
+export * from "./decorators";
 export * from "./constants";
+export * from "./decoration";
 export * from "./module";
+export * from "./RepoFactory";
 export * from "./types";
+export * from "./utils";
 
 /**
  * Represents the current version of the ts-workspace module.

@@ -11,4 +11,5 @@ export type DecafModuleOptions<
   adapter: Constructor<A>;
   conf: CONF;
   alias?: string;
+  autoControllers: boolean;
 };
