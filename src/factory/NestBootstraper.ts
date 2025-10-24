@@ -276,7 +276,6 @@ export class NestBootstraper {
    * `HttpException`, `ValidationException`, `ConflictException`, and others.
    *
    * @param {...ExceptionFilter[]} filters - Optional filters to apply globally.
-   * @return {NestBootstraper} Returns the class for chaining configuration.
    */
   static useGlobalFilters(...filters: any[]) {
     const defaultFilters = [
