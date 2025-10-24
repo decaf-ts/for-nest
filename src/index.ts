@@ -30,6 +30,7 @@ export * from "./module";
 export * from "./RepoFactory";
 export * from "./types";
 export * from "./utils";
+export * from "./factory";
 
 /**
  * Represents the current version of the ts-workspace module.
