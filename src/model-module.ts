@@ -149,6 +149,7 @@ export class DecafModelModule {
           );
           updated = await this.repo.create(data);
         } catch (e: unknown) {
+          log.error(e as Error);
           throw e;
         }
         return updated;
