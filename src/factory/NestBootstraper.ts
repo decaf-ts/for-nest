@@ -126,7 +126,7 @@ export class NestBootstraper {
    * chained configuration methods.
    *
    * @param {INestApplication} app - The NestJS application instance to initialize.
-   * @return {typeof NestBootstraper} Returns the class for chaining configuration methods.
+   * @return {NestBootstraper} Returns the class for chaining configuration methods.
    */
   static initialize(app: INestApplication) {
     this.app = app;
@@ -143,7 +143,7 @@ export class NestBootstraper {
    * with the NestJS application.
    *
    * @param {Logger} [customLogger] - Optional custom logger instance.
-   * @return {typeof NestBootstraper} Returns the class for chaining.
+   * @return {NestBootstraper} Returns the class for chaining.
    */
   static enableLogger(customLogger?: Logger) {
     this._logger = customLogger || new Logger("NestBootstrap");
@@ -162,7 +162,7 @@ export class NestBootstraper {
    *
    * @param {'*' | string[]} [origins=[]] - List of allowed origins or `"*"` to allow all.
    * @param {string[]} [allowMethods=['GET', 'POST', 'PUT', 'DELETE']] - Allowed HTTP methods.
-   * @return {typeof NestBootstraper} Returns the class for chaining configuration.
+   * @return {NestBootstraper} Returns the class for chaining configuration.
    *
    */
   static enableCors(
@@ -205,7 +205,7 @@ export class NestBootstraper {
    * and continues execution without throwing errors.
    *
    * @param {Record<string, any>} [options] - Optional configuration passed to Helmet.
-   * @return {typeof NestBootstraper} Returns the class for chaining configuration.
+   * @return {NestBootstraper} Returns the class for chaining configuration.
    */
   static useHelmet(options?: Record<string, any>) {
     try {
@@ -231,7 +231,7 @@ export class NestBootstraper {
    * Swagger is automatically exposed at the configured path.
    *
    * @param {SwaggerSetupOptions} options - Swagger configuration options.
-   * @return {typeof NestBootstraper} Returns the class for chaining configuration.
+   * @return {NestBootstraper} Returns the class for chaining configuration.
    */
   static setupSwagger(options: SwaggerSetupOptions) {
     const swagger = new SwaggerBuilder(this.app, {
@@ -259,7 +259,7 @@ export class NestBootstraper {
    * for modular input validation.
    *
    * @param {...PipeTransform[]} pipes - Pipe instances to register globally.
-   * @return {typeof NestBootstraper} Returns the class for chaining.
+   * @return {NestBootstraper} Returns the class for chaining.
    */
   static useGlobalPipes(...pipes: PipeTransform[]) {
     if (pipes.length > 0) this.app.useGlobalPipes(...pipes);
@@ -276,7 +276,6 @@ export class NestBootstraper {
    * `HttpException`, `ValidationException`, `ConflictException`, and others.
    *
    * @param {...ExceptionFilter[]} filters - Optional filters to apply globally.
-   * @return {typeof NestBootstraper} Returns the class for chaining configuration.
    */
   static useGlobalFilters(...filters: any[]) {
     const defaultFilters = [
@@ -304,7 +303,7 @@ export class NestBootstraper {
    * can be added for modular configuration.
    *
    * @param {...NestInterceptor[]} interceptors - Interceptor instances to register.
-   * @return {typeof NestBootstraper} Returns the class for chaining configuration.
+   * @return {NestBootstraper} Returns the class for chaining configuration.
    */
   static useGlobalInterceptors(...interceptors: NestInterceptor[]) {
     if (interceptors.length > 0)

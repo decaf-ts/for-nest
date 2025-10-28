@@ -80,7 +80,8 @@
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.9",
     "@nestjs/swagger": "^11.2.0",
-    "@nestjs/testing": "^11.0.1"
+    "@nestjs/testing": "^11.0.1",
+    "@types/lodash": "^4.17.20"
   },
   "dependencies": {
     "@decaf-ts/core": "latest",

@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  DynamicModule,
-  Get,
-  Module,
-  Param,
-  Post,
-  Put,
-} from "@nestjs/common";
+import { Body, Controller, DynamicModule, Module, Param } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -26,6 +16,7 @@ import { Adapter, Repo, Repository } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logger, Logging, toKebabCase } from "@decaf-ts/logging";
 import { RepoFactory } from "./RepoFactory";
+import { ApiOperationFromModel } from "./decorators";
 
 @Module({})
 export class DecafModelModule {
@@ -71,7 +62,7 @@ export class DecafModelModule {
         }
       }
 
-      @Post()
+      @ApiOperationFromModel(ModelClazz, "POST")
       @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
       @ApiBody({
         description: `Payload for ${modelClazzName}`,
@@ -94,11 +85,13 @@ export class DecafModelModule {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
           throw e;
         }
-        log.info(`created new ${modelClazzName} with id ${created[this.pk]}`);
+        log.info(
+          `created new ${modelClazzName} with id ${(created as any)[this.pk]}`
+        );
         return created;
       }
 
-      @Get(":id")
+      @ApiOperationFromModel(ModelClazz, "GET", ":id")
       @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
       @ApiParam({ name: "id", description: "Primary key" })
       @ApiOkResponse({
@@ -121,11 +114,41 @@ export class DecafModelModule {
           throw e;
         }
 
-        log.info(`read ${modelClazzName} with id ${read[this.pk]}`);
+        log.info(`read ${modelClazzName} with id ${(read as any)[this.pk]}`);
         return read;
       }
 
-      @Put(":id")
+      @ApiOperationFromModel(ModelClazz, "GET", "query/:method")
+      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
+      @ApiParam({ name: "method", description: "Query method to be called" })
+      @ApiOkResponse({
+        description: `${modelClazzName} retrieved successfully.`,
+      })
+      @ApiNotFoundResponse({
+        description: `No ${modelClazzName} records matches the query.`,
+      })
+      async query(@Param("method") method: string) {
+        const log = this.log.for(this.read);
+        let results: Model[] | Model;
+
+        try {
+          log.debug(`Querying ${modelClazzName} using method "${method}"`);
+          results = await (this.repo as any)[method]();
+        } catch (e: unknown) {
+          log.error(
+            `Failed to query ${modelClazzName} using method "${method}"`,
+            e as Error
+          );
+          throw e;
+        }
+
+        log.info(
+          `Successfully queried ${modelClazzName} using method "${method}"`
+        );
+        return results;
+      }
+
+      @ApiOperationFromModel(ModelClazz, "PUT", ":id")
       @ApiOperation({
         summary: `Replace an existing ${modelClazzName} record with a new payload.`,
       })
@@ -145,9 +168,9 @@ export class DecafModelModule {
         let updated: Model;
         try {
           log.info(
-            `updating ${modelClazzName} with ${this.pk} ${data[this.pk]}`
+            `updating ${modelClazzName} with ${this.pk} ${(data as any)[this.pk]}`
           );
-          updated = await this.repo.create(data);
+          updated = await this.repo.create(data as any);
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
@@ -155,7 +178,7 @@ export class DecafModelModule {
         return updated;
       }
 
-      @Delete(":id")
+      @ApiOperationFromModel(ModelClazz, "DELETE", ":id")
       @ApiOperation({ summary: `Delete a ${modelClazzName} record by id.` })
       @ApiParam({
         name: "id",
@@ -182,7 +205,7 @@ export class DecafModelModule {
           );
           throw e;
         }
-        log.info(`deleted ${modelClazzName} with id ${read[this.pk]}`);
+        log.info(`deleted ${modelClazzName} with id ${(read as any)[this.pk]}`);
         return read;
       }
     }
