@@ -1,0 +1,190 @@
+[
+  {
+    "Slogan": "Decaf‑TS for Nest: Serve your backend like a barista serves espresso.",
+    "Tags": "NestJS, Coffee‑themed, Backend"
+  },
+  {
+    "Slogan": "Keep the jitters out of your controllers. Code in decaf mode.",
+    "Tags": "NestJS, Calm, Coffee‑themed"
+  },
+  {
+    "Slogan": "Dependency injection? More like decaf injection—no crash afterwards.",
+    "Tags": "DI, Humor, Coffee‑themed"
+  },
+  {
+    "Slogan": "When your modules are relaxed, your developers are too.",
+    "Tags": "Modules, Chill, Developer"
+  },
+  {
+    "Slogan": "From route to response without the caffeine spike.",
+    "Tags": "Routing, Calm, Coffee‑themed"
+  },
+  {
+    "Slogan": "Controllers that don’t buzz — just handle requests.",
+    "Tags": "Controllers, Backend, Calm"
+  },
+  {
+    "Slogan": "NestJS + Decaf = backend brew you can sip slowly.",
+    "Tags": "NestJS, Coffee‑themed, Fun"
+  },
+  {
+    "Slogan": "No crash after deploy—because you didn’t over‑caffeinate your stack.",
+    "Tags": "Deploy, Calm, Coffee‑themed"
+  },
+  {
+    "Slogan": "Let your pipes flow like a smooth latte stream.",
+    "Tags": "Pipes, Metaphor, Coffee‑themed"
+  },
+  {
+    "Slogan": "Guards, interceptors and decaf peace of mind.",
+    "Tags": "Security, Calm, Humor"
+  },
+  {
+    "Slogan": "Providers brew features quietly in the background.",
+    "Tags": "Providers, Backend, Coffee‑themed"
+  },
+  {
+    "Slogan": "When your backend is decaf‑calm, your frontend sleeps better.",
+    "Tags": "Frontend‑Backend, Chill, Coffee‑themed"
+  },
+  {
+    "Slogan": "REST, GraphQL or gRPC—serve them all with decaf composure.",
+    "Tags": "API, Calm, Technical"
+  },
+  {
+    "Slogan": "Your service layer should be smooth, not jittery.",
+    "Tags": "Services, Calm, Coffee‑themed"
+  },
+  {
+    "Slogan": "We turned the caffeine knob down so your logs stay readable.",
+    "Tags": "Logging, Humor, Coffee‑themed"
+  },
+  {
+    "Slogan": "Decorators that feel like latte art — pretty, expressive, calming.",
+    "Tags": "Decorators, Expressive, Coffee‑themed"
+  },
+  {
+    "Slogan": "Intercepting chaos since you went decaf.",
+    "Tags": "ErrorHandling, Humor, Calm"
+  },
+  {
+    "Slogan": "Queue, schedule, process—without racing your heartbeat.",
+    "Tags": "Jobs, Chill, Technical"
+  },
+  {
+    "Slogan": "Plug in a module and pour yourself a mocha.",
+    "Tags": "Modules, Fun, Coffee‑themed"
+  },
+  {
+    "Slogan": "Middleware that whispers, not yells.",
+    "Tags": "Middleware, Calm, Humor"
+  },
+  {
+    "Slogan": "Dependency injection with the serenity of a Swiss café.",
+    "Tags": "DI, Calm, Coffee‑themed"
+  },
+  {
+    "Slogan": "Scalable backend. Minimal jitters. Maximum chill.",
+    "Tags": "Scalability, Calm, Coffee‑themed"
+  },
+  {
+    "Slogan": "Your controllers nap while workers handle the grind.",
+    "Tags": "Workers, Humor, Coffee‑themed"
+  },
+  {
+    "Slogan": "Keep calm and nest on.",
+    "Tags": "NestJS, Playful, Calm"
+  },
+  {
+    "Slogan": "Decaf‑TS for Nest: Serve features not heart palpitations.",
+    "Tags": "Backend, Humor, Coffee‑themed"
+  },
+  {
+    "Slogan": "Endpoints that deliver smoothly—no caffeine crash on the client side.",
+    "Tags": "Endpoints, Calm, Coffee‑themed"
+  },
+  {
+    "Slogan": "Feature flags? More like flavor flags—pick your brew strength.",
+    "Tags": "Features, Humor, Coffee‑themed"
+  },
+  {
+    "Slogan": "Controllers that handle requests, not anxiety.",
+    "Tags": "Controllers, Calm, Developer"
+  },
+  {
+    "Slogan": "No boilerplate, just brew‑plate.",
+    "Tags": "Boilerplate, Fun, Coffee‑themed"
+  },
+  {
+    "Slogan": "From module to microservice with a sip of decaf.",
+    "Tags": "Microservice, Coffee‑themed, Technical"
+  },
+  {
+    "Slogan": "Let your backend be the café where your data rests.",
+    "Tags": "Backend, Metaphor, Coffee‑themed"
+  },
+  {
+    "Slogan": "Middleware with mellow vibes only.",
+    "Tags": "Middleware, Chill, Humor"
+  },
+  {
+    "Slogan": "Build features while your heart rate stays low.",
+    "Tags": "Productivity, Calm, Coffee‑themed"
+  },
+  {
+    "Slogan": "Decaf‑powered services: because bugs brewed in anxiety taste bad.",
+    "Tags": "Services, Humor, Coffee‑themed"
+  },
+  {
+    "Slogan": "Locks, tokens and sessions—handled quietly, like background music in a café.",
+    "Tags": "Auth, Calm, Coffee‑themed"
+  },
+  {
+    "Slogan": "No rush, no crash—just clean architecture.",
+    "Tags": "Architecture, Calm, Technical"
+  },
+  {
+    "Slogan": "Let your logs brew slowly and your features deploy smoothly.",
+    "Tags": "Logs, Deploy, Coffee‑themed"
+  },
+  {
+    "Slogan": "Dependency graphs that don’t tangle you up like over‑caffeination.",
+    "Tags": "DI, Calm, Humor"
+  },
+  {
+    "Slogan": "Serve HTTP, WebSocket, event streams—while sipping your decaf.",
+    "Tags": "WebSocket, Event‑Driven, Coffee‑themed"
+  },
+  {
+    "Slogan": "Your backend should be as smooth as your morning brew.",
+    "Tags": "Backend, Coffee‑themed, Calm"
+  },
+  {
+    "Slogan": "Testing controllers while you test your patience—minus the caffeine crash.",
+    "Tags": "Testing, Humor, Calm"
+  },
+  {
+    "Slogan": "No caffeine required: just module, provider, export, repeat.",
+    "Tags": "NestJS, Humor, Coffee‑themed"
+  },
+  {
+    "Slogan": "Let your services lounge while your endpoints hustle.",
+    "Tags": "Services, Chill, Backend"
+  },
+  {
+    "Slogan": "Decaf‑TS for Nest: Your restful backend’s chill companion.",
+    "Tags": "Backend, Calm, Coffee‑themed"
+  },
+  {
+    "Slogan": "Requests processed. Developers relaxed. Coffee in hand.",
+    "Tags": "DeveloperDX, Coffee‑themed, Calm"
+  },
+  {
+    "Slogan": "Install module. Brew code. Repeat.",
+    "Tags": "Setup, Coffee‑themed, Fun"
+  },
+  {
+    "Slogan": "The backend stack that doesn’t give you heartbeats.",
+    "Tags": "Backend, Humor, Calm"
+  }
+]

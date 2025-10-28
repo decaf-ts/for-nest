@@ -1,4 +1,3 @@
-
 ![Licence](https://img.shields.io/github/license/decaf-ts/for-nest.svg?style=plastic)
 ![GitHub language count](https://img.shields.io/github/languages/count/decaf-ts/for-nest?style=plastic)
 ![GitHub top language](https://img.shields.io/github/languages/top/decaf-ts/for-nest?style=plastic)
@@ -21,3 +20,5 @@
 ![NPM Version](https://img.shields.io/badge/dynamic/json.svg?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbadges%2Fshields%2Fmaster%2Fpackage.json&label=NPM&query=$.engines.npm&colorB=purple)
 
 Documentation available [here](https://decaf-ts.github.io/for-nest/)
+
+Minimal size: ##PACKAGE_SIZE## kb gzipped
