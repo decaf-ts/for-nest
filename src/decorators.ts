@@ -7,7 +7,7 @@ import { ModelConstructor } from "@decaf-ts/decorator-validation";
 
 export type HttpVerb = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-function isOperationBlocked(
+export function isOperationBlocked(
   ModelConstructor: ModelConstructor<any>,
   op: CrudOperations
 ): boolean {
