@@ -1,7 +1,7 @@
 import { DynamicModule, ForwardReference, Module, Type } from "@nestjs/common";
 import { DecafModuleOptions } from "./types";
 import { DecafCoreModule } from "./core-module";
-import { DecafModelModule } from "./model-module";
+import { DecafModelModule } from "./decaf-model";
 
 /**
  * @publicApi
