@@ -23,7 +23,6 @@
 import { Metadata } from "@decaf-ts/decoration";
 import "./decoration";
 
-export * from "./decorators";
 export * from "./constants";
 export * from "./decoration";
 export * from "./module";
@@ -31,6 +30,7 @@ export * from "./RepoFactory";
 export * from "./types";
 export * from "./utils";
 export * from "./factory";
+export * from "./decaf-model";
 
 /**
  * Represents the current version of the ts-workspace module.

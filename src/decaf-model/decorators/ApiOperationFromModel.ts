@@ -4,8 +4,7 @@ import { ApiExcludeEndpoint } from "@nestjs/swagger";
 import { apply } from "@decaf-ts/reflection";
 import { CrudOperations, OperationKeys } from "@decaf-ts/db-decorators";
 import { ModelConstructor } from "@decaf-ts/decorator-validation";
-
-export type HttpVerb = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+import { HttpVerbs } from "./types";
 
 export function isOperationBlocked(
   ModelConstructor: ModelConstructor<any>,
@@ -33,11 +32,11 @@ export function isOperationBlocked(
  */
 export function ApiOperationFromModel(
   ModelConstructor: ModelConstructor<any>,
-  verb: HttpVerb,
+  verb: HttpVerbs,
   path?: string
 ): MethodDecorator {
   const httpToCrud: Record<
-    HttpVerb,
+    HttpVerbs,
     [CrudOperations, (path?: string) => MethodDecorator]
   > = {
     GET: [OperationKeys.READ, Get],
@@ -47,8 +46,8 @@ export function ApiOperationFromModel(
     DELETE: [OperationKeys.DELETE, Delete],
   };
 
-  const [crudOp, decorator] = httpToCrud[verb];
+  const [crudOp, HttpMethodDecorator] = httpToCrud[verb];
   return isOperationBlocked(ModelConstructor, crudOp)
     ? apply(ApiExcludeEndpoint())
-    : apply(decorator(path));
+    : apply(HttpMethodDecorator(path));
 }
