@@ -1,8 +1,7 @@
-[![Banner](./workdocs/assets/Banner.png)](https://decaf-ts.github.io/ts-workspace/)
+![Banner](./workdocs/assets/decaf-logo.svg)
 ## Typescript Template
 
 This repository is meant to provide an enterprise template for any standard Typescript project
-
 
 ![Licence](https://img.shields.io/github/license/decaf-ts/for-nest.svg?style=plastic)
 ![GitHub language count](https://img.shields.io/github/languages/count/decaf-ts/for-nest?style=plastic)
@@ -27,6 +26,9 @@ This repository is meant to provide an enterprise template for any standard Type
 
 Documentation available [here](https://decaf-ts.github.io/for-nest/)
 
+Minimal size: 5.2 KB kb gzipped
+
+
 ### Description
 
 No one needs the hassle of setting up new repos every time.
@@ -50,6 +52,24 @@ Now you can create new repositories from this template and enjoy having everythi
 - [Considerations](./workdocs/tutorials/For%20Developers.md#considerations)
 
 
+
+
+## Coding Principles
+
+- group similar functionality in folders (analog to namespaces but without any namespace declaration)
+- one class per file;
+- one interface per file (unless interface is just used as a type);
+- group types as other interfaces in a types.ts file per folder;
+- group constants or enums in a constants.ts file per folder;
+- group decorators in a decorators.ts file per folder;
+- always import from the specific file, never from a folder or index file (exceptions for dependencies on other packages);
+- prefer the usage of established design patters where applicable:
+  - Singleton (can be an anti-pattern. use with care);
+  - factory;
+  - observer;
+  - strategy;
+  - builder;
+  - etc;
 
 
 ### Related

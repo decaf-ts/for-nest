@@ -9,8 +9,8 @@ import { ApiParam } from "./types";
  * @param {string} props[].name The parameter's name as it appears in the route template (e.g., `:id`).
  * @param {string} [props[].description] Human-readable explanation of the parameter; defaults to `"Path parameter: <name>"`.
  * @param {boolean} [props[].required=true] Whether the parameter is required; defaults to `true`.
- * @param {new (...args:any[]) => any} [props[].type=String] Constructor/type used by Swagger to infer schema (e.g., `String`, `Number`, `UUID`, custom class).
- * @return {MethodDecorator & ClassDecorator} A composed decorator applying all generated `@ApiParam` decorators to the target method or controller.
+ * @param {Constructor<any>} [props[].type=String] Constructor/type used by Swagger to infer schema (e.g., `String`, `Number`, `UUID`, custom class).
+ * @return {any} A composed decorator applying all generated `@ApiParam` decorators to the target method or controller.
  * @function ApiParamsFromModel
  */
 export function ApiParamsFromModel(

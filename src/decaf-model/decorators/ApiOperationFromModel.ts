@@ -29,7 +29,7 @@ export function isOperationBlocked(
     args: any[];
   };
 
-  // @ts-ignore
+  // @ts-expect-error TODO @pedro
   return !handler ? false : (handler(...args, op) ?? false);
 }
 

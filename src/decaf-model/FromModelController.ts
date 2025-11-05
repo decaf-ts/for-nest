@@ -33,6 +33,7 @@ export class FromModelController {
     const tableName = Repository.table(ModelClazz);
     const routePath = toKebabCase(tableName);
     const modelClazzName = ModelClazz.name;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { description, apiProperties, path } =
       FromModelController.getRouteParametersFromModel(ModelClazz);
 

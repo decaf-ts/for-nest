@@ -6,8 +6,8 @@ import {
 import { Inject, Injectable, Scope } from "@nestjs/common";
 import { Constructor, Decoration, DecorationKeys } from "@decaf-ts/decoration";
 import { ValidationKeys } from "@decaf-ts/decorator-validation";
-import { ApiProperty } from "./decorators/ApiProperty";
 import { PersistenceKeys } from "@decaf-ts/core";
+import { ApiProperty } from "@nestjs/swagger";
 
 Decoration.for(InjectablesKeys.INJECTABLE)
   .extend({

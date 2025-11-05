@@ -92,7 +92,6 @@
     "@decaf-ts/logging": "latest",
     "@decaf-ts/reflection": "latest",
     "@decaf-ts/transactional-decorators": "latest",
-    "@nestjs/common": "^11.0.1",
-    "lodash": "^4.17.21"
+    "@nestjs/common": "^11.0.1"
   }
 }
