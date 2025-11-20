@@ -15,7 +15,7 @@ import {
 import { Repo, Repository } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logging, toKebabCase } from "@decaf-ts/logging";
-import { DBKeys, findPrimaryKey } from "@decaf-ts/db-decorators";
+import { DBKeys } from "@decaf-ts/db-decorators";
 import { Metadata } from "@decaf-ts/decoration";
 import {
   ApiOperationFromModel,
@@ -221,8 +221,8 @@ export class FromModelController {
     ModelClazz: ModelConstructor<T>
   ) {
     const instance = new ModelClazz({});
-    const pk = (findPrimaryKey(instance)?.id || "id") as keyof Model<any>;
-    const composedKeyMetaKey = Repository.key(DBKeys.COMPOSED);
+    const pk = Model.pk(ModelClazz) as keyof Model<any>;
+    const composedKeyMetaKey = DBKeys.COMPOSED;
     const composedKeys =
       Reflect.getMetadata(composedKeyMetaKey, instance, pk as string)?.args ??
       [];
