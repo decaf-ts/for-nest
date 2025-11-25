@@ -12,7 +12,7 @@ import {
   ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { Repo, Repository } from "@decaf-ts/core";
+import { Repo } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys } from "@decaf-ts/db-decorators";
@@ -30,7 +30,7 @@ export class FromModelController {
 
   static create<T extends Model<any>>(ModelClazz: ModelConstructor<T>) {
     const log = FromModelController.log.for(FromModelController.create);
-    const tableName = Repository.table(ModelClazz);
+    const tableName = Model.tableName(ModelClazz);
     const routePath = toKebabCase(tableName);
     const modelClazzName = ModelClazz.name;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -55,7 +55,7 @@ export class FromModelController {
 
         try {
           this.repo = this.repoFactory.for(ModelClazz.name);
-          this.pk = this.repo.pk as string;
+          this.pk = Model.pk(ModelClazz) as string;
         } catch (e: any) {
           this.log.error(
             `Failed to initialize repository for model "${ModelClazz.name}".`,
