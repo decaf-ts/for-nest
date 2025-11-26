@@ -23,9 +23,58 @@ import {
   type DecafParamProps,
   DecafParams,
 } from "./decorators";
-import { DecafRequestContext } from "../services";
+import { DecafRequestContext } from "../request";
 import { DECAF_ADAPTER_OPTIONS } from "../constants";
 
+/**
+ * @description
+ * Factory and utilities for generating dynamic NestJS controllers from Decaf {@link Model} definitions.
+ *
+ * @summary
+ * The `FromModelController` class provides the infrastructure necessary to automatically generate
+ * strongly-typed CRUD controllers based on a given {@link ModelConstructor}. It inspects metadata from
+ * the model, derives route paths, parameters, and generates a dynamic controller class at runtime with
+ * full support for querying, creation, update, and deletion of model entities through a {@link Repo}.
+ *
+ * @template T The {@link Model} type associated with the generated controller.
+ *
+ * @param ModelClazz The model class to generate the controller from.
+ *
+ * @class FromModelController
+ *
+ * @example
+ * ```ts
+ * // Given a Decaf Model:
+ * class User extends Model<User> {
+ *   id!: string;
+ *   name!: string;
+ * }
+ *
+ * // Register controller:
+ * const UserController = FromModelController.create(User);
+ *
+ * // NestJS will expose:
+ * // POST   /user
+ * // GET    /user/:id
+ * // GET    /user/query/:method
+ * // PUT    /user/:id
+ * // DELETE /user/:id
+ * ```
+ *
+ * @mermaid
+ * sequenceDiagram
+ *     participant Client
+ *     participant Controller
+ *     participant Repo
+ *     participant DB
+ *
+ *     Client->>Controller: HTTP Request
+ *     Controller->>Repo: Resolve repository for Model
+ *     Repo->>DB: Execute DB operation
+ *     DB-->>Repo: DB Result
+ *     Repo-->>Controller: Model Instance(s)
+ *     Controller-->>Client: JSON Response
+ */
 export class FromModelController {
   private static readonly log = Logging.for(FromModelController.name);
 

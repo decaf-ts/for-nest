@@ -5,7 +5,7 @@ import { FromModelController } from "./FromModelController";
 import { DecafRequestHandlerInterceptor } from "../interceptors";
 import { APP_INTERCEPTOR } from "@nestjs/core";
 import { type DecafRequestHandler } from "../types";
-import { DecafHandlerExecutor, DecafRequestContext } from "../services";
+import { DecafHandlerExecutor, DecafRequestContext } from "../request";
 import { DECAF_HANDLERS } from "../constants";
 
 @Module({})
