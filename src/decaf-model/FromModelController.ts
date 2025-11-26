@@ -94,7 +94,7 @@ export class FromModelController {
     @ApiExtraModels(ModelClazz)
     class DynamicModelController extends LoggedClass {
       private _repo!: Repo<T>;
-      private readonly pk: string = Model.pk(ModelClazz);
+      private readonly pk: string = Model.pk(ModelClazz) as string;
 
       constructor(private clientContext: DecafRequestContext) {
         super();
