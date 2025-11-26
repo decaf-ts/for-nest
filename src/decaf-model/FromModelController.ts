@@ -23,7 +23,8 @@ import {
   type DecafParamProps,
   DecafParams,
 } from "./decorators";
-import { RepoFactory } from "../RepoFactory";
+import { DecafRequestContext } from "../services";
+import { DECAF_ADAPTER_OPTIONS } from "../constants";
 
 export class FromModelController {
   private static readonly log = Logging.for(FromModelController.name);
@@ -43,25 +44,23 @@ export class FromModelController {
     @ApiTags(modelClazzName)
     @ApiExtraModels(ModelClazz)
     class DynamicModelController extends LoggedClass {
-      // private readonly repo = this.repoFactory.for(ModelClazz);
-      readonly pk!: string;
-      readonly repo!: Repo<T>; //Repository<Model<any>, any, any, any, any>;
+      private _repo!: Repo<T>;
+      private readonly pk: string = Model.pk(ModelClazz);
 
-      constructor(public readonly repoFactory: RepoFactory) {
+      constructor(private clientContext: DecafRequestContext) {
         super();
         log.info(
           `Registering dynamic controller for model: ${modelClazzName} route: /${routePath}`
         );
+      }
 
-        try {
-          this.repo = this.repoFactory.for(ModelClazz.name);
-          this.pk = this.repo.pk as string;
-        } catch (e: any) {
-          this.log.error(
-            `Failed to initialize repository for model "${ModelClazz.name}".`,
-            e
-          );
-        }
+      get repository() {
+        if (!this._repo) this._repo = Repository.forModel(ModelClazz);
+
+        const adapterOptions = this.clientContext.get(DECAF_ADAPTER_OPTIONS);
+        if (adapterOptions) return this._repo.for(adapterOptions);
+
+        return this._repo;
       }
 
       @ApiOperationFromModel(ModelClazz, "POST")
@@ -82,7 +81,7 @@ export class FromModelController {
         log.verbose(`creating new ${modelClazzName}`);
         let created: Model;
         try {
-          created = await this.repo.create(data);
+          created = await this.repository.create(data);
         } catch (e: unknown) {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
           throw e;
@@ -108,7 +107,7 @@ export class FromModelController {
         let read: Model;
         try {
           log.debug(`reading ${modelClazzName} with ${this.pk} ${id}`);
-          read = await this.repo.read(id);
+          read = await this.repository.read(id);
         } catch (e: unknown) {
           log.error(
             `Failed to read ${modelClazzName} with id ${id}`,
@@ -136,7 +135,7 @@ export class FromModelController {
 
         try {
           log.debug(`Querying ${modelClazzName} using method "${method}"`);
-          results = await (this.repo as any)[method]();
+          results = await (this.repository as any)[method]();
         } catch (e: unknown) {
           log.error(
             `Failed to query ${modelClazzName} using method "${method}"`,
@@ -177,7 +176,7 @@ export class FromModelController {
           log.info(
             `updating ${modelClazzName} with ${this.pk} ${(body as any)[this.pk]}`
           );
-          updated = await this.repo.create(body as any);
+          updated = await this.repository.create(body as any);
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
@@ -201,7 +200,7 @@ export class FromModelController {
           log.debug(
             `deleting ${modelClazzName} with ${this.pk as string} ${routeParams}`
           );
-          read = await this.repo.read("id");
+          read = await this.repository.read("id");
         } catch (e: unknown) {
           log.error(
             `Failed to delete ${modelClazzName} with id ${"id"}`,

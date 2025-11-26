@@ -31,6 +31,8 @@ export * from "./types";
 export * from "./utils";
 export * from "./factory";
 export * from "./decaf-model";
+export * from "./interceptors";
+export * from "./services";
 
 /**
  * Represents the current version of the ts-workspace module.

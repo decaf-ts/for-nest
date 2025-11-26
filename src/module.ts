@@ -26,7 +26,7 @@ export class DecafModule {
       | undefined = [DecafCoreModule.forRoot(options)];
 
     if (autoControllers) {
-      imports.push(DecafModelModule.forRoot(flavour));
+      imports.push(DecafModelModule.forRoot(flavour, options.handlers));
     }
 
     return {

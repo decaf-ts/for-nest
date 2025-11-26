@@ -1,5 +1,15 @@
 import { Adapter } from "@decaf-ts/core";
 import { Constructor } from "@decaf-ts/decoration";
+import { Type } from "@nestjs/common";
+
+export interface RequestContextAccessor {
+  set(key: string | symbol, value: any): void;
+  get<T = any>(key: string | symbol): T | undefined;
+}
+
+export interface DecafRequestHandler {
+  handle(context: RequestContextAccessor, req: Request): Promise<void>;
+}
 
 /**
  * @publicApi
@@ -12,4 +22,5 @@ export type DecafModuleOptions<
   conf: CONF;
   alias?: string;
   autoControllers: boolean;
+  handlers?: Type<DecafRequestHandler>[];
 };
