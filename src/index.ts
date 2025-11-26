@@ -26,11 +26,12 @@ import "./decoration";
 export * from "./constants";
 export * from "./decoration";
 export * from "./module";
-export * from "./RepoFactory";
 export * from "./types";
 export * from "./utils";
 export * from "./factory";
 export * from "./decaf-model";
+export * from "./interceptors";
+export * from "./request";
 
 /**
  * Represents the current version of the ts-workspace module.
