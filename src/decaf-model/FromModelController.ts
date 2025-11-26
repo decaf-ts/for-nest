@@ -31,7 +31,7 @@ export class FromModelController {
 
   static create<T extends Model<any>>(ModelClazz: ModelConstructor<T>) {
     const log = FromModelController.log.for(FromModelController.create);
-    const tableName = Repository.table(ModelClazz);
+    const tableName = Model.tableName(ModelClazz);
     const routePath = toKebabCase(tableName);
     const modelClazzName = ModelClazz.name;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

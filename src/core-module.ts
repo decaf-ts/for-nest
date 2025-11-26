@@ -15,14 +15,11 @@ import { Logger, Logging } from "@decaf-ts/logging";
 
 @Global()
 @Module({})
-export class DecafCoreModule<
-  CONF,
-  ADAPTER extends Adapter<CONF, any, any, any, any>,
-> implements OnApplicationShutdown
+export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
+  implements OnApplicationShutdown
 {
   private static _logger: Logger;
-  private static _adapterInstance: Adapter<any, any, any, any, any> | null =
-    null;
+  private static _adapterInstance: Adapter<any, any, any, any> | null = null;
 
   protected static get log(): Logger {
     if (!this._logger) this._logger = Logging.for(DecafCoreModule);
@@ -37,7 +34,7 @@ export class DecafCoreModule<
 
   static async createAdapter(
     options: DecafModuleOptions
-  ): Promise<Adapter<any, any, any, any, any>> {
+  ): Promise<Adapter<any, any, any, any>> {
     if (!this._adapterInstance) {
       const log = this.log.for(this.createAdapter);
       log.info("Creating adapter instance...");
@@ -47,7 +44,7 @@ export class DecafCoreModule<
     return this._adapterInstance;
   }
 
-  static getAdapterInstance(): Adapter<any, any, any, any, any> | null {
+  static getAdapterInstance(): Adapter<any, any, any, any> | null {
     return this._adapterInstance;
   }
 
