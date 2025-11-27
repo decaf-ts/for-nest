@@ -15,7 +15,7 @@ import {
 import { Repo, Repository } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logging, toKebabCase } from "@decaf-ts/logging";
-import { DBKeys } from "@decaf-ts/db-decorators";
+import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Metadata } from "@decaf-ts/decoration";
 import {
   ApiOperationFromModel,
@@ -151,7 +151,9 @@ export class FromModelController {
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       async read(@Param() pathParams: any) {
-        const { id } = pathParams;
+        const id = pathParams[this.pk];
+        if (typeof id === "undefined")
+          throw new ValidationError(`No ${this.pk} provided`);
         const log = this.log.for(this.read);
         let read: Model;
         try {
@@ -242,14 +244,19 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
-      async delete(@DecafParams(apiProperties) routeParams: DecafParamProps) {
+      async delete(@Param() pathParams: any) {
+        const id = pathParams[this.pk];
+        if (typeof id === "undefined")
+          throw new ValidationError(`No ${this.pk} provided`);
         const log = this.log.for(this.delete);
+        if (typeof id === "undefined")
+          throw new ValidationError(`No ${this.pk} provided`);
         let read: Model;
         try {
           log.debug(
-            `deleting ${modelClazzName} with ${this.pk as string} ${routeParams}`
+            `deleting ${modelClazzName} with ${this.pk as string} ${pathParams}`
           );
-          read = await this.repository.read("id");
+          read = await this.repository.delete("id");
         } catch (e: unknown) {
           log.error(
             `Failed to delete ${modelClazzName} with id ${"id"}`,
