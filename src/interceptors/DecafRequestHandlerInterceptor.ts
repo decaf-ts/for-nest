@@ -59,7 +59,8 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
 
   async intercept(ctx: ExecutionContext, next: CallHandler) {
     const req = ctx.switchToHttp().getRequest();
-    await this.executor.exec(req);
+    const res = ctx.switchToHttp().getResponse();
+    await this.executor.exec(req, res);
     return next.handle();
   }
 }
