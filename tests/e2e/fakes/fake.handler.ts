@@ -1,8 +1,4 @@
-import {
-  DECAF_ADAPTER_OPTIONS,
-  DecafRequestContext,
-  DecafRequestHandler,
-} from "../../../src";
+import { DecafRequestContext, DecafRequestHandler } from "../../../src";
 
 export class FakeHandler implements DecafRequestHandler {
   async handle(
