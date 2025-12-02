@@ -15,12 +15,16 @@ import {
 import { Repo, Repository } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logging, toKebabCase } from "@decaf-ts/logging";
-import { DBKeys } from "@decaf-ts/db-decorators";
+import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Metadata } from "@decaf-ts/decoration";
+import type {
+  DecafApiProperties,
+  DecafModelRoute,
+  DecafParamProps,
+} from "./decorators";
 import {
   ApiOperationFromModel,
   ApiParamsFromModel,
-  type DecafParamProps,
   DecafParams,
 } from "./decorators";
 import { DecafRequestContext } from "../request";
@@ -84,7 +88,7 @@ export class FromModelController {
     const routePath = toKebabCase(tableName);
     const modelClazzName = ModelClazz.name;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { description, apiProperties, path } =
+    const { description, getPK, apiProperties, path } =
       FromModelController.getRouteParametersFromModel(ModelClazz);
 
     log.debug(`Creating controller for model: ${modelClazzName}`);
@@ -150,8 +154,11 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
-      async read(@Param() pathParams: any) {
-        const { id } = pathParams;
+      async read(@DecafParams(apiProperties) routeParams: DecafParamProps) {
+        const id = getPK(...routeParams.ordered);
+        if (typeof id === "undefined")
+          throw new ValidationError(`No ${this.pk} provided`);
+
         const log = this.log.for(this.read);
         let read: Model;
         try {
@@ -220,12 +227,15 @@ export class FromModelController {
         @Body() body: Model<any>
       ) {
         const log = this.log.for(this.update);
+        const id = getPK(...routeParams.ordered);
+        if (typeof id === "undefined")
+          throw new ValidationError(`No ${this.pk} provided`);
+
         let updated: Model;
         try {
-          log.info(
-            `updating ${modelClazzName} with ${this.pk} ${(body as any)[this.pk]}`
-          );
-          updated = await this.repository.create(body as any);
+          log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
+          const payload = Object.assign({}, body, { [this.pk]: id });
+          updated = await this.repository.update(payload as any);
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
@@ -244,21 +254,25 @@ export class FromModelController {
       })
       async delete(@DecafParams(apiProperties) routeParams: DecafParamProps) {
         const log = this.log.for(this.delete);
-        let read: Model;
+        const id = getPK(...routeParams.ordered);
+        if (typeof id === "undefined")
+          throw new ValidationError(`No ${this.pk} provided`);
+
+        let del: Model;
         try {
           log.debug(
-            `deleting ${modelClazzName} with ${this.pk as string} ${routeParams}`
+            `deleting ${modelClazzName} with ${this.pk as string} ${id}`
           );
-          read = await this.repository.read("id");
+          del = await this.repository.delete(id);
         } catch (e: unknown) {
           log.error(
-            `Failed to delete ${modelClazzName} with id ${"id"}`,
+            `Failed to delete ${modelClazzName} with id ${id}`,
             e as Error
           );
           throw e;
         }
-        log.info(`deleted ${modelClazzName} with id ${(read as any)[this.pk]}`);
-        return read;
+        log.info(`deleted ${modelClazzName} with id ${id}`);
+        return del;
       }
     }
 
@@ -267,13 +281,13 @@ export class FromModelController {
 
   static getRouteParametersFromModel<T extends Model<any>>(
     ModelClazz: ModelConstructor<T>
-  ) {
-    const instance = new ModelClazz({});
+  ): DecafModelRoute {
     const pk = Model.pk(ModelClazz) as keyof Model<any>;
-    const composedKeyMetaKey = DBKeys.COMPOSED;
-    const composedKeys =
-      Reflect.getMetadata(composedKeyMetaKey, instance, pk as string)?.args ??
-      [];
+    const composed = Metadata.get(
+      ModelClazz,
+      Metadata.key(DBKeys.COMPOSED, pk)
+    );
+    const composedKeys = composed?.args ?? [];
 
     const keysToReturn =
       Array.isArray(composedKeys) && composedKeys.length > 0
@@ -286,7 +300,7 @@ export class FromModelController {
     const uniqueKeys = Array.from(new Set(keysToReturn));
 
     const path = uniqueKeys.map((key) => `:${key}`).join("/");
-    const apiProperties = uniqueKeys.map((key) => {
+    const apiProperties: DecafApiProperties[] = uniqueKeys.map((key) => {
       return {
         name: key,
         description: Metadata.description(ModelClazz, key),
@@ -294,6 +308,13 @@ export class FromModelController {
         type: String,
       };
     });
-    return { description, apiProperties, path };
+
+    return {
+      path,
+      description,
+      apiProperties,
+      getPK: (...params: Array<string | number>) =>
+        composed?.separator ? params.join(composed.separator) : params.join(""),
+    };
   }
 }

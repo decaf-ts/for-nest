@@ -1,4 +1,5 @@
 import {
+  DefaultInjectablesConfig,
   InjectableConfig,
   InjectablesKeys,
   InjectOptions,
@@ -13,8 +14,16 @@ Decoration.for(InjectablesKeys.INJECTABLE)
   .extend({
     decorator: function nestInjectable(
       category: string | Constructor,
-      cfg: InjectableConfig
+      cfg?: InjectableConfig
     ) {
+      cfg =
+        cfg ||
+        (typeof category === "object"
+          ? Object.assign(
+              category as Record<any, any>,
+              DefaultInjectablesConfig
+            )
+          : DefaultInjectablesConfig);
       return Injectable({
         scope: cfg.singleton ? Scope.DEFAULT : Scope.REQUEST,
         durable: cfg.singleton ? undefined : true,

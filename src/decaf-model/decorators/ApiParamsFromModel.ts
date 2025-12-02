@@ -1,6 +1,6 @@
 import { applyDecorators } from "@nestjs/common";
 import { ApiParam as ApiParamDec } from "@nestjs/swagger";
-import { ApiParam } from "./types";
+import type { DecafApiProperties } from "./types";
 
 /**
  * @description Applies a set of Swagger `@ApiParam` decorators generated from a typed specification array.
@@ -14,7 +14,7 @@ import { ApiParam } from "./types";
  * @function ApiParamsFromModel
  */
 export function ApiParamsFromModel(
-  props: ApiParam[] = []
+  props: DecafApiProperties[] = []
 ): MethodDecorator & ClassDecorator {
   const decorators = props.map((p) =>
     ApiParamDec({
