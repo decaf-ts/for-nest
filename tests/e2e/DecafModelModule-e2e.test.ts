@@ -13,7 +13,6 @@ import {
 import { Adapter, RamAdapter, RamFlavour, service } from "@decaf-ts/core";
 import { Product } from "./fakes/models";
 import { HttpModelClient, HttpModelResponse } from "./fakes/server";
-import fs from "fs";
 import path from "path";
 
 RamAdapter.decoration();
@@ -39,7 +38,7 @@ const config = {
   cryptoPath: CRYPTO_PATH.get("infrastructure/crypto-config"),
   keyCertOrDirectoryPath: CRYPTO_PATH.get("docker-data/admin/msp/keystore"),
   certCertOrDirectoryPath: CRYPTO_PATH.get("docker-data/admin/msp/signcerts"),
-  tlsCert: fs.readFileSync(CRYPTO_PATH.get("docker-data/tls-ca-cert.pem")),
+  tlsCert: "", // fs.readFileSync(CRYPTO_PATH.get("docker-data/tls-ca-cert.pem")),
   peerEndpoint: "localhost:7031",
   peerHostAlias: "localhost",
   chaincodeName: "global",
