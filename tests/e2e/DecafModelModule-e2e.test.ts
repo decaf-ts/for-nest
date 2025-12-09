@@ -10,9 +10,11 @@ import {
   NotFoundExceptionFilter,
   ValidationExceptionFilter,
 } from "../../src";
-import { Adapter, RamAdapter, RamFlavour } from "@decaf-ts/core";
+import { Adapter, RamAdapter, RamFlavour, service } from "@decaf-ts/core";
 import { Product } from "./fakes/models";
 import { HttpModelClient, HttpModelResponse } from "./fakes/server";
+import fs from "fs";
+import path from "path";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
@@ -21,10 +23,35 @@ export function genStr(len: number): string {
   return Math.floor(Math.random() * 1e14)
     .toString()
     .slice(0, len)
-    .padStart(len, "0");
+    .padStart(len, "1");
 }
 
 jest.setTimeout(180000);
+
+const CRYPTO_PATH = {
+  base: "/home/pccosta/pdm/decaf/decaf-workspace/for-fabric/docker",
+  get(f: string) {
+    return path.join(this.base, f);
+  },
+};
+
+const config = {
+  cryptoPath: CRYPTO_PATH.get("infrastructure/crypto-config"),
+  keyCertOrDirectoryPath: CRYPTO_PATH.get("docker-data/admin/msp/keystore"),
+  certCertOrDirectoryPath: CRYPTO_PATH.get("docker-data/admin/msp/signcerts"),
+  tlsCert: fs.readFileSync(CRYPTO_PATH.get("docker-data/tls-ca-cert.pem")),
+  peerEndpoint: "localhost:7031",
+  peerHostAlias: "localhost",
+  chaincodeName: "global",
+  ca: "org-a",
+  mspId: "Peer0OrgaMSP",
+  channel: "simple-channel",
+};
+
+@service("TesteService")
+export class TesteService {
+  constructor() {}
+}
 
 describe("DecafModelModule CRUD", () => {
   let app: INestApplication;
@@ -42,7 +69,8 @@ describe("DecafModelModule CRUD", () => {
       imports: [
         DecafModule.forRootAsync({
           adapter: RamAdapter,
-          conf: undefined,
+          // adapter: FabricClientAdapter as any,
+          conf: undefined, //config,
           autoControllers: true,
         }),
       ],
