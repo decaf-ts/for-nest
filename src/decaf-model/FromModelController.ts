@@ -238,10 +238,12 @@ export class FromModelController {
         let updated: Model;
         try {
           log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
-          updated = await this.persistence.update({
-            ...body,
-            [this.pk]: id,
-          });
+          updated = await this.persistence.update(
+            new ModelClazz({
+              ...body,
+              [this.pk]: id,
+            })
+          );
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
