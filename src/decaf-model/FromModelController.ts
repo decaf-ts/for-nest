@@ -82,11 +82,20 @@ import { DECAF_ADAPTER_OPTIONS } from "../constants";
 export class FromModelController {
   private static readonly log = Logging.for(FromModelController.name);
 
+  static getPersistence<T>(ModelClazz: ModelConstructor<T>) {
+    return (
+      (ModelService.getService(ModelClazz) as ModelService<T>) ||
+      (Repository.forModel(ModelClazz) as Repo<T>)
+    );
+  }
+
   static create<T extends Model<any>>(ModelClazz: ModelConstructor<T>) {
     const log = FromModelController.log.for(FromModelController.create);
     const tableName = Model.tableName(ModelClazz);
     const routePath = toKebabCase(tableName);
     const modelClazzName = ModelClazz.name;
+    const repo = FromModelController.getPersistence(ModelClazz);
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { description, getPK, apiProperties, path } =
       FromModelController.getRouteParametersFromModel(ModelClazz);
@@ -97,7 +106,7 @@ export class FromModelController {
     @ApiTags(modelClazzName)
     @ApiExtraModels(ModelClazz)
     class DynamicModelController extends LoggedClass {
-      private _persistence!: Repo<T> | ModelService<T>;
+      private _persistence!: Repo<T> | ModelService<T> = repo;
       private readonly pk: string = Model.pk(ModelClazz) as string;
 
       constructor(private clientContext: DecafRequestContext) {
@@ -108,14 +117,8 @@ export class FromModelController {
       }
 
       get persistence(): ModelService<T> | Repo<T> {
-        if (!this._persistence)
-          this._persistence =
-            (ModelService.getService(ModelClazz) as ModelService<T>) ||
-            (Repository.forModel(ModelClazz) as Repo<T>);
-
         const adapterOptions = this.clientContext.get(DECAF_ADAPTER_OPTIONS);
         if (adapterOptions) return this._persistence.for(adapterOptions) as any;
-
         return this._persistence;
       }
 
