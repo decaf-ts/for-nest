@@ -1,5 +1,5 @@
-import { DynamicModule, Module, Type } from "@nestjs/common";
-import { Adapter } from "@decaf-ts/core";
+import { DynamicModule, Module, Provider, Type } from "@nestjs/common";
+import { Adapter, ModelService, Service } from "@decaf-ts/core";
 import { Logging } from "@decaf-ts/logging";
 import { FromModelController } from "./FromModelController";
 import { DecafRequestHandlerInterceptor } from "../interceptors";
@@ -12,6 +12,13 @@ import { DECAF_HANDLERS } from "../constants";
 export class DecafModelModule {
   private static readonly log = Logging.for(DecafModelModule.name);
 
+  private static createModelServices(models: any[]): Provider[] {
+    return models.map((model) => ({
+      provide: `${model.name}Service`,
+      useFactory: () => ModelService.forModel(model),
+    }));
+  }
+
   static forRoot(
     flavour: string,
     handlers: Type<DecafRequestHandler>[] = []
@@ -20,6 +27,7 @@ export class DecafModelModule {
     log.info(`Generating controllers for flavour...`);
 
     const trackedModels = Adapter.models(flavour);
+    const modelServices = this.createModelServices(trackedModels);
     const controllers = trackedModels.map(FromModelController.create);
 
     log.info(`Generated ${controllers.length} controllers`);
@@ -43,6 +51,7 @@ export class DecafModelModule {
           provide: APP_INTERCEPTOR,
           useClass: DecafRequestHandlerInterceptor,
         },
+        ...modelServices,
       ],
     };
   }

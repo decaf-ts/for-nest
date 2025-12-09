@@ -12,7 +12,7 @@ import {
   ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { Repo, Repository } from "@decaf-ts/core";
+import { ModelService, Repository, Repo } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
@@ -97,7 +97,7 @@ export class FromModelController {
     @ApiTags(modelClazzName)
     @ApiExtraModels(ModelClazz)
     class DynamicModelController extends LoggedClass {
-      private _repo!: Repo<T>;
+      private _persistence!: Repo<T> | ModelService<T>;
       private readonly pk: string = Model.pk(ModelClazz) as string;
 
       constructor(private clientContext: DecafRequestContext) {
@@ -107,13 +107,16 @@ export class FromModelController {
         );
       }
 
-      get repository() {
-        if (!this._repo) this._repo = Repository.forModel(ModelClazz);
+      get persistence(): ModelService<T> | Repo<T> {
+        if (!this._persistence)
+          this._persistence =
+            (ModelService.getService(ModelClazz) as ModelService<T>) ||
+            (Repository.forModel(ModelClazz) as Repo<T>);
 
         const adapterOptions = this.clientContext.get(DECAF_ADAPTER_OPTIONS);
-        if (adapterOptions) return this._repo.for(adapterOptions);
+        if (adapterOptions) return this._persistence.for(adapterOptions) as any;
 
-        return this._repo;
+        return this._persistence;
       }
 
       @ApiOperationFromModel(ModelClazz, "POST")
@@ -134,7 +137,7 @@ export class FromModelController {
         log.verbose(`creating new ${modelClazzName}`);
         let created: Model;
         try {
-          created = await this.repository.create(data);
+          created = await this.persistence.create(data);
         } catch (e: unknown) {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
           throw e;
@@ -163,7 +166,7 @@ export class FromModelController {
         let read: Model;
         try {
           log.debug(`reading ${modelClazzName} with ${this.pk} ${id}`);
-          read = await this.repository.read(id);
+          read = await this.persistence.read(id);
         } catch (e: unknown) {
           log.error(
             `Failed to read ${modelClazzName} with id ${id}`,
@@ -191,7 +194,8 @@ export class FromModelController {
 
         try {
           log.debug(`Querying ${modelClazzName} using method "${method}"`);
-          results = await (this.repository as any)[method]();
+          const args = [method];
+          results = await (this.persistence.query as any)(...args);
         } catch (e: unknown) {
           log.error(
             `Failed to query ${modelClazzName} using method "${method}"`,
@@ -234,8 +238,10 @@ export class FromModelController {
         let updated: Model;
         try {
           log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
-          const payload = Object.assign({}, body, { [this.pk]: id });
-          updated = await this.repository.update(payload as any);
+          updated = await this.persistence.update({
+            ...body,
+            [this.pk]: id,
+          } as any);
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
@@ -263,7 +269,7 @@ export class FromModelController {
           log.debug(
             `deleting ${modelClazzName} with ${this.pk as string} ${id}`
           );
-          del = await this.repository.delete(id);
+          del = await this.persistence.delete(id);
         } catch (e: unknown) {
           log.error(
             `Failed to delete ${modelClazzName} with id ${id}`,
