@@ -12,7 +12,7 @@ import {
   ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { ModelService, Repository, Repo } from "@decaf-ts/core";
+import { ModelService, Repo, Repository } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
@@ -241,7 +241,7 @@ export class FromModelController {
           updated = await this.persistence.update({
             ...body,
             [this.pk]: id,
-          } as any);
+          });
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
