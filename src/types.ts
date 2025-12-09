@@ -8,7 +8,11 @@ export interface RequestContextAccessor {
 }
 
 export interface DecafRequestHandler {
-  handle(context: RequestContextAccessor, req: Request): Promise<void>;
+  handle(
+    context: RequestContextAccessor,
+    req: Request,
+    res: Response
+  ): Promise<void>;
 }
 
 /**

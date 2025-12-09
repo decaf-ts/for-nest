@@ -12,15 +12,19 @@ import {
   ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { Repo, Repository } from "@decaf-ts/core";
+import { ModelService, Repo, Repository } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Metadata } from "@decaf-ts/decoration";
+import type {
+  DecafApiProperties,
+  DecafModelRoute,
+  DecafParamProps,
+} from "./decorators";
 import {
   ApiOperationFromModel,
   ApiParamsFromModel,
-  type DecafParamProps,
   DecafParams,
 } from "./decorators";
 import { DecafRequestContext } from "../request";
@@ -84,7 +88,7 @@ export class FromModelController {
     const routePath = toKebabCase(tableName);
     const modelClazzName = ModelClazz.name;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { description, apiProperties, path } =
+    const { description, getPK, apiProperties, path } =
       FromModelController.getRouteParametersFromModel(ModelClazz);
 
     log.debug(`Creating controller for model: ${modelClazzName}`);
@@ -93,7 +97,7 @@ export class FromModelController {
     @ApiTags(modelClazzName)
     @ApiExtraModels(ModelClazz)
     class DynamicModelController extends LoggedClass {
-      private _repo!: Repo<T>;
+      private _persistence!: Repo<T> | ModelService<T>;
       private readonly pk: string = Model.pk(ModelClazz) as string;
 
       constructor(private clientContext: DecafRequestContext) {
@@ -103,13 +107,16 @@ export class FromModelController {
         );
       }
 
-      get repository() {
-        if (!this._repo) this._repo = Repository.forModel(ModelClazz);
+      get persistence(): ModelService<T> | Repo<T> {
+        if (!this._persistence)
+          this._persistence =
+            (ModelService.getService(ModelClazz) as ModelService<T>) ||
+            (Repository.forModel(ModelClazz) as Repo<T>);
 
         const adapterOptions = this.clientContext.get(DECAF_ADAPTER_OPTIONS);
-        if (adapterOptions) return this._repo.for(adapterOptions);
+        if (adapterOptions) return this._persistence.for(adapterOptions) as any;
 
-        return this._repo;
+        return this._persistence;
       }
 
       @ApiOperationFromModel(ModelClazz, "POST")
@@ -130,7 +137,7 @@ export class FromModelController {
         log.verbose(`creating new ${modelClazzName}`);
         let created: Model;
         try {
-          created = await this.repository.create(data);
+          created = await this.persistence.create(data);
         } catch (e: unknown) {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
           throw e;
@@ -150,15 +157,16 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
-      async read(@Param() pathParams: any) {
-        const id = pathParams[this.pk];
+      async read(@DecafParams(apiProperties) routeParams: DecafParamProps) {
+        const id = getPK(...routeParams.ordered);
         if (typeof id === "undefined")
           throw new ValidationError(`No ${this.pk} provided`);
+
         const log = this.log.for(this.read);
         let read: Model;
         try {
           log.debug(`reading ${modelClazzName} with ${this.pk} ${id}`);
-          read = await this.repository.read(id);
+          read = await this.persistence.read(id);
         } catch (e: unknown) {
           log.error(
             `Failed to read ${modelClazzName} with id ${id}`,
@@ -186,7 +194,8 @@ export class FromModelController {
 
         try {
           log.debug(`Querying ${modelClazzName} using method "${method}"`);
-          results = await (this.repository as any)[method]();
+          const args = [method];
+          results = await (this.persistence.query as any)(...args);
         } catch (e: unknown) {
           log.error(
             `Failed to query ${modelClazzName} using method "${method}"`,
@@ -222,12 +231,19 @@ export class FromModelController {
         @Body() body: Model<any>
       ) {
         const log = this.log.for(this.update);
+        const id = getPK(...routeParams.ordered);
+        if (typeof id === "undefined")
+          throw new ValidationError(`No ${this.pk} provided`);
+
         let updated: Model;
         try {
-          log.info(
-            `updating ${modelClazzName} with ${this.pk} ${(body as any)[this.pk]}`
+          log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
+          updated = await this.persistence.update(
+            new ModelClazz({
+              ...body,
+              [this.pk]: id,
+            })
           );
-          updated = await this.repository.create(body as any);
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
@@ -244,28 +260,27 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
-      async delete(@Param() pathParams: any) {
-        const id = pathParams[this.pk];
-        if (typeof id === "undefined")
-          throw new ValidationError(`No ${this.pk} provided`);
+      async delete(@DecafParams(apiProperties) routeParams: DecafParamProps) {
         const log = this.log.for(this.delete);
+        const id = getPK(...routeParams.ordered);
         if (typeof id === "undefined")
           throw new ValidationError(`No ${this.pk} provided`);
-        let read: Model;
+
+        let del: Model;
         try {
           log.debug(
-            `deleting ${modelClazzName} with ${this.pk as string} ${pathParams}`
+            `deleting ${modelClazzName} with ${this.pk as string} ${id}`
           );
-          read = await this.repository.delete("id");
+          del = await this.persistence.delete(id);
         } catch (e: unknown) {
           log.error(
-            `Failed to delete ${modelClazzName} with id ${"id"}`,
+            `Failed to delete ${modelClazzName} with id ${id}`,
             e as Error
           );
           throw e;
         }
-        log.info(`deleted ${modelClazzName} with id ${(read as any)[this.pk]}`);
-        return read;
+        log.info(`deleted ${modelClazzName} with id ${id}`);
+        return del;
       }
     }
 
@@ -274,13 +289,13 @@ export class FromModelController {
 
   static getRouteParametersFromModel<T extends Model<any>>(
     ModelClazz: ModelConstructor<T>
-  ) {
-    const instance = new ModelClazz({});
+  ): DecafModelRoute {
     const pk = Model.pk(ModelClazz) as keyof Model<any>;
-    const composedKeyMetaKey = DBKeys.COMPOSED;
-    const composedKeys =
-      Reflect.getMetadata(composedKeyMetaKey, instance, pk as string)?.args ??
-      [];
+    const composed = Metadata.get(
+      ModelClazz,
+      Metadata.key(DBKeys.COMPOSED, pk)
+    );
+    const composedKeys = composed?.args ?? [];
 
     const keysToReturn =
       Array.isArray(composedKeys) && composedKeys.length > 0
@@ -293,7 +308,7 @@ export class FromModelController {
     const uniqueKeys = Array.from(new Set(keysToReturn));
 
     const path = uniqueKeys.map((key) => `:${key}`).join("/");
-    const apiProperties = uniqueKeys.map((key) => {
+    const apiProperties: DecafApiProperties[] = uniqueKeys.map((key) => {
       return {
         name: key,
         description: Metadata.description(ModelClazz, key),
@@ -301,6 +316,13 @@ export class FromModelController {
         type: String,
       };
     });
-    return { description, apiProperties, path };
+
+    return {
+      path,
+      description,
+      apiProperties,
+      getPK: (...params: Array<string | number>) =>
+        composed?.separator ? params.join(composed.separator) : params.join(""),
+    };
   }
 }

@@ -75,13 +75,16 @@
   },
   "homepage": "https://github.com/decaf-ts/for-nest#readme",
   "devDependencies": {
+    "@decaf-ts/for-fabric": "^0.1.16",
     "@decaf-ts/utils": "latest",
     "@eslint/js": "^9.25.1",
     "@nestjs/cli": "^11.0.0",
+    "@nestjs/platform-express": "^11.1.9",
     "@nestjs/schematics": "^11.0.9",
     "@nestjs/swagger": "^11.2.0",
     "@nestjs/testing": "^11.0.1",
-    "@types/lodash": "^4.17.20"
+    "@types/lodash": "^4.17.20",
+    "supertest": "^7.1.4"
   },
   "dependencies": {
     "@decaf-ts/core": "latest",
