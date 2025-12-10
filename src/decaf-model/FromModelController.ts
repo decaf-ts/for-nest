@@ -300,17 +300,14 @@ export class FromModelController {
     );
     const composedKeys = composed?.args ?? [];
 
-    const keysToReturn =
+    // remove duplicates while preserving order
+    const uniqueKeys =
       Array.isArray(composedKeys) && composedKeys.length > 0
-        ? [...composedKeys]
-        : [pk];
+        ? Array.from(new Set([...composedKeys]))
+        : Array.from(new Set([pk]));
 
     const description = Metadata.description(ModelClazz);
-
-    // remove duplicates while preserving order
-    const uniqueKeys = Array.from(new Set(keysToReturn));
-
-    const path = uniqueKeys.map((key) => `:${key}`).join("/");
+    const path = `:${uniqueKeys.join("/:")}`;
     const apiProperties: DecafApiProperties[] = uniqueKeys.map((key) => {
       return {
         name: key,
