@@ -29,6 +29,7 @@ import {
 } from "./decorators";
 import { DecafRequestContext } from "../request";
 import { DECAF_ADAPTER_OPTIONS } from "../constants";
+import { Auth } from "./decorators/decorators";
 
 /**
  * @description
@@ -96,6 +97,7 @@ export class FromModelController {
     @Controller(routePath)
     @ApiTags(modelClazzName)
     @ApiExtraModels(ModelClazz)
+    @Auth(ModelClazz)
     class DynamicModelController extends LoggedClass {
       private _persistence!: Repo<T> | ModelService<T>;
       private readonly pk: string = Model.pk(ModelClazz) as string;
