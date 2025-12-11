@@ -1,4 +1,4 @@
-import { Body, Controller, Param } from "@nestjs/common";
+import { Body, Controller, Param, UseFilters } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -15,7 +15,11 @@ import {
 import { ModelService, Repo, Repository } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logging, toKebabCase } from "@decaf-ts/logging";
-import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
+import {
+  DBKeys,
+  NotFoundError,
+  ValidationError,
+} from "@decaf-ts/db-decorators";
 import { Metadata } from "@decaf-ts/decoration";
 import type {
   DecafApiProperties,
@@ -29,6 +33,8 @@ import {
 } from "./decorators";
 import { DecafRequestContext } from "../request";
 import { DECAF_ADAPTER_OPTIONS } from "../constants";
+import { UseDecafFilter } from "../factory/exceptions/decorators";
+import { NotFoundExceptionFilter } from "../factory/index";
 
 /**
  * @description
@@ -82,11 +88,15 @@ import { DECAF_ADAPTER_OPTIONS } from "../constants";
 export class FromModelController {
   private static readonly log = Logging.for(FromModelController.name);
 
-  static getPersistence<T extends Model>(ModelClazz: ModelConstructor<T>) {
-    return (
-      (ModelService.getService(ModelClazz) as ModelService<T>) ||
-      (Repository.forModel(ModelClazz) as Repo<T>)
-    );
+  static getPersistence<T extends Model<boolean>>(
+    ModelClazz: ModelConstructor<T>
+  ) {
+    try {
+      return ModelService.forModel(ModelClazz as any);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e: unknown) {
+      return Repository.forModel(ModelClazz) as Repo<T>;
+    }
   }
 
   static create<T extends Model<any>>(ModelClazz: ModelConstructor<T>) {
@@ -106,7 +116,7 @@ export class FromModelController {
     @ApiTags(modelClazzName)
     @ApiExtraModels(ModelClazz)
     class DynamicModelController extends LoggedClass {
-      private _persistence: Repo<T> | ModelService<T> = repo;
+      private _persistence: Repo<T> | ModelService<T> = repo as any;
       private readonly pk: string = Model.pk(ModelClazz) as string;
 
       constructor(private clientContext: DecafRequestContext) {
@@ -135,6 +145,7 @@ export class FromModelController {
       @ApiUnprocessableEntityResponse({
         description: "Repository rejected the provided payload.",
       })
+      @UseDecafFilter()
       async create(@Body() data: T): Promise<Model<any>> {
         const log = this.log.for(this.create);
         log.verbose(`creating new ${modelClazzName}`);
@@ -160,6 +171,7 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
+      @UseDecafFilter()
       async read(@DecafParams(apiProperties) routeParams: DecafParamProps) {
         const id = getPK(...routeParams.ordered);
         if (typeof id === "undefined")
@@ -175,6 +187,8 @@ export class FromModelController {
             `Failed to read ${modelClazzName} with id ${id}`,
             e as Error
           );
+
+          console.log(e instanceof NotFoundError);
           throw e;
         }
 
@@ -191,6 +205,7 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} records matches the query.`,
       })
+      @UseDecafFilter()
       async query(@Param("method") method: string) {
         const log = this.log.for(this.read);
         let results: Model[] | Model;
@@ -229,6 +244,7 @@ export class FromModelController {
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
+      @UseDecafFilter()
       async update(
         @DecafParams(apiProperties) routeParams: DecafParamProps,
         @Body() body: Model<any>
@@ -263,6 +279,7 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
+      @UseDecafFilter()
       async delete(@DecafParams(apiProperties) routeParams: DecafParamProps) {
         const log = this.log.for(this.delete);
         const id = getPK(...routeParams.ordered);

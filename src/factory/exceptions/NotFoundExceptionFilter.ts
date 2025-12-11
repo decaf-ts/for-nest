@@ -5,20 +5,7 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { HttpResponseError } from "./HttpResponseError";
-
-export class NotFoundError extends Error {
-  readonly status: number;
-  readonly code: string;
-
-  constructor(message = "Resource not found") {
-    super(message);
-    this.name = "NotFoundError";
-    this.status = 404;
-    this.code = "NOT_FOUND";
-
-    Object.setPrototypeOf(this, NotFoundError.prototype);
-  }
-}
+import { NotFoundError } from "@decaf-ts/db-decorators";
 
 @Catch(NotFoundError)
 export class NotFoundExceptionFilter implements ExceptionFilter {

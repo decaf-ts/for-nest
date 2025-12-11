@@ -9,7 +9,6 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import { composed, readonly } from "@decaf-ts/db-decorators";
-import { FabricFlavour } from "@decaf-ts/for-fabric/shared";
 
 @uses(RamFlavour)
 @table("fake")

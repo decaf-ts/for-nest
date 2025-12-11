@@ -319,12 +319,13 @@ describe("DecafModelModule CRUD", () => {
 
     function trimUrl(url: string) {
       const prefix = `${adapter.config.protocol}://${adapter.config.host}/${toKebabCase(Model.tableName(repo.class))}`;
-      return url.includes(prefix) ? url.substring(prefix.length) : url;
+      url = url.includes(prefix) ? url.substring(prefix.length) : url;
+      return url.startsWith("/") ? url.substring(1) : url;
     }
 
     jest
       .spyOn(adapter.client, "request")
-      .mockImplementation(async (req: any) => {
+      .mockImplementation(async (req: any, ...args: any[]) => {
         switch (req.method) {
           case "GET": {
             const result = await HttpRequest.get(trimUrl(req.url));
@@ -373,28 +374,34 @@ describe("DecafModelModule CRUD", () => {
       .spyOn(adapter.client, "get")
       .mockImplementation(async (url: string) => {
         url = trimUrl(url);
-        const result = await HttpRequest.get(url);
+        const result = await HttpRequest.get(...url.split("/"));
         if (!result.status.toString().startsWith("20")) {
           throw adapter.parseError(new Error(result.status.toString()));
         }
         return result.data;
       });
 
-    jest.spyOn(adapter.client, "put").mockImplementation(async (cfg) => {
-      const result = await HttpRequest.put(cfg);
-      if (!result.status.toString().startsWith("20")) {
-        throw adapter.parseError(new Error(result.status.toString()));
-      }
-      return new repo.class(result.data);
-    });
+    jest
+      .spyOn(adapter.client, "put")
+      .mockImplementation(async (url: string, cfg) => {
+        url = trimUrl(url);
+        const result = await HttpRequest.put(cfg, ...url.split("/"));
+        if (!result.status.toString().startsWith("20")) {
+          throw adapter.parseError(new Error(result.status.toString()));
+        }
+        return new repo.class(result.data);
+      });
 
-    jest.spyOn(adapter.client, "delete").mockImplementation(async () => {
-      const result = await HttpRequest.delete({});
-      if (!result.status.toString().startsWith("20")) {
-        throw adapter.parseError(new Error(result.status.toString()));
-      }
-      return new repo.class(result.data);
-    });
+    jest
+      .spyOn(adapter.client, "delete")
+      .mockImplementation(async (url: string) => {
+        url = trimUrl(url);
+        const result = await HttpRequest.delete(...url.split("/"));
+        if (!result.status.toString().startsWith("20")) {
+          throw adapter.parseError(new Error(result.status.toString()));
+        }
+        return new repo.class(result.data);
+      });
     let created: Product;
 
     it("creates", async () => {
@@ -416,7 +423,7 @@ describe("DecafModelModule CRUD", () => {
       );
       expect(updated).toBeDefined();
       expect(updated.hasErrors()).toBe(undefined);
-      expect(updated.equals(created, "name", "updatedAt")).toBe(undefined);
+      expect(updated.equals(created, "name", "updatedAt")).toBe(true);
     });
 
     it("deletes", async () => {
