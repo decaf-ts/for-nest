@@ -4,29 +4,11 @@ import {
   maxlength,
   minlength,
   model,
-  type ModelArg,
+  ModelArg,
   pattern,
-  required,
 } from "@decaf-ts/decorator-validation";
+import { Roles } from "../../../../src";
 import { composed, readonly } from "@decaf-ts/db-decorators";
-import { Roles } from "../../../src/decaf-model/decorators/decorators";
-
-@uses(RamFlavour)
-@table("fake")
-@model()
-@Roles(["partner"])
-export class Fake extends BaseModel {
-  @pk({ type: "String", generated: false })
-  id!: string;
-
-  @column()
-  @required()
-  name!: string;
-
-  constructor(args?: ModelArg<Fake>) {
-    super(args);
-  }
-}
 
 @uses(RamFlavour)
 @table("product")

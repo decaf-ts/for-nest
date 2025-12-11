@@ -9,45 +9,18 @@ import {
   RamFlavour,
   service,
 } from "@decaf-ts/core";
-import { Product } from "./fakes/models";
 import { HttpModelClient, HttpModelResponse } from "./fakes/server";
-import * as path from "path";
 import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
 import { toKebabCase } from "@decaf-ts/logging";
 import { Model } from "@decaf-ts/decorator-validation";
 import { NotFoundError } from "@decaf-ts/db-decorators";
+import { genStr } from "./fakes/utils";
+import { Product } from "./fakes/models/Product";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
 
-export function genStr(len: number): string {
-  return Math.floor(Math.random() * 1e14)
-    .toString()
-    .slice(0, len)
-    .padStart(len, "1");
-}
-
 jest.setTimeout(180000);
-
-const CRYPTO_PATH = {
-  base: "/home/pccosta/pdm/decaf/decaf-workspace/for-fabric/docker",
-  get(f: string) {
-    return path.join(this.base, f);
-  },
-};
-
-const config = {
-  cryptoPath: CRYPTO_PATH.get("infrastructure/crypto-config"),
-  keyCertOrDirectoryPath: CRYPTO_PATH.get("docker-data/admin/msp/keystore"),
-  certCertOrDirectoryPath: CRYPTO_PATH.get("docker-data/admin/msp/signcerts"),
-  tlsCert: "", // fs.readFileSync(CRYPTO_PATH.get("docker-data/tls-ca-cert.pem")),
-  peerEndpoint: "localhost:7031",
-  peerHostAlias: "localhost",
-  chaincodeName: "global",
-  ca: "org-a",
-  mspId: "Peer0OrgaMSP",
-  channel: "simple-channel",
-};
 
 @service("TesteService")
 export class TesteService {
@@ -56,7 +29,7 @@ export class TesteService {
 
 describe("DecafModelModule CRUD", () => {
   let app: INestApplication;
-  let HttpRequest: HttpModelClient<Product>;
+  let productHttpClient: HttpModelClient<Product>;
 
   const productCode = genStr(14);
   const batchNumber = `BATCH${genStr(3)}`;
@@ -70,8 +43,7 @@ describe("DecafModelModule CRUD", () => {
       imports: [
         DecafModule.forRootAsync({
           adapter: RamAdapter,
-          // adapter: FabricClientAdapter as any,
-          conf: undefined, //config,
+          conf: undefined,
           autoControllers: true,
         }),
       ],
@@ -82,7 +54,10 @@ describe("DecafModelModule CRUD", () => {
     app.useGlobalFilters(...exceptions);
     await app.init();
 
-    HttpRequest = new HttpModelClient<Product>(app.getHttpServer(), Product);
+    productHttpClient = new HttpModelClient<Product>(
+      app.getHttpServer(),
+      Product
+    );
   });
 
   afterAll(async () => {
@@ -92,7 +67,7 @@ describe("DecafModelModule CRUD", () => {
   describe("CREATE", () => {
     it("should CREATE a product", async () => {
       const product = new Product(productPayload);
-      const res = await HttpRequest.post(product);
+      const res = await productHttpClient.post(product);
 
       expect(res.status).toEqual(201);
       expect(res.toJSON()).toMatchObject(productPayload);
@@ -108,7 +83,7 @@ describe("DecafModelModule CRUD", () => {
         name: "Invalid product",
       });
 
-      const res = await HttpRequest.post(invalid);
+      const res = await productHttpClient.post(invalid);
 
       // expect(res.status).toEqual(400);
       expect(res.raw.error).toContain("productCode - The minimum length is 14");
@@ -119,7 +94,7 @@ describe("DecafModelModule CRUD", () => {
 
     it("should FAIL to CREATE a duplicate product", async () => {
       const duplicate = new Product(productPayload);
-      const res = await HttpRequest.post(duplicate);
+      const res = await productHttpClient.post(duplicate);
 
       // expect(res.status).toEqual(422);
       expect(res.raw.error).toContain(
@@ -132,14 +107,14 @@ describe("DecafModelModule CRUD", () => {
     beforeAll(async () => {
       if (!created) {
         const product = new Product(productPayload);
-        const res = await HttpRequest.post(product);
+        const res = await productHttpClient.post(product);
         expect(res.status).toEqual(201);
         created = res;
       }
     });
 
     it("should READ a product by id", async () => {
-      const res = await HttpRequest.get(
+      const res = await productHttpClient.get(
         created.data.productCode,
         created.data.batchNumber
       );
@@ -148,7 +123,7 @@ describe("DecafModelModule CRUD", () => {
     });
 
     it("should FAIL to READ a non-existing product", async () => {
-      const res = await HttpRequest.get("99999999999999", "NOPE");
+      const res = await productHttpClient.get("99999999999999", "NOPE");
       expect(res.raw.status).toBeGreaterThanOrEqual(404);
       expect(res.raw.error).toEqual(
         "[NotFoundError] Record with id 99999999999999:NOPE not found in table product"
@@ -166,14 +141,14 @@ describe("DecafModelModule CRUD", () => {
     beforeAll(async () => {
       if (!created) {
         const product = new Product(productPayload);
-        const res = await HttpRequest.post(product);
+        const res = await productHttpClient.post(product);
         expect(res.status).toEqual(201);
         created = res;
       }
     });
 
     it("should UPDATE a product", async () => {
-      const res = await HttpRequest.put(
+      const res = await productHttpClient.put(
         {
           ...created,
           name: "Updated Name",
@@ -191,7 +166,7 @@ describe("DecafModelModule CRUD", () => {
     it("should FAIL to UPDATE a non-existing product", async () => {
       const productCode = genStr(14);
       const batchNumber = genStr(14);
-      const res = await HttpRequest.put(
+      const res = await productHttpClient.put(
         {
           ...created,
           name: "Nothing",
@@ -207,7 +182,7 @@ describe("DecafModelModule CRUD", () => {
     });
 
     it("should FAIL to UPDATE with invalid payload", async () => {
-      const res = await HttpRequest.put(
+      const res = await productHttpClient.put(
         {
           name: 123,
         },
@@ -223,20 +198,20 @@ describe("DecafModelModule CRUD", () => {
     beforeAll(async () => {
       if (!created) {
         const product = new Product(productPayload);
-        const res = await HttpRequest.post(product);
+        const res = await productHttpClient.post(product);
         expect(res.status).toEqual(201);
         created = res;
       }
     });
 
     it("should DELETE a product", async () => {
-      const resDelete = await HttpRequest.delete(
+      const resDelete = await productHttpClient.delete(
         created.data.productCode,
         created.data.batchNumber
       );
       expect(resDelete.status).toEqual(200);
 
-      const resGet = await HttpRequest.get(
+      const resGet = await productHttpClient.get(
         created.data.productCode,
         created.data.batchNumber
       );
@@ -244,7 +219,7 @@ describe("DecafModelModule CRUD", () => {
     });
 
     it("should FAIL to DELETE a non-existing product", async () => {
-      const res = await HttpRequest.delete(
+      const res = await productHttpClient.delete(
         created.data.productCode,
         created.data.batchNumber
       );
@@ -266,8 +241,8 @@ describe("DecafModelModule CRUD", () => {
         name: "Q2",
       });
 
-      const r1 = await HttpRequest.post(p1);
-      const r2 = await HttpRequest.post(p2);
+      const r1 = await productHttpClient.post(p1);
+      const r2 = await productHttpClient.post(p2);
       console.log(r1, r2);
 
       // const res = await request(app.getHttpServer()).get(`/product/query/all`);
@@ -310,28 +285,28 @@ describe("DecafModelModule CRUD", () => {
       .mockImplementation(async (req: any, ...args: any[]) => {
         switch (req.method) {
           case "GET": {
-            const result = await HttpRequest.get(trimUrl(req.url));
+            const result = await productHttpClient.get(trimUrl(req.url));
             if (!result.status.toString().startsWith("20")) {
               throw adapter.parseError(new Error(result.status.toString()));
             }
             return result;
           }
           case "POST": {
-            const result = await HttpRequest.post(req.data);
+            const result = await productHttpClient.post(req.data);
             if (!result.status.toString().startsWith("20")) {
               throw adapter.parseError(new Error(result.status.toString()));
             }
             return result;
           }
           case "PUT": {
-            const result = await HttpRequest.put(req.data);
+            const result = await productHttpClient.put(req.data);
             if (!result.status.toString().startsWith("20")) {
               throw adapter.parseError(new Error(result.status.toString()));
             }
             return result;
           }
           case "DELETE": {
-            const result = await HttpRequest.delete(trimUrl(req.url));
+            const result = await productHttpClient.delete(trimUrl(req.url));
             if (!result.status.toString().startsWith("20")) {
               throw adapter.parseError(new Error(result.status.toString()));
             }
@@ -345,7 +320,7 @@ describe("DecafModelModule CRUD", () => {
     jest
       .spyOn(adapter.client, "post")
       .mockImplementation(async (url: string, body: any, cfg: any) => {
-        const result = await HttpRequest.post(body);
+        const result = await productHttpClient.post(body);
         if (!result.status.toString().startsWith("20")) {
           throw adapter.parseError(new Error(result.status.toString()));
         }
@@ -356,7 +331,7 @@ describe("DecafModelModule CRUD", () => {
       .spyOn(adapter.client, "get")
       .mockImplementation(async (url: string) => {
         url = trimUrl(url);
-        const result = await HttpRequest.get(...url.split("/"));
+        const result = await productHttpClient.get(...url.split("/"));
         if (!result.status.toString().startsWith("20")) {
           throw adapter.parseError(new Error(result.status.toString()));
         }
@@ -367,7 +342,7 @@ describe("DecafModelModule CRUD", () => {
       .spyOn(adapter.client, "put")
       .mockImplementation(async (url: string, cfg) => {
         url = trimUrl(url);
-        const result = await HttpRequest.put(cfg, ...url.split("/"));
+        const result = await productHttpClient.put(cfg, ...url.split("/"));
         if (!result.status.toString().startsWith("20")) {
           throw adapter.parseError(new Error(result.status.toString()));
         }
@@ -378,7 +353,7 @@ describe("DecafModelModule CRUD", () => {
       .spyOn(adapter.client, "delete")
       .mockImplementation(async (url: string) => {
         url = trimUrl(url);
-        const result = await HttpRequest.delete(...url.split("/"));
+        const result = await productHttpClient.delete(...url.split("/"));
         if (!result.status.toString().startsWith("20")) {
           throw adapter.parseError(new Error(result.status.toString()));
         }
