@@ -1,4 +1,4 @@
-import { Body, Controller, Param, UseFilters } from "@nestjs/common";
+import { Body, Controller, Param } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -15,11 +15,7 @@ import {
 import { ModelService, Repo, Repository } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logging, toKebabCase } from "@decaf-ts/logging";
-import {
-  DBKeys,
-  NotFoundError,
-  ValidationError,
-} from "@decaf-ts/db-decorators";
+import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Metadata } from "@decaf-ts/decoration";
 import type {
   DecafApiProperties,
@@ -35,6 +31,7 @@ import { DecafRequestContext } from "../request";
 import { DECAF_ADAPTER_OPTIONS } from "../constants";
 import { UseDecafFilter } from "../factory/exceptions/decorators";
 import { NotFoundExceptionFilter } from "../factory/index";
+import { Auth } from "./decorators/decorators";
 
 /**
  * @description
@@ -115,6 +112,7 @@ export class FromModelController {
     @Controller(routePath)
     @ApiTags(modelClazzName)
     @ApiExtraModels(ModelClazz)
+    @Auth(ModelClazz)
     class DynamicModelController extends LoggedClass {
       private _persistence: Repo<T> | ModelService<T> = repo as any;
       private readonly pk: string = Model.pk(ModelClazz) as string;
