@@ -12,34 +12,17 @@ import {
   ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import {
-  ModelService,
-  PersistenceKeys,
-  Repo,
-  Repository,
-} from "@decaf-ts/core";
+import { ModelService, PersistenceKeys, Repo, Repository, } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
-import type {
-  DecafApiProperties,
-  DecafModelRoute,
-  DecafParamProps,
-} from "./decorators";
-import {
-  ApiOperationFromModel,
-  ApiParamsFromModel,
-  DecafParams,
-} from "./decorators";
+import type { DecafApiProperties, DecafModelRoute, DecafParamProps, } from "./decorators";
+import { ApiOperationFromModel, ApiParamsFromModel, DecafParams, } from "./decorators";
 import { DecafRequestContext } from "../request";
 import { DECAF_ADAPTER_OPTIONS } from "../constants";
-import {
-  applyMethodDecorators,
-  buildCustomQueryDecorators,
-  createRouteHandler,
-  defineMethod,
-} from "./utils";
+import { applyMethodDecorators, buildCustomQueryDecorators, createRouteHandler, defineMethod, } from "./utils";
+import { Auth } from "./decorators/decorators";
 
 /**
  * @description
@@ -93,11 +76,15 @@ import {
 export class FromModelController {
   private static readonly log = Logging.for(FromModelController.name);
 
-  static getPersistence<T extends Model>(ModelClazz: ModelConstructor<T>) {
-    return (
-      // (ModelService.getService(ModelClazz) as ModelService<T>) ||
-      Repository.forModel(ModelClazz) as Repo<T>
-    );
+  static getPersistence<T extends Model<boolean>>(
+    ModelClazz: ModelConstructor<T>
+  ) {
+    try {
+      return ModelService.forModel(ModelClazz as any);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e: unknown) {
+      return Repository.forModel(ModelClazz) as Repo<T>;
+    }
   }
 
   static createQueryRoutesFromRepository<T extends Model>(
@@ -174,6 +161,7 @@ export class FromModelController {
     @Controller(routePath)
     @ApiTags(modelClazzName)
     @ApiExtraModels(ModelClazz)
+    @Auth(ModelClazz)
     class DynamicModelController extends BaseController {
       private _persistence: Repo<T> | ModelService<T> = repo;
       private readonly pk: string = Model.pk(ModelClazz) as string;

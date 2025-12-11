@@ -9,11 +9,12 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import { composed, readonly } from "@decaf-ts/db-decorators";
-import { FabricFlavour } from "@decaf-ts/for-fabric/shared";
+import { Roles } from "../../../src/decaf-model/decorators/decorators";
 
 @uses(RamFlavour)
 @table("fake")
 @model()
+@Roles(["partner"])
 export class Fake extends BaseModel {
   @pk({ type: "String", generated: false })
   id!: string;
@@ -30,6 +31,7 @@ export class Fake extends BaseModel {
 @uses(RamFlavour)
 @table("product")
 @model()
+@Roles(["admin"])
 export class Product extends BaseModel {
   @pk({ type: "String", generated: false })
   @composed(["productCode", "batchNumber"], ":", true)

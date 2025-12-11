@@ -1,2 +1,2 @@
-export * from "./DecafErrorFilter";
 export * from "./DecafRequestHandlerInterceptor";
+export * from "./AuthInterceptor";
