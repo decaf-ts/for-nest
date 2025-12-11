@@ -46,7 +46,9 @@ export class HttpModelClient<T extends Model> {
   }
 
   async get(...routeParams: string[]) {
-    const res = await this.server.get(`${this.path}/${routeParams.join("/")}`);
+    const res = await this.server.get(
+      `${this.path}/${routeParams.join("/")}`.replace("/?", "?")
+    );
     return this.wrapResponse(res.body, res.status);
   }
 

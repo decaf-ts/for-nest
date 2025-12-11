@@ -7,13 +7,24 @@ import {
   DecafModule,
   GlobalExceptionFilter,
   HttpExceptionFilter,
+  NotFoundError,
   NotFoundExceptionFilter,
   ValidationExceptionFilter,
 } from "../../src";
-import { Adapter, RamAdapter, RamFlavour, service } from "@decaf-ts/core";
+import {
+  Adapter,
+  OrderDirection,
+  RamAdapter,
+  RamFlavour,
+  service,
+} from "@decaf-ts/core";
 import { Product } from "./fakes/models";
 import { HttpModelClient, HttpModelResponse } from "./fakes/server";
-import path from "path";
+import * as path from "path";
+import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
+import { toKebabCase } from "@decaf-ts/logging";
+import { Model } from "@decaf-ts/decorator-validation";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
@@ -288,6 +299,146 @@ describe("DecafModelModule CRUD", () => {
         `/product/query/unknownMethod`
       );
       expect(res.status).toEqual(500);
+    });
+  });
+
+  describe("Http Adapter Integration", () => {
+    const adapter = new AxiosHttpAdapter({
+      protocol: "http",
+      host: "localhost:3000",
+    });
+    const productCode = genStr(14);
+    const batchNumber = `BATCH${genStr(3)}`;
+    const productPayload = {
+      productCode,
+      batchNumber,
+      name: "Other Product ABC",
+    };
+
+    const repo = new RestService(adapter, Product);
+
+    function trimUrl(url: string) {
+      const prefix = `${adapter.config.protocol}://${adapter.config.host}/${toKebabCase(Model.tableName(repo.class))}`;
+      return url.includes(prefix) ? url.substring(prefix.length) : url;
+    }
+
+    jest
+      .spyOn(adapter.client, "request")
+      .mockImplementation(async (req: any) => {
+        switch (req.method) {
+          case "GET": {
+            const result = await HttpRequest.get(trimUrl(req.url));
+            if (!result.status.toString().startsWith("20")) {
+              throw adapter.parseError(new Error(result.status.toString()));
+            }
+            return result;
+          }
+          case "POST": {
+            const result = await HttpRequest.post(req.data);
+            if (!result.status.toString().startsWith("20")) {
+              throw adapter.parseError(new Error(result.status.toString()));
+            }
+            return result;
+          }
+          case "PUT": {
+            const result = await HttpRequest.put(req.data);
+            if (!result.status.toString().startsWith("20")) {
+              throw adapter.parseError(new Error(result.status.toString()));
+            }
+            return result;
+          }
+          case "DELETE": {
+            const result = await HttpRequest.delete(trimUrl(req.url));
+            if (!result.status.toString().startsWith("20")) {
+              throw adapter.parseError(new Error(result.status.toString()));
+            }
+            return result;
+          }
+          default:
+            throw new Error("Method not implemented.");
+        }
+      });
+
+    jest
+      .spyOn(adapter.client, "post")
+      .mockImplementation(async (url: string, body: any, cfg: any) => {
+        const result = await HttpRequest.post(body);
+        if (!result.status.toString().startsWith("20")) {
+          throw adapter.parseError(new Error(result.status.toString()));
+        }
+        return result.data;
+      });
+
+    jest
+      .spyOn(adapter.client, "get")
+      .mockImplementation(async (url: string) => {
+        url = trimUrl(url);
+        const result = await HttpRequest.get(url);
+        if (!result.status.toString().startsWith("20")) {
+          throw adapter.parseError(new Error(result.status.toString()));
+        }
+        return result.data;
+      });
+
+    jest.spyOn(adapter.client, "put").mockImplementation(async (cfg) => {
+      const result = await HttpRequest.put(cfg);
+      if (!result.status.toString().startsWith("20")) {
+        throw adapter.parseError(new Error(result.status.toString()));
+      }
+      return new repo.class(result.data);
+    });
+
+    jest.spyOn(adapter.client, "delete").mockImplementation(async () => {
+      const result = await HttpRequest.delete({});
+      if (!result.status.toString().startsWith("20")) {
+        throw adapter.parseError(new Error(result.status.toString()));
+      }
+      return new repo.class(result.data);
+    });
+    let created: Product;
+
+    it("creates", async () => {
+      created = await repo.create(new Product(productPayload));
+      expect(created).toBeDefined();
+      expect(created.hasErrors()).toBe(undefined);
+    });
+
+    it("reads", async () => {
+      const read = await repo.read(created.id);
+      expect(read).toBeDefined();
+      expect(read.hasErrors()).toBe(undefined);
+      expect(read.equals(created)).toBe(true);
+    });
+
+    it("updates", async () => {
+      const updated = await repo.update(
+        new Product(Object.assign({}, created, { name: "new name" }))
+      );
+      expect(updated).toBeDefined();
+      expect(updated.hasErrors()).toBe(undefined);
+      expect(updated.equals(created, "name", "updatedAt")).toBe(undefined);
+    });
+
+    it("deletes", async () => {
+      const deleted = await repo.delete(created.id);
+      expect(deleted).toBeDefined();
+      expect(deleted.hasErrors()).toBe(undefined);
+      await expect(repo.read(created.id)).rejects.toThrow(NotFoundError);
+    });
+
+    it("runs prepared statements listBy", async () => {
+      const list = await repo.listBy("name", OrderDirection.DSC);
+      expect(list).toBeDefined();
+      expect(list.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("runs prepared statements via select", async () => {
+      const list = await repo
+        .select(["id"])
+        .where(repo.attr("name").eq("new name"))
+        .execute();
+      expect(list).toBeDefined();
+      expect(list.length).toBeGreaterThanOrEqual(1);
     });
   });
 });
