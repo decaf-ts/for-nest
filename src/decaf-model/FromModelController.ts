@@ -82,7 +82,7 @@ import { DECAF_ADAPTER_OPTIONS } from "../constants";
 export class FromModelController {
   private static readonly log = Logging.for(FromModelController.name);
 
-  static getPersistence<T>(ModelClazz: ModelConstructor<T>) {
+  static getPersistence<T extends Model>(ModelClazz: ModelConstructor<T>) {
     return (
       (ModelService.getService(ModelClazz) as ModelService<T>) ||
       (Repository.forModel(ModelClazz) as Repo<T>)
@@ -106,7 +106,7 @@ export class FromModelController {
     @ApiTags(modelClazzName)
     @ApiExtraModels(ModelClazz)
     class DynamicModelController extends LoggedClass {
-      private _persistence!: Repo<T> | ModelService<T> = repo;
+      private _persistence: Repo<T> | ModelService<T> = repo;
       private readonly pk: string = Model.pk(ModelClazz) as string;
 
       constructor(private clientContext: DecafRequestContext) {
