@@ -1,18 +1,21 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from "@nestjs/common";
-import { BaseError } from "@decaf-ts/db-decorators";
+import { BaseError, InternalError } from "@decaf-ts/db-decorators";
 import { LoggedEnvironment } from "@decaf-ts/logging";
 
-@Catch(BaseError)
+@Catch()
 export class DecafExceptionFilter implements ExceptionFilter {
-  catch(exception: BaseError, host: ArgumentsHost) {
+  catch(exception: Error, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse();
     const request = ctx.getRequest();
 
     const isProduction = LoggedEnvironment.env === "production";
+    if (!(exception instanceof BaseError)) {
+      exception = new InternalError(exception.message);
+    }
 
-    response.status(exception.code).json({
-      status: exception.code,
+    response.status((exception as BaseError).code).json({
+      status: (exception as BaseError).code,
       error: isProduction ? exception.name : exception.message,
       timestamp: new Date().toISOString(),
       path: request.url,

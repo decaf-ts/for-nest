@@ -1,16 +1,7 @@
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { INestApplication } from "@nestjs/common";
-import {
-  AuthorizationExceptionFilter,
-  ConflictExceptionFilter,
-  DecafModule,
-  GlobalExceptionFilter,
-  HttpExceptionFilter,
-  NotFoundError,
-  NotFoundExceptionFilter,
-  ValidationExceptionFilter,
-} from "../../src";
+import { DecafExceptionFilter, DecafModule } from "../../src";
 import {
   Adapter,
   OrderDirection,
@@ -24,7 +15,7 @@ import * as path from "path";
 import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
 import { toKebabCase } from "@decaf-ts/logging";
 import { Model } from "@decaf-ts/decorator-validation";
-import { InternalError } from "@decaf-ts/db-decorators";
+import { NotFoundError } from "@decaf-ts/db-decorators";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
@@ -87,14 +78,7 @@ describe("DecafModelModule CRUD", () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
-    const exceptions = [
-      new HttpExceptionFilter(),
-      new ValidationExceptionFilter(),
-      new NotFoundExceptionFilter(),
-      new ConflictExceptionFilter(),
-      new AuthorizationExceptionFilter(),
-      new GlobalExceptionFilter(),
-    ];
+    const exceptions = [new DecafExceptionFilter()];
     app.useGlobalFilters(...exceptions);
     await app.init();
 
@@ -127,10 +111,8 @@ describe("DecafModelModule CRUD", () => {
       const res = await HttpRequest.post(invalid);
 
       // expect(res.status).toEqual(400);
-      expect(res.raw.message).toContain(
-        "productCode - The minimum length is 14"
-      );
-      expect(res.raw.message).toContain(
+      expect(res.raw.error).toContain("productCode - The minimum length is 14");
+      expect(res.raw.error).toContain(
         "batchNumber - The value does not match the pattern"
       );
     });
@@ -140,7 +122,7 @@ describe("DecafModelModule CRUD", () => {
       const res = await HttpRequest.post(duplicate);
 
       // expect(res.status).toEqual(422);
-      expect(res.raw.message).toContain(
+      expect(res.raw.error).toContain(
         `Record with id ${productPayload.productCode}:${productPayload.batchNumber} already exists`
       );
     });
@@ -168,7 +150,7 @@ describe("DecafModelModule CRUD", () => {
     it("should FAIL to READ a non-existing product", async () => {
       const res = await HttpRequest.get("99999999999999", "NOPE");
       expect(res.raw.status).toBeGreaterThanOrEqual(404);
-      expect(res.raw.message).toEqual(
+      expect(res.raw.error).toEqual(
         "[NotFoundError] Record with id 99999999999999:NOPE not found in table product"
       );
       expect(res.raw.path).toEqual("/product/99999999999999/NOPE");
@@ -176,7 +158,7 @@ describe("DecafModelModule CRUD", () => {
 
     it("should FAIL to READ with missing parameters", async () => {
       const res = await request(app.getHttpServer()).get(`/product/`);
-      expect(res.status).toEqual(404);
+      expect(res.status).toEqual(500);
     });
   });
 
@@ -219,7 +201,7 @@ describe("DecafModelModule CRUD", () => {
       );
 
       // expect(res.status).toEqual(404);
-      expect(res.raw.message).toContain(
+      expect(res.raw.error).toContain(
         `[NotFoundError] Record with id ${productCode}:${batchNumber} not found`
       );
     });

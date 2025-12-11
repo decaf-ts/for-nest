@@ -1,14 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
-import {
-  AuthorizationExceptionFilter,
-  ConflictExceptionFilter,
-  DecafModule,
-  GlobalExceptionFilter,
-  HttpExceptionFilter,
-  NotFoundExceptionFilter,
-  ValidationExceptionFilter,
-} from "../../src";
+import { DecafExceptionFilter, DecafModule } from "../../src";
 import { Adapter, RamAdapter, RamFlavour } from "@decaf-ts/core";
 import { Fake, Product } from "./fakes/models";
 import { AuthModule } from "./fakes/auth.module";
@@ -45,14 +37,7 @@ describe("Authentication", () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
-    const exceptions = [
-      new HttpExceptionFilter(),
-      new ValidationExceptionFilter(),
-      new NotFoundExceptionFilter(),
-      new ConflictExceptionFilter(),
-      new AuthorizationExceptionFilter(),
-      new GlobalExceptionFilter(),
-    ];
+    const exceptions = [new DecafExceptionFilter()];
     app.useGlobalFilters(...exceptions);
     await app.init();
 
@@ -126,7 +111,7 @@ describe("Authentication", () => {
       const token = "partner";
       const res = await ProductHttpRequest.post(product, token);
 
-      expect(res.raw.message).toEqual("Missing role: partner");
+      expect(res.raw.error).toContain("Missing role: partner");
 
       const fakeId = genStr(6);
       const fakePayload = { id: fakeId, name: "Fake ABC" };
@@ -137,7 +122,7 @@ describe("Authentication", () => {
       const token2 = "admin";
       const res2 = await FakeHttpRequest.post(fake, token2);
 
-      expect(res2.raw.message).toEqual("Missing role: admin");
+      expect(res2.raw.error).toContain("Missing role: admin");
     });
   });
   describe("UPDATE", () => {
@@ -205,7 +190,7 @@ describe("Authentication", () => {
         product.batchNumber
       );
 
-      expect(updatedRes.raw.message).toEqual("Missing role: partner");
+      expect(updatedRes.raw.error).toContain("Missing role: partner");
 
       const token2 = "admin";
       const updatedRes2 = await FakeHttpRequest.put(
@@ -214,7 +199,7 @@ describe("Authentication", () => {
         fake.id
       );
 
-      expect(updatedRes2.raw.message).toEqual("Missing role: admin");
+      expect(updatedRes2.raw.error).toContain("Missing role: admin");
     });
   });
 
@@ -268,12 +253,12 @@ describe("Authentication", () => {
         product.batchNumber
       );
 
-      expect(productRes.raw.message).toEqual("Missing role: partner");
+      expect(productRes.raw.error).toContain("Missing role: partner");
 
       const token2 = "admin";
       const fakeRes = await FakeHttpRequest.get(token2, fake.id);
 
-      expect(fakeRes.raw.message).toEqual("Missing role: admin");
+      expect(fakeRes.raw.error).toContain("Missing role: admin");
     });
   });
 
@@ -319,7 +304,7 @@ describe("Authentication", () => {
         product.batchNumber
       );
 
-      expect(getDeletedProduct.raw.message).toEqual(
+      expect(getDeletedProduct.raw.error).toContain(
         `[NotFoundError] Record with id ${product.productCode}:${product.batchNumber} not found in table product`
       );
 
@@ -330,7 +315,7 @@ describe("Authentication", () => {
 
       const getDeletedFake = await FakeHttpRequest.get(partnerToken, fake.id);
 
-      expect(getDeletedFake.raw.message).toEqual(
+      expect(getDeletedFake.raw.error).toEqual(
         `[NotFoundError] Record with id ${fake.id} not found in table fake`
       );
     });
@@ -342,11 +327,11 @@ describe("Authentication", () => {
         product.batchNumber
       );
 
-      expect(productRes.raw.message).toEqual("Missing role: partner");
+      expect(productRes.raw.error).toContain("Missing role: partner");
 
       const fakeRes = await FakeHttpRequest.delete("admin", fake.id);
 
-      expect(fakeRes.raw.message).toEqual("Missing role: admin");
+      expect(fakeRes.raw.error).toContain("Missing role: admin");
     });
   });
 });

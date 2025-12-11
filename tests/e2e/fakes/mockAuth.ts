@@ -1,8 +1,9 @@
 import { ExecutionContext, Injectable } from "@nestjs/common";
 import { Metadata } from "@decaf-ts/decoration";
+import { AuthorizationError } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
 import { AuthHandler } from "../../../src/types";
-import { AuthorizationError, AuthRole } from "../../../src";
+import { AuthRole } from "../../../src";
 
 @Injectable()
 export class MockAuthHandler implements AuthHandler {

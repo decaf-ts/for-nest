@@ -29,8 +29,6 @@ import {
 } from "./decorators";
 import { DecafRequestContext } from "../request";
 import { DECAF_ADAPTER_OPTIONS } from "../constants";
-import { UseDecafFilter } from "../factory/exceptions/decorators";
-import { NotFoundExceptionFilter } from "../factory/index";
 import { Auth } from "./decorators/decorators";
 
 /**
@@ -143,7 +141,6 @@ export class FromModelController {
       @ApiUnprocessableEntityResponse({
         description: "Repository rejected the provided payload.",
       })
-      @UseDecafFilter()
       async create(@Body() data: T): Promise<Model<any>> {
         const log = this.log.for(this.create);
         log.verbose(`creating new ${modelClazzName}`);
@@ -169,7 +166,6 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
-      @UseDecafFilter()
       async read(@DecafParams(apiProperties) routeParams: DecafParamProps) {
         const id = getPK(...routeParams.ordered);
         if (typeof id === "undefined")
@@ -186,7 +182,6 @@ export class FromModelController {
             e as Error
           );
 
-          console.log(e instanceof NotFoundError);
           throw e;
         }
 
@@ -203,7 +198,6 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} records matches the query.`,
       })
-      @UseDecafFilter()
       async query(@Param("method") method: string) {
         const log = this.log.for(this.read);
         let results: Model[] | Model;
@@ -242,7 +236,6 @@ export class FromModelController {
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
-      @UseDecafFilter()
       async update(
         @DecafParams(apiProperties) routeParams: DecafParamProps,
         @Body() body: Model<any>
@@ -277,7 +270,6 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
-      @UseDecafFilter()
       async delete(@DecafParams(apiProperties) routeParams: DecafParamProps) {
         const log = this.log.for(this.delete);
         const id = getPK(...routeParams.ordered);
