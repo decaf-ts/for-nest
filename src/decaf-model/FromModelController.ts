@@ -12,11 +12,16 @@ import {
   ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { ModelService, Repo, Repository } from "@decaf-ts/core";
+import {
+  ModelService,
+  PersistenceKeys,
+  Repo,
+  Repository,
+} from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
-import { Metadata } from "@decaf-ts/decoration";
+import { Constructor, Metadata } from "@decaf-ts/decoration";
 import type {
   DecafApiProperties,
   DecafModelRoute,
@@ -29,6 +34,12 @@ import {
 } from "./decorators";
 import { DecafRequestContext } from "../request";
 import { DECAF_ADAPTER_OPTIONS } from "../constants";
+import {
+  applyMethodDecorators,
+  buildCustomQueryDecorators,
+  createRouteHandler,
+  defineMethod,
+} from "./utils";
 
 /**
  * @description
@@ -84,9 +95,64 @@ export class FromModelController {
 
   static getPersistence<T extends Model>(ModelClazz: ModelConstructor<T>) {
     return (
-      (ModelService.getService(ModelClazz) as ModelService<T>) ||
-      (Repository.forModel(ModelClazz) as Repo<T>)
+      // (ModelService.getService(ModelClazz) as ModelService<T>) ||
+      Repository.forModel(ModelClazz) as Repo<T>
     );
+  }
+
+  static createQueryRoutesFromRepository<T extends Model>(
+    repo: Repo<T>,
+    prefix: string = "statement"
+  ) {
+    const ModelConstr: Constructor = repo.class;
+    const methodQueries: Record<string, { fields: string[] }> =
+      Metadata.get(
+        repo.constructor as Constructor,
+        Metadata.key(PersistenceKeys.QUERY)
+      ) ?? {};
+
+    // create base class
+    class QueryController extends LoggedClass {
+      private readonly _persistence!: Repo<any> | ModelService<any>;
+
+      constructor(private clientContext: DecafRequestContext) {
+        super();
+        this._persistence = FromModelController.getPersistence(ModelConstr);
+      }
+
+      get persistence() {
+        const adapterOptions = this.clientContext.get(DECAF_ADAPTER_OPTIONS);
+        if (adapterOptions) return this._persistence.for(adapterOptions) as any;
+        return this._persistence;
+      }
+    }
+
+    for (const [methodName, objValues] of Object.entries(methodQueries)) {
+      const fields = objValues.fields ?? [];
+      const routePath = [prefix, methodName, ...fields.map((f) => `:${f}`)]
+        .filter((segment) => segment && segment.trim())
+        .join("/");
+
+      const handler = createRouteHandler(methodName);
+      const descriptor = defineMethod(QueryController, methodName, handler);
+
+      if (descriptor) {
+        const decorators = buildCustomQueryDecorators(
+          methodName,
+          routePath,
+          fields
+        );
+
+        applyMethodDecorators(
+          QueryController,
+          methodName,
+          descriptor,
+          decorators
+        );
+      }
+    }
+
+    return QueryController;
   }
 
   static create<T extends Model<any>>(ModelClazz: ModelConstructor<T>) {
@@ -102,15 +168,18 @@ export class FromModelController {
 
     log.debug(`Creating controller for model: ${modelClazzName}`);
 
+    const BaseController =
+      FromModelController.createQueryRoutesFromRepository(repo);
+
     @Controller(routePath)
     @ApiTags(modelClazzName)
     @ApiExtraModels(ModelClazz)
-    class DynamicModelController extends LoggedClass {
+    class DynamicModelController extends BaseController {
       private _persistence: Repo<T> | ModelService<T> = repo;
       private readonly pk: string = Model.pk(ModelClazz) as string;
 
       constructor(private clientContext: DecafRequestContext) {
-        super();
+        super(clientContext);
         log.info(
           `Registering dynamic controller for model: ${modelClazzName} route: /${routePath}`
         );
