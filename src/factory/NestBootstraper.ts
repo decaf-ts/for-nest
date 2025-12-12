@@ -4,14 +4,7 @@ import {
   NestInterceptor,
   PipeTransform,
 } from "@nestjs/common";
-import {
-  AuthorizationExceptionFilter,
-  ConflictExceptionFilter,
-  GlobalExceptionFilter,
-  HttpExceptionFilter,
-  NotFoundExceptionFilter,
-  ValidationExceptionFilter,
-} from "./exceptions";
+import { DecafExceptionFilter } from "./exceptions";
 import { SwaggerBuilder } from "./openapi";
 import { CorsOptions } from "@nestjs/common/interfaces/external/cors-options.interface";
 import { CorsError } from "./errors";
@@ -278,17 +271,8 @@ export class NestBootstraper {
    * @param {...ExceptionFilter[]} filters - Optional filters to apply globally.
    */
   static useGlobalFilters(...filters: any[]) {
-    const defaultFilters = [
-      new HttpExceptionFilter(),
-      new ValidationExceptionFilter(),
-      new NotFoundExceptionFilter(),
-      new ConflictExceptionFilter(),
-      new AuthorizationExceptionFilter(),
-      new GlobalExceptionFilter(),
-    ];
-
     this.app.useGlobalFilters(
-      ...(filters.length > 0 ? filters : defaultFilters)
+      ...(filters.length > 0 ? filters : [new DecafExceptionFilter()])
     );
     return this;
   }
