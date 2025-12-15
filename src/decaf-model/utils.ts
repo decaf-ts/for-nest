@@ -5,28 +5,31 @@ import {
   ApiOperation,
   ApiParam,
 } from "@nestjs/swagger";
+import { Controller } from "./types";
 
-export function createRouteHandler(methodName: string) {
-  return async function (...params: string[]) {
+export async function createRouteHandler<T>(methodName: string) {
+  return async function (this: Controller, ...params: string[]): Promise<T> {
     const log = this.log.for(methodName);
 
     try {
-      log.debug(`Executing custom query "${methodName}" with args:`, params);
-      return await (this.persistence as any)[methodName](...params);
-    } catch (error) {
-      log.error(`Custom query "${methodName}" failed`, error);
-      throw error;
+      log.debug(`Executing custom query "${methodName}" with args: ${params}`);
+      return (await (this.persistence as Record<string, any>)[methodName](
+        ...params
+      )) as T;
+    } catch (e: any) {
+      log.error(`Custom query "${methodName}" failed`, e);
+      throw e;
     }
   };
 }
 
 export function defineMethod(
-  ControllerClass: any,
+  ControllerClass: new (...args: any[]) => any,
   methodName: string,
-  handler: (...args) => any
+  handler: (...args: any[]) => any
 ): PropertyDescriptor | undefined {
   Object.defineProperty(
-    ControllerClass?.prototype || ControllerClass,
+    ControllerClass.prototype || ControllerClass,
     methodName,
     {
       value: handler,
@@ -35,7 +38,7 @@ export function defineMethod(
   );
 
   return Object.getOwnPropertyDescriptor(
-    ControllerClass?.prototype || ControllerClass,
+    ControllerClass.prototype || ControllerClass,
     methodName
   );
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Param } from "@nestjs/common";
+import { Body, Controller, Get, Param } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -12,17 +12,36 @@ import {
   ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
-import { ModelService, PersistenceKeys, Repo, Repository, } from "@decaf-ts/core";
+import {
+  ModelService,
+  PersistenceKeys,
+  Repo,
+  Repository,
+} from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { LoggedClass, Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
-import type { DecafApiProperties, DecafModelRoute, DecafParamProps, } from "./decorators";
-import { ApiOperationFromModel, ApiParamsFromModel, DecafParams, } from "./decorators";
+import type {
+  DecafApiProperties,
+  DecafModelRoute,
+  DecafParamProps,
+} from "./decorators";
+import {
+  ApiOperationFromModel,
+  ApiParamsFromModel,
+  DecafParams,
+} from "./decorators";
 import { DecafRequestContext } from "../request";
 import { DECAF_ADAPTER_OPTIONS } from "../constants";
-import { applyMethodDecorators, buildCustomQueryDecorators, createRouteHandler, defineMethod, } from "./utils";
+import {
+  applyMethodDecorators,
+  buildCustomQueryDecorators,
+  createRouteHandler,
+  defineMethod,
+} from "./utils";
 import { Auth } from "./decorators/decorators";
+import { AbstractQueryController, ControllerConstructor } from "./types";
 
 /**
  * @description
@@ -87,30 +106,59 @@ export class FromModelController {
     }
   }
 
-  static createQueryRoutesFromRepository<T extends Model>(
-    repo: Repo<T>,
+  static createQueryRoutesFromRepository<T extends Model<boolean>>(
+    repo: Repo<T> | ModelService<T>,
     prefix: string = "statement"
-  ) {
+  ): ControllerConstructor<AbstractQueryController> {
     const ModelConstr: Constructor = repo.class;
-    const methodQueries: Record<string, { fields: string[] }> =
-      Metadata.get(
-        repo.constructor as Constructor,
-        Metadata.key(PersistenceKeys.QUERY)
-      ) ?? {};
+    const methodQueries: Record<string, { fields: string[] }> = Metadata.get(
+      repo.constructor as Constructor,
+      Metadata.key(PersistenceKeys.QUERY)
+    ) ?? {
+      findByName: ["name"],
+      findByAgeGreaterThanAndAgeLessThan: ["age1", "age2"],
+    };
 
     // create base class
-    class QueryController extends LoggedClass {
-      private readonly _persistence!: Repo<any> | ModelService<any>;
+    class QueryController extends AbstractQueryController {
+      // protected readonly clientContext: DecafRequestContext;
+      // protected readonly _persistence!: Repo<any> | ModelService<any>;
 
-      constructor(private clientContext: DecafRequestContext) {
-        super();
+      constructor(clientContext: DecafRequestContext) {
+        super(clientContext);
+        // this.clientContext = clientContext;
         this._persistence = FromModelController.getPersistence(ModelConstr);
       }
 
-      get persistence() {
+      override get persistence() {
         const adapterOptions = this.clientContext.get(DECAF_ADAPTER_OPTIONS);
         if (adapterOptions) return this._persistence.for(adapterOptions) as any;
         return this._persistence;
+      }
+
+      @ApiOperation({ summary: `Create a new ${ModelConstr.name}.` })
+      @ApiBody({
+        description: `Payload for ${ModelConstr.name}`,
+        schema: { $ref: getSchemaPath(ModelConstr) },
+      })
+      @ApiCreatedResponse({
+        description: `${ModelConstr.name} created successfully.`,
+      })
+      @ApiBadRequestResponse({ description: "Payload validation failed." })
+      @ApiUnprocessableEntityResponse({
+        description: "Repository rejected the provided payload.",
+      })
+      async test(@Body() data: T): Promise<Model<any>> {
+        const log = this.log.for(this.test);
+        log.verbose(`creating new ${ModelConstr.name}`);
+        let created: Model;
+        try {
+          created = await this.persistence.create(data);
+        } catch (e: unknown) {
+          log.error(`Failed to create new ${ModelConstr.name}`, e as Error);
+          throw e;
+        }
+        return created;
       }
     }
 
@@ -120,7 +168,7 @@ export class FromModelController {
         .filter((segment) => segment && segment.trim())
         .join("/");
 
-      const handler = createRouteHandler(methodName);
+      const handler = createRouteHandler(methodName) as any;
       const descriptor = defineMethod(QueryController, methodName, handler);
 
       if (descriptor) {
@@ -155,30 +203,25 @@ export class FromModelController {
 
     log.debug(`Creating controller for model: ${modelClazzName}`);
 
-    const BaseController =
-      FromModelController.createQueryRoutesFromRepository(repo);
+    const BaseController = FromModelController.createQueryRoutesFromRepository(
+      repo as any
+    ) as Constructor<AbstractQueryController>;
 
     @Controller(routePath)
     @ApiTags(modelClazzName)
     @ApiExtraModels(ModelClazz)
     @Auth(ModelClazz)
     class DynamicModelController extends BaseController {
-      private _persistence: Repo<T> | ModelService<T> = repo;
       private readonly pk: string = Model.pk(ModelClazz) as string;
 
-      constructor(private clientContext: DecafRequestContext) {
+      constructor(clientContext: DecafRequestContext) {
         super(clientContext);
         log.info(
           `Registering dynamic controller for model: ${modelClazzName} route: /${routePath}`
         );
       }
 
-      get persistence(): ModelService<T> | Repo<T> {
-        const adapterOptions = this.clientContext.get(DECAF_ADAPTER_OPTIONS);
-        if (adapterOptions) return this._persistence.for(adapterOptions) as any;
-        return this._persistence;
-      }
-
+      @Get("statement/:test")
       @ApiOperationFromModel(ModelClazz, "POST")
       @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
       @ApiBody({
