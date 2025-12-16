@@ -26,6 +26,7 @@ export type DecafModuleOptions<
   conf: CONF;
   alias?: string;
   autoControllers: boolean;
+  autoServices?: boolean;
   handlers?: Type<DecafRequestHandler>[];
 };
 
