@@ -7,7 +7,7 @@ import {
 } from "@nestjs/swagger";
 import { Controller } from "./types";
 
-export async function createRouteHandler<T>(methodName: string) {
+export function createRouteHandler<T>(methodName: string) {
   return async function (this: Controller, ...params: string[]): Promise<T> {
     const log = this.log.for(methodName);
 

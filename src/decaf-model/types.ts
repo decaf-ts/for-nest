@@ -11,7 +11,7 @@ export abstract class AbstractQueryController extends LoggedClass {
   protected readonly clientContext: DecafRequestContext;
   protected _persistence!: Repo<any> | ModelService<any>;
 
-  constructor(clientContext: DecafRequestContext) {
+  protected constructor(clientContext: DecafRequestContext) {
     super();
     this.clientContext = clientContext;
   }

@@ -19,7 +19,7 @@ import {
   Repository,
 } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
-import { LoggedClass, Logging, toKebabCase } from "@decaf-ts/logging";
+import { Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import type {
@@ -111,22 +111,16 @@ export class FromModelController {
     prefix: string = "statement"
   ): ControllerConstructor<AbstractQueryController> {
     const ModelConstr: Constructor = repo.class;
-    const methodQueries: Record<string, { fields: string[] }> = Metadata.get(
-      repo.constructor as Constructor,
-      Metadata.key(PersistenceKeys.QUERY)
-    ) ?? {
-      findByName: ["name"],
-      findByAgeGreaterThanAndAgeLessThan: ["age1", "age2"],
-    };
+    const methodQueries: Record<string, { fields?: string[] | undefined }> =
+      Metadata.get(
+        repo.constructor as Constructor,
+        Metadata.key(PersistenceKeys.QUERY)
+      ) ?? {};
 
     // create base class
     class QueryController extends AbstractQueryController {
-      // protected readonly clientContext: DecafRequestContext;
-      // protected readonly _persistence!: Repo<any> | ModelService<any>;
-
       constructor(clientContext: DecafRequestContext) {
         super(clientContext);
-        // this.clientContext = clientContext;
         this._persistence = FromModelController.getPersistence(ModelConstr);
       }
 
@@ -134,31 +128,6 @@ export class FromModelController {
         const adapterOptions = this.clientContext.get(DECAF_ADAPTER_OPTIONS);
         if (adapterOptions) return this._persistence.for(adapterOptions) as any;
         return this._persistence;
-      }
-
-      @ApiOperation({ summary: `Create a new ${ModelConstr.name}.` })
-      @ApiBody({
-        description: `Payload for ${ModelConstr.name}`,
-        schema: { $ref: getSchemaPath(ModelConstr) },
-      })
-      @ApiCreatedResponse({
-        description: `${ModelConstr.name} created successfully.`,
-      })
-      @ApiBadRequestResponse({ description: "Payload validation failed." })
-      @ApiUnprocessableEntityResponse({
-        description: "Repository rejected the provided payload.",
-      })
-      async test(@Body() data: T): Promise<Model<any>> {
-        const log = this.log.for(this.test);
-        log.verbose(`creating new ${ModelConstr.name}`);
-        let created: Model;
-        try {
-          created = await this.persistence.create(data);
-        } catch (e: unknown) {
-          log.error(`Failed to create new ${ModelConstr.name}`, e as Error);
-          throw e;
-        }
-        return created;
       }
     }
 
@@ -221,7 +190,6 @@ export class FromModelController {
         );
       }
 
-      @Get("statement/:test")
       @ApiOperationFromModel(ModelClazz, "POST")
       @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
       @ApiBody({
