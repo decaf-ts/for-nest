@@ -50,10 +50,12 @@ export class DecafModelModule {
         {
           provide: DECAF_HANDLERS,
           useFactory: () => {
-            return options.handlers?.map((H) => {
-              log.info(`Registered request handler: ${H.name}`);
-              return new H();
-            });
+            return (
+              options.handlers?.map((H) => {
+                log.info(`Registered request handler: ${H.name}`);
+                return new H();
+              }) ?? []
+            );
           },
         },
         DecafRequestContext,

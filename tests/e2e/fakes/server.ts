@@ -1,5 +1,6 @@
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import request from "supertest";
+import { Logger } from "@nestjs/common";
 
 export interface HttpModelResponse<T> {
   pk: string;
@@ -10,7 +11,7 @@ export interface HttpModelResponse<T> {
   toJSON(): T;
 }
 
-export class HttpModelClient<T extends Model> {
+export class HttpModelClient<T extends Model> extends Logger {
   private readonly path: string;
   private readonly server: request.SuperTest<request.Test>;
 
@@ -18,12 +19,15 @@ export class HttpModelClient<T extends Model> {
     private readonly app: any,
     private readonly Constr: ModelConstructor<T>
   ) {
+    super();
     this.server = request(app);
     this.path = `/${Constr.name.toLowerCase()}`;
   }
 
   private wrapResponse(body: any, status: number): HttpModelResponse<T> {
     const self = this as any;
+    if (status > 400) this.error(body?.error);
+
     return {
       status,
       raw: body,
