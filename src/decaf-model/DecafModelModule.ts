@@ -30,7 +30,6 @@ export class DecafModelModule {
     log.info(`Generating controllers for flavour...`);
 
     const trackedModels = Adapter.models(flavour);
-    trackedModels.pop();
 
     let modelServices = [];
     if (options.autoServices) {
