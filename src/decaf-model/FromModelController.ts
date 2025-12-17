@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param } from "@nestjs/common";
+import { Body, Controller, Param } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -107,13 +107,13 @@ export class FromModelController {
   }
 
   static createQueryRoutesFromRepository<T extends Model<boolean>>(
-    repo: Repo<T> | ModelService<T>,
+    persistence: Repo<T> | ModelService<T>,
     prefix: string = "statement"
   ): ControllerConstructor<AbstractQueryController> {
-    const ModelConstr: Constructor = repo.class;
+    const ModelConstr: Constructor = persistence.class;
     const methodQueries: Record<string, { fields?: string[] | undefined }> =
       Metadata.get(
-        repo.constructor as Constructor,
+        persistence.constructor as Constructor,
         Metadata.key(PersistenceKeys.QUERY)
       ) ?? {};
 
@@ -159,29 +159,29 @@ export class FromModelController {
     return QueryController;
   }
 
-  static create<T extends Model<any>>(ModelClazz: ModelConstructor<T>) {
+  static create<T extends Model<any>>(ModelConstr: ModelConstructor<T>) {
     const log = FromModelController.log.for(FromModelController.create);
-    const tableName = Model.tableName(ModelClazz);
+    const tableName = Model.tableName(ModelConstr);
     const routePath = toKebabCase(tableName);
-    const modelClazzName = ModelClazz.name;
-    const repo = FromModelController.getPersistence(ModelClazz);
+    const modelClazzName = ModelConstr.name;
+    const persistence = FromModelController.getPersistence(ModelConstr);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { description, getPK, apiProperties, path } =
-      FromModelController.getRouteParametersFromModel(ModelClazz);
+      FromModelController.getRouteParametersFromModel(ModelConstr);
 
     log.debug(`Creating controller for model: ${modelClazzName}`);
 
     const BaseController = FromModelController.createQueryRoutesFromRepository(
-      repo as any
+      persistence
     ) as Constructor<AbstractQueryController>;
 
     @Controller(routePath)
     @ApiTags(modelClazzName)
-    @ApiExtraModels(ModelClazz)
-    @Auth(ModelClazz)
+    @ApiExtraModels(ModelConstr)
+    @Auth(ModelConstr)
     class DynamicModelController extends BaseController {
-      private readonly pk: string = Model.pk(ModelClazz) as string;
+      private readonly pk: string = Model.pk(ModelConstr) as string;
 
       constructor(clientContext: DecafRequestContext) {
         super(clientContext);
@@ -190,11 +190,11 @@ export class FromModelController {
         );
       }
 
-      @ApiOperationFromModel(ModelClazz, "POST")
+      @ApiOperationFromModel(ModelConstr, "POST")
       @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
       @ApiBody({
         description: `Payload for ${modelClazzName}`,
-        schema: { $ref: getSchemaPath(ModelClazz) },
+        schema: { $ref: getSchemaPath(ModelConstr) },
       })
       @ApiCreatedResponse({
         description: `${modelClazzName} created successfully.`,
@@ -219,7 +219,7 @@ export class FromModelController {
         return created;
       }
 
-      @ApiOperationFromModel(ModelClazz, "GET", path)
+      @ApiOperationFromModel(ModelConstr, "GET", path)
       @ApiParamsFromModel(apiProperties)
       @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
       @ApiOkResponse({
@@ -250,7 +250,7 @@ export class FromModelController {
         return read;
       }
 
-      @ApiOperationFromModel(ModelClazz, "GET", "query/:method")
+      @ApiOperationFromModel(ModelConstr, "GET", "query/:method")
       @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
       @ApiParam({ name: "method", description: "Query method to be called" })
       @ApiOkResponse({
@@ -281,17 +281,17 @@ export class FromModelController {
         return results;
       }
 
-      @ApiOperationFromModel(ModelClazz, "PUT", path)
+      @ApiOperationFromModel(ModelConstr, "PUT", path)
       @ApiParamsFromModel(apiProperties)
       @ApiOperation({
         summary: `Replace an existing ${modelClazzName} record with a new payload.`,
       })
       @ApiBody({
         description: `Payload for replace a existing record of ${modelClazzName}`,
-        schema: { $ref: getSchemaPath(ModelClazz) },
+        schema: { $ref: getSchemaPath(ModelConstr) },
       })
       @ApiOkResponse({
-        description: `${ModelClazz} record replaced successfully.`,
+        description: `${ModelConstr} record replaced successfully.`,
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
@@ -310,7 +310,7 @@ export class FromModelController {
         try {
           log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
           updated = await this.persistence.update(
-            new ModelClazz({
+            new ModelConstr({
               ...body,
               [this.pk]: id,
             })
@@ -322,7 +322,7 @@ export class FromModelController {
         return updated;
       }
 
-      @ApiOperationFromModel(ModelClazz, "DELETE", path)
+      @ApiOperationFromModel(ModelConstr, "DELETE", path)
       @ApiParamsFromModel(apiProperties)
       @ApiOperation({ summary: `Delete a ${modelClazzName} record by id.` })
       @ApiOkResponse({
