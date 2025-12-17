@@ -97,12 +97,12 @@ export class FromModelController {
 
   static getPersistence<T extends Model<boolean>>(
     ModelClazz: ModelConstructor<T>
-  ) {
+  ): Repo<T> | ModelService<T> {
     try {
-      return ModelService.forModel(ModelClazz as any);
+      return ModelService.forModel(ModelClazz);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {
-      return Repository.forModel(ModelClazz) as Repo<T>;
+      return Repository.forModel(ModelClazz);
     }
   }
 

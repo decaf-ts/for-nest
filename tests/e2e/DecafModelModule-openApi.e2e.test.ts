@@ -3,7 +3,6 @@ import { INestApplication } from "@nestjs/common";
 import { DecafExceptionFilter, DecafModule } from "../../src";
 import {
   Adapter,
-  InjectablesRegistry,
   ModelService,
   query,
   RamAdapter,
@@ -13,7 +12,7 @@ import {
 import { Product } from "./fakes/models/Product";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { OpenAPIObject } from "@nestjs/swagger/dist/interfaces/index";
-import { Injectables } from "@decaf-ts/injectable-decorators";
+import { Constructor } from "@decaf-ts/decoration";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
@@ -30,7 +29,7 @@ describe("DecafModelModule OpenAPI", () => {
     let openApi: OpenAPIObject;
 
     beforeAll(async () => {
-      Injectables.setRegistry(new InjectablesRegistry());
+      // Injectables.setRegistry(new InjectablesRegistry());
       Adapter._cache = {};
 
       const moduleRef = await Test.createTestingModule({
@@ -110,7 +109,7 @@ describe("DecafModelModule OpenAPI", () => {
 
       const byAge =
         openApi.paths[
-          "/product/statement/findByAgeGreaterThanAndAgeLessThan/{age}/{age}"
+          "/product/statement/findByAgeGreaterThanAndAgeLessThan/{ageGreaterThan}/{ageLessThan}"
         ]?.get;
 
       expect(byAge).toBeDefined();
@@ -145,9 +144,9 @@ describe("DecafModelModule OpenAPI", () => {
     }
 
     beforeAll(async () => {
-      Injectables.setRegistry(new InjectablesRegistry());
       Adapter._cache = {};
       new ProductService();
+      expect(ModelService.forModel(Product as Constructor)).toBeDefined();
 
       const moduleRef = await Test.createTestingModule({
         imports: [
@@ -227,7 +226,7 @@ describe("DecafModelModule OpenAPI", () => {
 
       const byAge =
         openApi.paths[
-          "/product/statement/findByAgeGreaterThanAndAgeLessThan/{age}/{age}"
+          "/product/statement/findByAgeGreaterThanAndAgeLessThan/{ageGreaterThan}/{ageLessThan}"
         ]?.get;
 
       expect(byAge).toBeDefined();
