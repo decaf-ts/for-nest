@@ -23,7 +23,7 @@ import { Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import type {
-  DecafApiProperties,
+  DecafApiProperty,
   DecafModelRoute,
   DecafParamProps,
 } from "./decorators";
@@ -99,11 +99,10 @@ export class FromModelController {
     ModelClazz: ModelConstructor<T>
   ): Repo<T> | ModelService<T> {
     try {
-      throw new Error("");
-      return ModelService.forModel(ModelClazz);
+      return ModelService.forModel(ModelClazz) as ModelService<T>;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {
-      return Repository.forModel(ModelClazz);
+      return Repository.forModel(ModelClazz) as Repo<T>;
     }
   }
 
@@ -225,7 +224,7 @@ export class FromModelController {
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       async read(@DecafParams(apiProperties) routeParams: DecafParamProps) {
-        const id = getPK(...routeParams.ordered);
+        const id = getPK(...routeParams.valuesInOrder);
         if (typeof id === "undefined")
           throw new ValidationError(`No ${this.pk} provided`);
 
@@ -298,7 +297,7 @@ export class FromModelController {
         @Body() body: Model<any>
       ) {
         const log = this.log.for(this.update);
-        const id = getPK(...routeParams.ordered);
+        const id = getPK(...routeParams.valuesInOrder);
         if (typeof id === "undefined")
           throw new ValidationError(`No ${this.pk} provided`);
 
@@ -329,7 +328,7 @@ export class FromModelController {
       })
       async delete(@DecafParams(apiProperties) routeParams: DecafParamProps) {
         const log = this.log.for(this.delete);
-        const id = getPK(...routeParams.ordered);
+        const id = getPK(...routeParams.valuesInOrder);
         if (typeof id === "undefined")
           throw new ValidationError(`No ${this.pk} provided`);
 
@@ -372,7 +371,7 @@ export class FromModelController {
 
     const description = Metadata.description(ModelClazz);
     const path = `:${uniqueKeys.join("/:")}`;
-    const apiProperties: DecafApiProperties[] = uniqueKeys.map((key) => {
+    const apiProperties: DecafApiProperty[] = uniqueKeys.map((key) => {
       return {
         name: key,
         description: Metadata.description(ModelClazz, key),

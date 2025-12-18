@@ -31,7 +31,7 @@ export class DecafModelModule {
 
     const trackedModels = Adapter.models(flavour);
 
-    let modelServices = [];
+    let modelServices: Provider[] = [];
     if (options.autoServices) {
       log.info("Auto-services enabled. Initializing service generation.");
       modelServices = this.createModelServices(trackedModels);

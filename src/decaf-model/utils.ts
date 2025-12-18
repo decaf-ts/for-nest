@@ -1,4 +1,5 @@
 import { Get } from "@nestjs/common";
+import { Logger } from "@decaf-ts/logging";
 import { Controller, type DecoratorBundle } from "./types";
 import {
   ApiNoContentResponse,
@@ -7,22 +8,24 @@ import {
   ApiParam,
 } from "@nestjs/swagger";
 import {
-  DecafApiProperties,
+  DecafApiProperty,
   type DecafParamProps,
   DecafParams,
-} from "./decorators/index";
+} from "./decorators";
 
 export function createRouteHandler<T>(methodName: string) {
   return async function (
     this: Controller,
-    params: DecafParamProps
+    pathParams: DecafParamProps
   ): Promise<T> {
-    const log = this.log.for(methodName);
+    const log: Logger = this.log.for(methodName);
 
     try {
-      log.debug(`Executing custom query "${methodName}" with args: ${params}`);
+      log.debug(
+        `Invoking persistence method "${methodName}" given parameters: ${JSON.stringify(pathParams.valuesInOrder)}`
+      );
       return (await (this.persistence as Record<string, any>)[methodName](
-        ...params
+        ...pathParams.valuesInOrder
       )) as T;
     } catch (e: any) {
       log.error(`Custom query "${methodName}" failed`, e);
@@ -58,7 +61,7 @@ const extractPathParams = (routePath: string): string[] => {
     .map((p) => p.slice(1));
 };
 
-const apiParamSpec = (name: string): DecafApiProperties => ({
+const apiParamSpec = (name: string): DecafApiProperty => ({
   name,
   description: `${name} parameter for the query`,
   required: true,

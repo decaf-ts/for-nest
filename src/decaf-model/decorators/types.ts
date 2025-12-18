@@ -1,6 +1,6 @@
 export type HttpVerbs = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-export type DecafApiProperties = {
+export type DecafApiProperty = {
   name: string;
   description?: string;
   required?: boolean;
@@ -10,12 +10,12 @@ export type DecafApiProperties = {
 export type DecafModelRoute = {
   path: string;
   description?: string;
-  apiProperties: DecafApiProperties[];
+  apiProperties: DecafApiProperty[];
   getPK: (...args: Array<string | number>) => string;
 };
 
 export type DecafParamProps = {
-  original: Record<string, any>;
-  ordered: any[];
-  order: string[];
+  raw: Record<string, string | number>;
+  keysInOrder: Array<string>;
+  valuesInOrder: Array<string | number>;
 };
