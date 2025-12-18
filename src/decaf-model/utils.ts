@@ -1,14 +1,22 @@
 import { Get } from "@nestjs/common";
+import { Controller, type DecoratorBundle } from "./types";
 import {
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
 } from "@nestjs/swagger";
-import { Controller } from "./types";
+import {
+  DecafApiProperties,
+  type DecafParamProps,
+  DecafParams,
+} from "./decorators/index";
 
 export function createRouteHandler<T>(methodName: string) {
-  return async function (this: Controller, ...params: string[]): Promise<T> {
+  return async function (
+    this: Controller,
+    params: DecafParamProps
+  ): Promise<T> {
     const log = this.log.for(methodName);
 
     try {
@@ -23,7 +31,7 @@ export function createRouteHandler<T>(methodName: string) {
   };
 }
 
-export function defineMethod(
+export function defineRouteMethod(
   ControllerClass: new (...args: any[]) => any,
   methodName: string,
   handler: (...args: any[]) => any
@@ -43,44 +51,50 @@ export function defineMethod(
   );
 }
 
-export function buildCustomQueryDecorators(
+const extractPathParams = (routePath: string): string[] => {
+  return routePath
+    .split("/")
+    .filter((p) => p.startsWith(":"))
+    .map((p) => p.slice(1));
+};
+
+const apiParamSpec = (name: string): DecafApiProperties => ({
+  name,
+  description: `${name} parameter for the query`,
+  required: true,
+  type: String,
+});
+
+export function getApiDecorators(
   methodName: string,
-  routePath: string,
-  fields: string[]
-): MethodDecorator[] {
-  return [
-    Get(routePath),
-
-    ...fields.map((field) =>
-      ApiParam({
-        name: field,
-        description: `${field} parameter for the query`,
-        required: true,
-        type: String,
-      })
-    ),
-
-    ApiOperation({
-      summary: `Retrieve records using custom query "${methodName}".`,
-    }),
-
-    ApiOkResponse({
-      description: `Results successfully retrieved.`,
-    }),
-
-    ApiNoContentResponse({
-      description: `No content returned by the query.`,
-    }),
-  ];
+  routePath: string
+): DecoratorBundle {
+  const apiPathParams = extractPathParams(routePath).map(apiParamSpec);
+  return {
+    method: [
+      Get(routePath),
+      ...apiPathParams.map(ApiParam),
+      ApiOperation({
+        summary: `Retrieve records using custom query "${methodName}".`,
+      }),
+      ApiOkResponse({
+        description: `Results successfully retrieved.`,
+      }),
+      ApiNoContentResponse({
+        description: `No content returned by the query.`,
+      }),
+    ],
+    params: [DecafParams(apiPathParams)],
+  };
 }
 
-export function applyMethodDecorators(
+export function applyApiDecorators(
   target: any,
   methodName: string,
   descriptor: PropertyDescriptor,
-  decorators: MethodDecorator[]
+  decorators: DecoratorBundle
 ) {
-  decorators.forEach((d) =>
-    d(target?.prototype || target, methodName, descriptor)
-  );
+  const proto = target?.prototype ?? target;
+  decorators.method.forEach((d) => d(proto, methodName, descriptor));
+  decorators.params?.forEach((d, index) => d(proto, methodName, index));
 }

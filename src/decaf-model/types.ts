@@ -22,3 +22,8 @@ export abstract class AbstractQueryController extends LoggedClass {
 }
 
 export type ControllerConstructor<T> = new (...args: any[]) => T;
+
+export type DecoratorBundle = {
+  method: MethodDecorator[];
+  params?: ParameterDecorator[];
+};

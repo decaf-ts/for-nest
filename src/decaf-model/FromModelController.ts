@@ -35,10 +35,10 @@ import {
 import { DecafRequestContext } from "../request";
 import { DECAF_ADAPTER_OPTIONS } from "../constants";
 import {
-  applyMethodDecorators,
-  buildCustomQueryDecorators,
+  applyApiDecorators,
+  getApiDecorators,
   createRouteHandler,
-  defineMethod,
+  defineRouteMethod,
 } from "./utils";
 import { Auth } from "./decorators/decorators";
 import { AbstractQueryController, ControllerConstructor } from "./types";
@@ -99,6 +99,7 @@ export class FromModelController {
     ModelClazz: ModelConstructor<T>
   ): Repo<T> | ModelService<T> {
     try {
+      throw new Error("");
       return ModelService.forModel(ModelClazz);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {
@@ -138,21 +139,16 @@ export class FromModelController {
         .join("/");
 
       const handler = createRouteHandler(methodName) as any;
-      const descriptor = defineMethod(QueryController, methodName, handler);
+      const descriptor = defineRouteMethod(
+        QueryController,
+        methodName,
+        handler
+      );
 
       if (descriptor) {
-        const decorators = buildCustomQueryDecorators(
-          methodName,
-          routePath,
-          fields
-        );
+        const decorators = getApiDecorators(methodName, routePath);
 
-        applyMethodDecorators(
-          QueryController,
-          methodName,
-          descriptor,
-          decorators
-        );
+        applyApiDecorators(QueryController, methodName, descriptor, decorators);
       }
     }
 
