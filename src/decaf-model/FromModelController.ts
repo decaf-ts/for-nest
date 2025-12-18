@@ -99,6 +99,7 @@ export class FromModelController {
     ModelClazz: ModelConstructor<T>
   ): Repo<T> | ModelService<T> {
     try {
+      throw new Erro("");
       return ModelService.forModel(ModelClazz) as ModelService<T>;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {
@@ -108,7 +109,7 @@ export class FromModelController {
 
   static createQueryRoutesFromRepository<T extends Model<boolean>>(
     persistence: Repo<T> | ModelService<T>,
-    prefix: string = "statement"
+    prefix: string = PersistenceKeys.STATEMENT
   ): ControllerConstructor<AbstractQueryController> {
     const ModelConstr: Constructor = persistence.class;
     const methodQueries: Record<string, { fields?: string[] | undefined }> =

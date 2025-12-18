@@ -1,4 +1,4 @@
-import { Get } from "@nestjs/common";
+import { Get, Query } from "@nestjs/common";
 import { Logger } from "@decaf-ts/logging";
 import { Controller, type DecoratorBundle } from "./types";
 import {
@@ -12,47 +12,7 @@ import {
   type DecafParamProps,
   DecafParams,
 } from "./decorators";
-
-export function createRouteHandler<T>(methodName: string) {
-  return async function (
-    this: Controller,
-    pathParams: DecafParamProps
-  ): Promise<T> {
-    const log: Logger = this.log.for(methodName);
-
-    try {
-      log.debug(
-        `Invoking persistence method "${methodName}" given parameters: ${JSON.stringify(pathParams.valuesInOrder)}`
-      );
-      return (await (this.persistence as Record<string, any>)[methodName](
-        ...pathParams.valuesInOrder
-      )) as T;
-    } catch (e: any) {
-      log.error(`Custom query "${methodName}" failed`, e);
-      throw e;
-    }
-  };
-}
-
-export function defineRouteMethod(
-  ControllerClass: new (...args: any[]) => any,
-  methodName: string,
-  handler: (...args: any[]) => any
-): PropertyDescriptor | undefined {
-  Object.defineProperty(
-    ControllerClass.prototype || ControllerClass,
-    methodName,
-    {
-      value: handler,
-      writable: false,
-    }
-  );
-
-  return Object.getOwnPropertyDescriptor(
-    ControllerClass.prototype || ControllerClass,
-    methodName
-  );
-}
+import { DirectionLimitOffset } from "@decaf-ts/core";
 
 const extractPathParams = (routePath: string): string[] => {
   return routePath
@@ -87,7 +47,7 @@ export function getApiDecorators(
         description: `No content returned by the query.`,
       }),
     ],
-    params: [DecafParams(apiPathParams)],
+    params: [DecafParams(apiPathParams), Query()],
   };
 }
 
@@ -100,4 +60,50 @@ export function applyApiDecorators(
   const proto = target?.prototype ?? target;
   decorators.method.forEach((d) => d(proto, methodName, descriptor));
   decorators.params?.forEach((d, index) => d(proto, methodName, index));
+}
+
+export function createRouteHandler<T>(methodName: string) {
+  return async function (
+    this: Controller,
+    pathParams: DecafParamProps,
+    queryParams: DirectionLimitOffset
+  ): Promise<T> {
+    const log: Logger = this.log.for(methodName);
+
+    try {
+      log.debug(
+        `Invoking persistence method "${methodName}" given parameters: ${JSON.stringify(pathParams.valuesInOrder)}`
+      );
+      const { direction, limit, offset } = queryParams;
+      return (await (this.persistence as Record<string, any>)[methodName](
+        ...pathParams.valuesInOrder,
+        direction,
+        limit,
+        offset
+      )) as T;
+    } catch (e: any) {
+      log.error(`Custom query "${methodName}" failed`, e);
+      throw e;
+    }
+  };
+}
+
+export function defineRouteMethod(
+  ControllerClass: new (...args: any[]) => any,
+  methodName: string,
+  handler: (...args: any[]) => any
+): PropertyDescriptor | undefined {
+  Object.defineProperty(
+    ControllerClass.prototype || ControllerClass,
+    methodName,
+    {
+      value: handler,
+      writable: false,
+    }
+  );
+
+  return Object.getOwnPropertyDescriptor(
+    ControllerClass.prototype || ControllerClass,
+    methodName
+  );
 }
