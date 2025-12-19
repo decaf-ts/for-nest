@@ -8,12 +8,22 @@ import {
   RamAdapter,
   RamFlavour,
   service,
+  PreparedStatementKeys,
 } from "@decaf-ts/core";
 import { HttpModelClient, HttpModelResponse } from "./fakes/server";
-import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
+import {
+  AxiosHttpAdapter,
+  HttpAdapter,
+  NestJSResponseParser,
+  RestService,
+} from "@decaf-ts/for-http";
 import { toKebabCase } from "@decaf-ts/logging";
 import { Model } from "@decaf-ts/decorator-validation";
-import { NotFoundError } from "@decaf-ts/db-decorators";
+import {
+  NotFoundError,
+  BulkCrudOperationKeys,
+  OperationKeys,
+} from "@decaf-ts/db-decorators";
 import { genStr } from "./fakes/utils";
 import { Product } from "./fakes/models/Product";
 
@@ -251,7 +261,7 @@ describe("DecafModelModule CRUD", () => {
       // expect(res.body.length).toBeGreaterThanOrEqual(2);
     });
 
-    it("should FAIL QUERY with an invalid method", async () => {
+    it.skip("should FAIL QUERY with an invalid method", async () => {
       const res = await request(app.getHttpServer()).get(
         `/product/query/unknownMethod`
       );
@@ -260,9 +270,46 @@ describe("DecafModelModule CRUD", () => {
   });
 
   describe("Http Adapter Integration", () => {
+    class Parser extends NestJSResponseParser {
+      constructor() {
+        super();
+      }
+
+      override parse(
+        method: string,
+        response: {
+          status: number;
+          raw: any;
+          data: any;
+        }
+      ): any {
+        if (!(response.status >= 200 && response.status < 300))
+          throw HttpAdapter.parseError(response.status.toString());
+
+        switch (method) {
+          case OperationKeys.CREATE:
+          case OperationKeys.READ:
+          case OperationKeys.UPDATE:
+          case OperationKeys.DELETE:
+          case BulkCrudOperationKeys.CREATE_ALL:
+          case BulkCrudOperationKeys.READ_ALL:
+          case BulkCrudOperationKeys.UPDATE_ALL:
+          case BulkCrudOperationKeys.DELETE_ALL:
+          case PreparedStatementKeys.FIND_BY:
+          case PreparedStatementKeys.FIND_ONE_BY:
+          case PreparedStatementKeys.LIST_BY:
+          case PreparedStatementKeys.PAGE_BY:
+          case "statement":
+          default:
+            return response.data;
+        }
+      }
+    }
+
     const adapter = new AxiosHttpAdapter({
       protocol: "http",
       host: "localhost:3000",
+      responseParser: new Parser(),
     });
     const productCode = genStr(14);
     const batchNumber = `BATCH${genStr(3)}`;
@@ -324,7 +371,7 @@ describe("DecafModelModule CRUD", () => {
         if (!result.status.toString().startsWith("20")) {
           throw adapter.parseError(new Error(result.status.toString()));
         }
-        return result.data;
+        return result;
       });
 
     jest
@@ -335,7 +382,7 @@ describe("DecafModelModule CRUD", () => {
         if (!result.status.toString().startsWith("20")) {
           throw adapter.parseError(new Error(result.status.toString()));
         }
-        return result.data;
+        return result;
       });
 
     jest
@@ -346,7 +393,7 @@ describe("DecafModelModule CRUD", () => {
         if (!result.status.toString().startsWith("20")) {
           throw adapter.parseError(new Error(result.status.toString()));
         }
-        return new repo.class(result.data);
+        return result;
       });
 
     jest
@@ -357,7 +404,7 @@ describe("DecafModelModule CRUD", () => {
         if (!result.status.toString().startsWith("20")) {
           throw adapter.parseError(new Error(result.status.toString()));
         }
-        return new repo.class(result.data);
+        return result;
       });
     let created: Product;
 
@@ -381,13 +428,81 @@ describe("DecafModelModule CRUD", () => {
       expect(updated).toBeDefined();
       expect(updated.hasErrors()).toBe(undefined);
       expect(updated.equals(created, "name", "updatedAt")).toBe(true);
+
+      const read = await repo.read(created.id);
+      expect(read).toBeDefined();
+      expect(read.hasErrors()).toBe(undefined);
+      expect(read.equals(updated)).toBe(true);
     });
 
-    it.skip("deletes", async () => {
+    it("deletes", async () => {
       const deleted = await repo.delete(created.id);
       expect(deleted).toBeDefined();
       expect(deleted.hasErrors()).toBe(undefined);
       await expect(repo.read(created.id)).rejects.toThrow(NotFoundError);
+    });
+
+    let bulk: Product[];
+
+    it("Should create in bulk", async () => {
+      const models = Object.keys(new Array(10).fill(0))
+        .map(parseInt)
+        .map(
+          (i) =>
+            new Product({
+              productCode: genStr(14),
+              batchNumber: `BATCH${i}`,
+              name: "name" + i,
+            })
+        );
+
+      bulk = await repo.createAll(models);
+
+      expect(bulk).toBeDefined();
+      expect(bulk.length).toEqual(models.length);
+      expect(bulk.every((c) => !c.hasErrors())).toEqual(true);
+    });
+
+    it("Should read in bulk", async () => {
+      const ids = bulk.map((c) => c.id).slice(3, 5);
+
+      const read = await repo.readAll(ids);
+
+      expect(read).toBeDefined();
+      expect(read.length).toEqual(ids.length);
+    });
+
+    it("Should update in bulk", async () => {
+      const toUpdate = bulk.slice(0, 5).map((c: Product) => {
+        c.name = "updated";
+        return c;
+      });
+
+      const updated = await repo.updateAll(toUpdate);
+
+      expect(updated).toBeDefined();
+      expect(updated.length).toEqual(toUpdate.length);
+      expect(updated.every((r, i) => r.equals(created[i]))).toEqual(false);
+      expect(
+        updated.every((r, i) =>
+          r.equals(created[i], "updatedAt", "updatedBy", "city", "version")
+        )
+      ).toEqual(true);
+    });
+
+    it("Should delete in bulk", async () => {
+      const ids = bulk.map((c) => c.id).slice(3, 5);
+
+      const deleted = await repo.deleteAll(ids);
+
+      expect(deleted).toBeDefined();
+      expect(deleted.length).toEqual(ids.length);
+      for (const id of ids) {
+        await expect(repo.read(id)).rejects.toThrow(NotFoundError);
+      }
+
+      bulk.splice(3, 5);
+      await expect(repo.readAll(ids)).rejects.toThrow(NotFoundError);
     });
 
     it("runs prepared statements listBy", async () => {

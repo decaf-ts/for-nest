@@ -15,7 +15,7 @@ import { composed, readonly } from "@decaf-ts/db-decorators";
 @model()
 export class Product extends Model {
   @pk({ type: "String", generated: false })
-  @composed(["productCode", "batchNumber"], ":", true)
+  @composed(["productCode", "batchNumber"], ":")
   id!: string;
 
   @column()
