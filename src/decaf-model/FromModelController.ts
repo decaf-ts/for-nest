@@ -99,7 +99,6 @@ export class FromModelController {
     ModelClazz: ModelConstructor<T>
   ): Repo<T> | ModelService<T> {
     try {
-      throw new Erro("");
       return ModelService.forModel(ModelClazz) as ModelService<T>;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {

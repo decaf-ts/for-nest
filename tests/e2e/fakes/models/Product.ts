@@ -3,6 +3,7 @@ import { column, pk, RamFlavour, table } from "@decaf-ts/core";
 import {
   maxlength,
   minlength,
+  Model,
   model,
   ModelArg,
   pattern,
@@ -12,7 +13,7 @@ import { composed, readonly } from "@decaf-ts/db-decorators";
 @uses(RamFlavour)
 @table("product")
 @model()
-export class Product {
+export class Product extends Model {
   @pk({ type: "String", generated: false })
   @composed(["productCode", "batchNumber"], ":", true)
   id!: string;
@@ -31,5 +32,13 @@ export class Product {
   @column()
   name!: string;
 
-  constructor(model?: ModelArg<Product>) {}
+  @column()
+  country: string = "PT";
+
+  @column()
+  expiryDate: Date = new Date();
+
+  constructor(model?: ModelArg<Product>) {
+    super(model);
+  }
 }
