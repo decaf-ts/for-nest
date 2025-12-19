@@ -35,22 +35,6 @@ export function DecafParams(
   const order = props.map((p) => p.name);
   return OrderedParams(order);
 }
-
-export function QueryDetails() {
-  return createParamDecorator((data: unknown, ctx: ExecutionContext) => {
-    const req = ctx.switchToHttp().getRequest();
-    const details: DirectionLimitOffset = {};
-    if (req.query) {
-      if (req.query.direction)
-        details.direction = req.query.direction as OrderDirection;
-      if (req.query.limit) details.limit = parseInt(req.query.limit as string);
-      if (req.query.offset)
-        details.offset =
-          parseInt(req.query.offset as string) || req.query.offset;
-    }
-    return details;
-  });
-}
 //
 // export function Ctx(){
 //   return createParamDecorator((data: unknown, ctx: ExecutionContext) => {

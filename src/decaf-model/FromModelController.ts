@@ -1,4 +1,4 @@
-import { Body, Controller, Param } from "@nestjs/common";
+import { Body, Controller, Param, Query } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -547,7 +547,14 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
-      async statement(@Param("name") name: string, ...args: any[]) {
+      async statement(
+        @Param("method") name: string,
+        @Param("args") args: string,
+        @Query() details: DirectionLimitOffset
+      ) {
+        const { direction, offset, limit } = details;
+        switch (name) {
+        }
         return this.persistence.statement(name, ...args);
       }
     }
