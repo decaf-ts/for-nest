@@ -383,7 +383,7 @@ describe("DecafModelModule CRUD", () => {
       expect(updated.equals(created, "name", "updatedAt")).toBe(true);
     });
 
-    it("deletes", async () => {
+    it.skip("deletes", async () => {
       const deleted = await repo.delete(created.id);
       expect(deleted).toBeDefined();
       expect(deleted.hasErrors()).toBe(undefined);

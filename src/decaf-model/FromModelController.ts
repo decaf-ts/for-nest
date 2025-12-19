@@ -8,24 +8,28 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
   ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from "@nestjs/swagger";
 import {
+  type DirectionLimitOffset,
   ModelService,
-  PersistenceKeys,
-  Repo,
   Repository,
+  OrderDirection,
+  type Repo,
+  PersistenceKeys,
 } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
-import type {
-  DecafApiProperty,
-  DecafModelRoute,
-  DecafParamProps,
+import {
+  type DecafApiProperty,
+  type DecafModelRoute,
+  type DecafParamProps,
+  QueryDetails,
 } from "./decorators";
 import {
   ApiOperationFromModel,
@@ -99,7 +103,7 @@ export class FromModelController {
     ModelClazz: ModelConstructor<T>
   ): Repo<T> | ModelService<T> {
     try {
-      return ModelService.forModel(ModelClazz) as ModelService<T>;
+      return ModelService.forModel(ModelClazz as any) as ModelService<T>;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {
       return Repository.forModel(ModelClazz) as Repo<T>;
@@ -214,6 +218,38 @@ export class FromModelController {
         return created;
       }
 
+      @ApiOperationFromModel(ModelConstr, "POST")
+      @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
+      @ApiBody({
+        description: `Payload for ${modelClazzName}`,
+        schema: {
+          type: "array",
+          items: { $ref: getSchemaPath(ModelConstr) },
+        },
+      })
+      @ApiCreatedResponse({
+        description: `x ${modelClazzName} created successfully.`,
+      })
+      @ApiBadRequestResponse({ description: "Payload validation failed." })
+      @ApiUnprocessableEntityResponse({
+        description: "Repository rejected the provided payload.",
+      })
+      async createAll(@Body() data: T[]): Promise<Model[]> {
+        const log = this.log.for(this.createAll);
+        log.verbose(`creating new ${modelClazzName}`);
+        let created: T[];
+        try {
+          created = await this.persistence.createAll(data);
+        } catch (e: unknown) {
+          log.error(`Failed to create new ${modelClazzName}`, e as Error);
+          throw e;
+        }
+        log.info(
+          `created new ${modelClazzName} with id ${(created as any)[this.pk]}`
+        );
+        return created;
+      }
+
       @ApiOperationFromModel(ModelConstr, "GET", path)
       @ApiParamsFromModel(apiProperties)
       @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
@@ -244,6 +280,10 @@ export class FromModelController {
         log.info(`read ${modelClazzName} with id ${(read as any)[this.pk]}`);
         return read;
       }
+      //
+      // async readAll(){
+      //
+      // }
 
       @ApiOperationFromModel(ModelConstr, "GET", "query/:method")
       @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
@@ -317,6 +357,39 @@ export class FromModelController {
         return updated;
       }
 
+      @ApiOperationFromModel(ModelConstr, "PUT", path)
+      @ApiParamsFromModel(apiProperties)
+      @ApiOperation({
+        summary: `Replace an existing ${modelClazzName} record with a new payload.`,
+      })
+      @ApiBody({
+        description: `Payload for replace a existing record of ${modelClazzName}`,
+        schema: {
+          type: "array",
+          items: { $ref: getSchemaPath(ModelConstr) },
+        },
+      })
+      @ApiOkResponse({
+        description: `${ModelConstr} record replaced successfully.`,
+      })
+      @ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      })
+      @ApiBadRequestResponse({ description: "Payload validation failed." })
+      async updateAll(@Body() body: T[]) {
+        const log = this.log.for(this.update);
+
+        let updated: Model[];
+        try {
+          log.info(`updating ${body.length} ${modelClazzName}`);
+          updated = await this.persistence.updateAll(body);
+        } catch (e: unknown) {
+          log.error(e as Error);
+          throw e;
+        }
+        return updated;
+      }
+
       @ApiOperationFromModel(ModelConstr, "DELETE", path)
       @ApiParamsFromModel(apiProperties)
       @ApiOperation({ summary: `Delete a ${modelClazzName} record by id.` })
@@ -347,6 +420,135 @@ export class FromModelController {
         }
         log.info(`deleted ${modelClazzName} with id ${id}`);
         return del;
+      }
+      //
+      // @ApiOperationFromModel(ModelClazz, "GET", "query/:condition/:orderBy")
+      // @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
+      // @ApiParam({ name: "method", description: "Query method to be called" })
+      // @ApiOkResponse({
+      //   description: `${modelClazzName} retrieved successfully.`,
+      // })
+      // @ApiNotFoundResponse({
+      //   description: `No ${modelClazzName} records matches the query.`,
+      // })
+      // async query(
+      //   @Param("condition") condition: Condition<any>,
+      //   @Param("orderBy") orderBy: string,
+      //   @QueryDetails() details: DirectionLimitOffset,
+      // ) {
+      //   const {direction, limit, offset} = details;
+      //   return this.persistence.query(condition, orderBy as keyof Model, direction, limit, offset);
+      // }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "listBy/:key")
+      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
+      @ApiParam({ name: "key", description: "the model key to sort by" })
+      @ApiQuery({ name: "direction", required: true, enum: OrderDirection })
+      @ApiOkResponse({
+        description: `${modelClazzName} listed successfully.`,
+      })
+      // @ts-ignore
+      async listBy(key: string, @QueryDetails() details: DirectionLimitOffset) {
+        return this.persistence.listBy(
+          key as keyof T,
+          details.direction as OrderDirection
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "paginateBy/:key/:page")
+      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
+      @ApiParam({ name: "key", description: "the model key to sort by" })
+      @ApiParam({
+        name: "page",
+        description: "the page to retrieve or the bookmark",
+      })
+      @ApiQuery({
+        name: "direction",
+        required: true,
+        enum: OrderDirection,
+        description: "the sort order",
+      })
+      @ApiQuery({ name: "limit", required: true, description: "the page size" })
+      @ApiOkResponse({
+        description: `${modelClazzName} listed paginated.`,
+      })
+      async paginateBy(
+        @Param("key") key: string,
+        @Param("page") page: string | number,
+        // @ts-ignore
+        @QueryDetails() details: DirectionLimitOffset
+      ) {
+        return this.persistence.paginateBy(
+          key as keyof T,
+          details.direction as OrderDirection,
+          details.limit as number
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "findOneBy/:key")
+      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
+      @ApiParam({ name: "key", description: "the model key to sort by" })
+      @ApiOkResponse({
+        description: `${modelClazzName} listed found.`,
+      })
+      @ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      })
+      async findOneBy(@Param("key") key: string, @Param("value") value: any) {
+        return this.persistence.findOneBy(key as keyof T, value);
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "findBy/:key/:value")
+      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
+      @ApiParam({ name: "key", description: "the model key to compare" })
+      @ApiParam({ name: "value", description: "the value to match" })
+      @ApiOkResponse({
+        description: `${modelClazzName} listed found.`,
+      })
+      @ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      })
+      async findBy(@Param("key") key: string, @Param("value") value: any) {
+        return this.persistence.findBy(key as keyof T, value);
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "statement/:method/:args")
+      @ApiOperation({
+        summary: `Executes a prepared statement on ${modelClazzName}.`,
+      })
+      @ApiParam({
+        name: "method",
+        description: "the prepared statement to execute",
+      })
+      @ApiParam({
+        name: "args",
+        description:
+          "concatenated list of arguments the prepared statement can accept",
+      })
+      @ApiQuery({
+        name: "direction",
+        required: true,
+        enum: OrderDirection,
+        description: "the sort order when  applicable",
+      })
+      @ApiQuery({
+        name: "limit",
+        required: true,
+        description: "limit or page size when applicable",
+      })
+      @ApiQuery({
+        name: "offset",
+        required: true,
+        description: "offset or bookmark when applicable",
+      })
+      @ApiOkResponse({
+        description: `${modelClazzName} listed found.`,
+      })
+      @ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      })
+      async statement(@Param("name") name: string, ...args: any[]) {
+        return this.persistence.statement(name, ...args);
       }
     }
 
