@@ -63,9 +63,9 @@ export class HttpModelClient<T extends Model> extends Logger {
     return this.wrapResponse(res.body, res.status);
   }
 
-  async statement(...routeParams: (string | number)[]) {
+  async query(...routeParams: (string | number)[]) {
     const res = await this.server.get(
-      `${this.path}/${PersistenceKeys.STATEMENT}/${routeParams.join("/")}`.replace(
+      `${this.path}/${PersistenceKeys.QUERY}/${routeParams.join("/")}`.replace(
         "/?",
         "?"
       )

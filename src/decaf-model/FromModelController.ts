@@ -113,7 +113,7 @@ export class FromModelController {
 
   static createQueryRoutesFromRepository<T extends Model<boolean>>(
     persistence: Repo<T>,
-    prefix: string = PersistenceKeys.STATEMENT
+    prefix: string = PersistenceKeys.QUERY
   ): ControllerConstructor<AbstractQueryController> {
     const ModelConstr: Constructor = persistence.class;
     const methodQueries: Record<string, { fields?: string[] | undefined }> =
