@@ -4,7 +4,7 @@ import { INestApplication } from "@nestjs/common";
 import { FakeHandler } from "./fakes/fake.handler";
 import { DecafModule } from "../../src";
 import { Adapter, RamAdapter, RamFlavour } from "@decaf-ts/core";
-import { Fake } from "./fakes/models";
+import { Fake } from "./fakes/models/Fake";
 import { Model } from "@decaf-ts/decorator-validation";
 
 RamAdapter.decoration();

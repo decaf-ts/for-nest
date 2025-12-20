@@ -49,8 +49,10 @@ export class HttpModelClient<T extends Model> extends Logger {
     };
   }
 
-  async post(body: Record<string, any>) {
-    const res = await this.server.post(this.path).send(body);
+  async post(body: Record<string, any>, ...routeParams: string[]) {
+    const res = await this.server
+      .post(`${this.path}/${routeParams.join("/")}`)
+      .send(body);
     return this.wrapResponse(res.body, res.status);
   }
 
