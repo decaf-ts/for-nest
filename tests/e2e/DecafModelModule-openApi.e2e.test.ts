@@ -133,11 +133,13 @@ describe("DecafModelModule OpenAPI", () => {
       }
 
       @query()
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       async findByCountry(country: string) {
         throw new Error("Should be override by @query decorator");
       }
 
       @query()
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       async findByAgeGreaterThanAndAgeLessThan(age1: number, age2: number) {
         throw new Error("Should be override by @query decorator");
       }

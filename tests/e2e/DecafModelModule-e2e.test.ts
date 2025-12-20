@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { INestApplication } from "@nestjs/common";
@@ -10,7 +11,6 @@ import {
   RamFlavour,
   service,
   PreparedStatementKeys,
-  QueryError,
 } from "@decaf-ts/core";
 import { HttpModelClient, HttpModelResponse } from "./fakes/server";
 import {
@@ -354,6 +354,7 @@ describe("DecafModelModule CRUD", () => {
 
     jest
       .spyOn(adapter.client, "request")
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       .mockImplementation(async (req: any, ...args: any[]) => {
         switch (req.method) {
           case "GET": {
@@ -399,6 +400,7 @@ describe("DecafModelModule CRUD", () => {
 
     jest
       .spyOn(adapter.client, "post")
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       .mockImplementation(async (url: string, body: any, cfg: any) => {
         let params = url.split("product/") || [];
         if (params.length === 2) params = params[1].split("/");

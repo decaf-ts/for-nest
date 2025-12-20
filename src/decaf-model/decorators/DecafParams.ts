@@ -1,6 +1,5 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
 import { DecafParamProps, DecafApiProperty } from "./types";
-import { OrderDirection, DirectionLimitOffset } from "@decaf-ts/core";
 /**
  * @description Creates a custom NestJS parameter decorator that extracts and returns route parameters ordered by a specific key sequence.
  * @summary The `OrderedParams` decorator reads the incoming HTTP request's `params` object, optionally orders it according to a provided list of parameter names, and returns an object containing the original params, the ordered values, and the applied order list. This ensures deterministic parameter access for routes with multiple path parameters.

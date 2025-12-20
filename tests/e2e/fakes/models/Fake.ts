@@ -13,5 +13,6 @@ export class Fake {
   @required()
   name!: string;
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(args?: ModelArg<Fake>) {}
 }

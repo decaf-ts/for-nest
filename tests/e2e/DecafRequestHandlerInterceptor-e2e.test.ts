@@ -15,6 +15,7 @@ describe("DecafModule RequestHandlerInterceptor", () => {
   let HttpRequest: any;
 
   beforeAll(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const f = new Fake({ id: Math.random().toString(), name: "Faker" });
     const moduleRef = await Test.createTestingModule({
       imports: [

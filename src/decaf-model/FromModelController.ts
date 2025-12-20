@@ -27,7 +27,6 @@ import { Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import {
-  BulkApiOperationFromModel,
   type DecafApiProperty,
   type DecafModelRoute,
   type DecafParamProps,
@@ -284,6 +283,7 @@ export class FromModelController {
       async findBy(
         @Param("key") key: string,
         @Param("value") value: any,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         @Query() details: DirectionLimitOffset
       ) {
         return this.persistence.findBy(key as keyof T, value);
@@ -329,6 +329,7 @@ export class FromModelController {
         @Param("args") args: (string | number)[],
         @Query() details: DirectionLimitOffset
       ) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { direction, offset, limit } = details;
         args = args.map(
           (a) => (typeof a === "string" ? parseInt(a) : a) || a

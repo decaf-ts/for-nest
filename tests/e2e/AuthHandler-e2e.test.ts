@@ -98,7 +98,6 @@ describe("Authentication", () => {
       const productCode = genStr(14);
       const batchNumber = `BATCH${genStr(3)}`;
       const productPayload = { productCode, batchNumber, name: "Product 2" };
-      const id = `${productCode}:${batchNumber}`;
 
       const product = new Product(productPayload);
 
