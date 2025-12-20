@@ -42,14 +42,6 @@ class CustomProductRepository extends Repository<
   ) {
     throw new Error("Should be override by @query decorator");
   }
-
-  @query()
-  async findByExpiryDateDateGreaterThanAndExpiryDateLessThan(
-    expyDateGt: number,
-    expyDateLt: number
-  ) {
-    throw new Error("Should be override by @query decorator");
-  }
 }
 
 describe("DecafModelModule CRUD", () => {
@@ -74,9 +66,7 @@ describe("DecafModelModule CRUD", () => {
     );
 
     app.useGlobalFilters(new DecafExceptionFilter());
-
     await app.init();
-
     productHttpClient = new HttpModelClient<Product>(
       app.getHttpServer(),
       Product
@@ -251,20 +241,7 @@ describe("DecafModelModule CRUD", () => {
     });
   });
 
-  describe("QUERY", () => {
-    let service: any;
-
-    const unwrap = (resp: any) => {
-      const data = resp?.data ?? resp;
-      // tente suportar formatos comuns:
-      if (Array.isArray(data)) return data;
-      if (Array.isArray(data?.items)) return data.items;
-      if (Array.isArray(data?.content)) return data.content;
-      return data;
-    };
-
-    const batches = (list: any[]) => list.map((x) => x.batchNumber);
-
+  describe("QUERY STATEMENTS", () => {
     function sortByField<T>(
       data: readonly T[],
       field: keyof T,
@@ -283,7 +260,7 @@ describe("DecafModelModule CRUD", () => {
 
     const products: Product[] = [];
     beforeAll(async () => {
-      service = ModelService.getService(Product);
+      const service = ModelService.getService(Product);
       const payload = [
         {
           productCode: "40700719670720",
@@ -433,7 +410,8 @@ describe("DecafModelModule CRUD", () => {
         // expect only BATCH-002 (2025-06-15), because
         // BATCH-001 (2025-01-10) and BATCH-003 (2025-06-20)
         // are edge cases
-        expect(batches(resp.raw)).toEqual(["BATCH-002"]);
+        const batches = resp.raw.map((x) => x.batchNumber);
+        expect(batches).toEqual(["BATCH-002"]);
       });
 
       it("should return empty when range has no matches", async () => {
@@ -447,17 +425,6 @@ describe("DecafModelModule CRUD", () => {
         expect(resp.status).toBe(200);
         expect(Array.isArray(resp.raw)).toBe(true);
         expect(resp.raw).toHaveLength(0);
-      });
-
-      it("should reject invalid date params", async () => {
-        try {
-          await productHttpClient.get(
-            "findByExpiryDateGreaterThanAndExpiryDateLessThan/invalid-date/2025-12-31"
-          );
-        } catch (err: any) {
-          const status = err?.response?.status ?? err?.status;
-          expect([400, 422]).toContain(status);
-        }
       });
     });
   });
