@@ -1,12 +1,14 @@
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import request from "supertest";
 import { Logger } from "@nestjs/common";
+import { PersistenceKeys } from "@decaf-ts/core";
 
 export interface HttpModelResponse<T> {
   pk: string;
   status: number;
   raw: any;
   data: T;
+  bulkData: T[];
   toEqual(expected: any): void;
   toJSON(): T;
 }
@@ -32,6 +34,9 @@ export class HttpModelClient<T extends Model> extends Logger {
       status,
       raw: body,
       data: new this.Constr(body),
+      bulkData: Array.isArray(body)
+        ? body.map((b) => new this.Constr(b))
+        : undefined,
       get pk() {
         return this.data[Model.pk(self.Constr)] as string;
       },
@@ -52,6 +57,16 @@ export class HttpModelClient<T extends Model> extends Logger {
   async get(...routeParams: string[]) {
     const res = await this.server.get(
       `${this.path}/${routeParams.join("/")}`.replace("/?", "?")
+    );
+    return this.wrapResponse(res.body, res.status);
+  }
+
+  async statement(...routeParams: (string | number)[]) {
+    const res = await this.server.get(
+      `${this.path}/${PersistenceKeys.STATEMENT}/${routeParams.join("/")}`.replace(
+        "/?",
+        "?"
+      )
     );
     return this.wrapResponse(res.body, res.status);
   }

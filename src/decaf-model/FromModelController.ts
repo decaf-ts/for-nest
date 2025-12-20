@@ -111,7 +111,7 @@ export class FromModelController {
   }
 
   static createQueryRoutesFromRepository<T extends Model<boolean>>(
-    persistence: Repo<T> | ModelService<T>,
+    persistence: Repo<T>,
     prefix: string = PersistenceKeys.STATEMENT
   ): ControllerConstructor<AbstractQueryController> {
     const ModelConstr: Constructor = persistence.class;
@@ -172,7 +172,7 @@ export class FromModelController {
     log.debug(`Creating controller for model: ${modelClazzName}`);
 
     const BaseController = FromModelController.createQueryRoutesFromRepository(
-      persistence
+      persistence instanceof ModelService ? persistence.repo : persistence
     ) as Constructor<AbstractQueryController>;
 
     @Controller(routePath)
