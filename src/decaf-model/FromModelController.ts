@@ -27,6 +27,7 @@ import { Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import {
+  BulkApiOperationFromModel,
   type DecafApiProperty,
   type DecafModelRoute,
   type DecafParamProps,
@@ -189,6 +190,164 @@ export class FromModelController {
         );
       }
 
+      //
+      // @ApiOperationFromModel(ModelClazz, "GET", "query/:condition/:orderBy")
+      // @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
+      // @ApiParam({ name: "method", description: "Query method to be called" })
+      // @ApiOkResponse({
+      //   description: `${modelClazzName} retrieved successfully.`,
+      // })
+      // @ApiNotFoundResponse({
+      //   description: `No ${modelClazzName} records matches the query.`,
+      // })
+      // async query(
+      //   @Param("condition") condition: Condition<any>,
+      //   @Param("orderBy") orderBy: string,
+      //   @QueryDetails() details: DirectionLimitOffset,
+      // ) {
+      //   const {direction, limit, offset} = details;
+      //   return this.persistence.query(condition, orderBy as keyof Model, direction, limit, offset);
+      // }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "listBy/:key")
+      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
+      @ApiParam({ name: "key", description: "the model key to sort by" })
+      @ApiQuery({ name: "direction", required: true, enum: OrderDirection })
+      @ApiOkResponse({
+        description: `${modelClazzName} listed successfully.`,
+      })
+      async listBy(key: string, @Query() details: DirectionLimitOffset) {
+        return this.persistence.listBy(
+          key as keyof T,
+          details.direction as OrderDirection
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "paginateBy/:key/:page")
+      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
+      @ApiParam({ name: "key", description: "the model key to sort by" })
+      @ApiParam({
+        name: "page",
+        description: "the page to retrieve or the bookmark",
+      })
+      @ApiQuery({
+        name: "direction",
+        required: true,
+        enum: OrderDirection,
+        description: "the sort order",
+      })
+      @ApiQuery({ name: "limit", required: true, description: "the page size" })
+      @ApiOkResponse({
+        description: `${modelClazzName} listed paginated.`,
+      })
+      async paginateBy(
+        @Param("key") key: string,
+        @Param("page") page: string | number,
+        @Query() details: DirectionLimitOffset
+      ) {
+        return this.persistence.paginateBy(
+          key as keyof T,
+          details.direction as OrderDirection,
+          details.limit as number
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "findOneBy/:key")
+      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
+      @ApiParam({ name: "key", description: "the model key to sort by" })
+      @ApiOkResponse({
+        description: `${modelClazzName} listed found.`,
+      })
+      @ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      })
+      async findOneBy(@Param("key") key: string, @Param("value") value: any) {
+        return this.persistence.findOneBy(key as keyof T, value);
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "findBy/:key/:value")
+      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
+      @ApiParam({ name: "key", description: "the model key to compare" })
+      @ApiParam({ name: "value", description: "the value to match" })
+      @ApiQuery({
+        name: "direction",
+        required: true,
+        enum: OrderDirection,
+        description: "the sort order when  applicable",
+      })
+      @ApiOkResponse({
+        description: `${modelClazzName} listed found.`,
+      })
+      @ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      })
+      async findBy(
+        @Param("key") key: string,
+        @Param("value") value: any,
+        @Query() details: DirectionLimitOffset
+      ) {
+        return this.persistence.findBy(key as keyof T, value);
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "statement/:method/*args")
+      @ApiOperation({
+        summary: `Executes a prepared statement on ${modelClazzName}.`,
+      })
+      @ApiParam({
+        name: "method",
+        description: "the prepared statement to execute",
+      })
+      @ApiParam({
+        name: "args",
+        description:
+          "concatenated list of arguments the prepared statement can accept",
+      })
+      @ApiQuery({
+        name: "direction",
+        required: true,
+        enum: OrderDirection,
+        description: "the sort order when  applicable",
+      })
+      @ApiQuery({
+        name: "limit",
+        required: true,
+        description: "limit or page size when applicable",
+      })
+      @ApiQuery({
+        name: "offset",
+        required: true,
+        description: "offset or bookmark when applicable",
+      })
+      @ApiOkResponse({
+        description: `${modelClazzName} listed found.`,
+      })
+      @ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      })
+      async statement(
+        @Param("method") name: string,
+        @Param("args") args: (string | number)[],
+        @Query() details: DirectionLimitOffset
+      ) {
+        const { direction, offset, limit } = details;
+        args = args.map(
+          (a) => (typeof a === "string" ? parseInt(a) : a) || a
+        ) as any[];
+        switch (name) {
+          case PreparedStatementKeys.FIND_BY:
+            break;
+          case PreparedStatementKeys.LIST_BY:
+            args.push(direction as string);
+            break;
+          case PreparedStatementKeys.PAGE_BY:
+            args.push(direction as string, limit as number);
+            break;
+          case PreparedStatementKeys.FIND_ONE_BY:
+            break;
+        }
+        return this.persistence.statement(name, ...args);
+      }
+
       @ApiOperationFromModel(ModelConstr, "POST", "bulk")
       @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
       @ApiBody({
@@ -210,7 +369,9 @@ export class FromModelController {
         log.verbose(`creating new ${modelClazzName}`);
         let created: T[];
         try {
-          created = await this.persistence.createAll(data);
+          created = await this.persistence.createAll(
+            data.map((d) => new ModelConstr(d))
+          );
         } catch (e: unknown) {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
           throw e;
@@ -437,154 +598,6 @@ export class FromModelController {
         }
         log.info(`deleted ${modelClazzName} with id ${id}`);
         return del;
-      }
-
-      //
-      // @ApiOperationFromModel(ModelClazz, "GET", "query/:condition/:orderBy")
-      // @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
-      // @ApiParam({ name: "method", description: "Query method to be called" })
-      // @ApiOkResponse({
-      //   description: `${modelClazzName} retrieved successfully.`,
-      // })
-      // @ApiNotFoundResponse({
-      //   description: `No ${modelClazzName} records matches the query.`,
-      // })
-      // async query(
-      //   @Param("condition") condition: Condition<any>,
-      //   @Param("orderBy") orderBy: string,
-      //   @QueryDetails() details: DirectionLimitOffset,
-      // ) {
-      //   const {direction, limit, offset} = details;
-      //   return this.persistence.query(condition, orderBy as keyof Model, direction, limit, offset);
-      // }
-
-      @ApiOperationFromModel(ModelConstr, "GET", "listBy/:key")
-      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
-      @ApiParam({ name: "key", description: "the model key to sort by" })
-      @ApiQuery({ name: "direction", required: true, enum: OrderDirection })
-      @ApiOkResponse({
-        description: `${modelClazzName} listed successfully.`,
-      })
-      async listBy(key: string, @Query() details: DirectionLimitOffset) {
-        return this.persistence.listBy(
-          key as keyof T,
-          details.direction as OrderDirection
-        );
-      }
-
-      @ApiOperationFromModel(ModelConstr, "GET", "paginateBy/:key/:page")
-      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
-      @ApiParam({ name: "key", description: "the model key to sort by" })
-      @ApiParam({
-        name: "page",
-        description: "the page to retrieve or the bookmark",
-      })
-      @ApiQuery({
-        name: "direction",
-        required: true,
-        enum: OrderDirection,
-        description: "the sort order",
-      })
-      @ApiQuery({ name: "limit", required: true, description: "the page size" })
-      @ApiOkResponse({
-        description: `${modelClazzName} listed paginated.`,
-      })
-      async paginateBy(
-        @Param("key") key: string,
-        @Param("page") page: string | number,
-        @Query() details: DirectionLimitOffset
-      ) {
-        return this.persistence.paginateBy(
-          key as keyof T,
-          details.direction as OrderDirection,
-          details.limit as number
-        );
-      }
-
-      @ApiOperationFromModel(ModelConstr, "GET", "findOneBy/:key")
-      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
-      @ApiParam({ name: "key", description: "the model key to sort by" })
-      @ApiOkResponse({
-        description: `${modelClazzName} listed found.`,
-      })
-      @ApiNotFoundResponse({
-        description: `No ${modelClazzName} record matches the provided identifier.`,
-      })
-      async findOneBy(@Param("key") key: string, @Param("value") value: any) {
-        return this.persistence.findOneBy(key as keyof T, value);
-      }
-
-      @ApiOperationFromModel(ModelConstr, "GET", "findBy/:key/:value")
-      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
-      @ApiParam({ name: "key", description: "the model key to compare" })
-      @ApiParam({ name: "value", description: "the value to match" })
-      @ApiOkResponse({
-        description: `${modelClazzName} listed found.`,
-      })
-      @ApiNotFoundResponse({
-        description: `No ${modelClazzName} record matches the provided identifier.`,
-      })
-      async findBy(@Param("key") key: string, @Param("value") value: any) {
-        return this.persistence.findBy(key as keyof T, value);
-      }
-
-      @ApiOperationFromModel(ModelConstr, "GET", "statement/:method/:args")
-      @ApiOperation({
-        summary: `Executes a prepared statement on ${modelClazzName}.`,
-      })
-      @ApiParam({
-        name: "method",
-        description: "the prepared statement to execute",
-      })
-      @ApiParam({
-        name: "args",
-        description:
-          "concatenated list of arguments the prepared statement can accept",
-      })
-      @ApiQuery({
-        name: "direction",
-        required: true,
-        enum: OrderDirection,
-        description: "the sort order when  applicable",
-      })
-      @ApiQuery({
-        name: "limit",
-        required: true,
-        description: "limit or page size when applicable",
-      })
-      @ApiQuery({
-        name: "offset",
-        required: true,
-        description: "offset or bookmark when applicable",
-      })
-      @ApiOkResponse({
-        description: `${modelClazzName} listed found.`,
-      })
-      @ApiNotFoundResponse({
-        description: `No ${modelClazzName} record matches the provided identifier.`,
-      })
-      async statement(
-        @Param("method") name: string,
-        @Param("args") argz: string,
-        @Query() details: DirectionLimitOffset
-      ) {
-        const { direction, offset, limit } = details;
-        const args: (string | number)[] = argz
-          .split("/")
-          .map((a) => parseInt(a) || a);
-        switch (name) {
-          case PreparedStatementKeys.FIND_BY:
-            break;
-          case PreparedStatementKeys.LIST_BY:
-            args.push(direction as string);
-            break;
-          case PreparedStatementKeys.PAGE_BY:
-            args.push(direction as string, limit as number);
-            break;
-          case PreparedStatementKeys.FIND_ONE_BY:
-            break;
-        }
-        return this.persistence.statement(name, ...args);
       }
     }
 
