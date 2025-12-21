@@ -1,7 +1,7 @@
 import { Metadata } from "@decaf-ts/decoration";
 import { Delete, Get, Patch, Post, Put } from "@nestjs/common";
 import { ApiExcludeEndpoint } from "@nestjs/swagger";
-import { apply } from "@decaf-ts/reflection";
+import { apply } from "@decaf-ts/decoration";
 import {
   BulkCrudOperationKeys,
   OperationKeys,

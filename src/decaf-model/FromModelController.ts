@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Query } from "@nestjs/common";
+import { Controller, Param, Query } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -28,6 +28,7 @@ import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import {
   type DecafApiProperty,
+  DecafBody,
   type DecafModelRoute,
   type DecafParamProps,
 } from "./decorators";
@@ -181,6 +182,8 @@ export class FromModelController {
     @Auth(ModelConstr)
     class DynamicModelController extends BaseController {
       private readonly pk: string = Model.pk(ModelConstr) as string;
+
+      public static readonly clazz = ModelConstr;
 
       constructor(clientContext: DecafRequestContext) {
         super(clientContext);
@@ -365,7 +368,7 @@ export class FromModelController {
       @ApiUnprocessableEntityResponse({
         description: "Repository rejected the provided payload.",
       })
-      async createAll(@Body() data: T[]): Promise<Model[]> {
+      async createAll(@DecafBody() data: T[]): Promise<Model[]> {
         const log = this.log.for(this.createAll);
         log.verbose(`creating new ${modelClazzName}`);
         let created: T[];
@@ -396,7 +399,7 @@ export class FromModelController {
       @ApiUnprocessableEntityResponse({
         description: "Repository rejected the provided payload.",
       })
-      async create(@Body() data: T): Promise<Model<any>> {
+      async create(@DecafBody() data: T): Promise<Model<any>> {
         const log = this.log.for(this.create);
         log.verbose(`creating new ${modelClazzName}`);
         let created: Model;
@@ -412,7 +415,7 @@ export class FromModelController {
         return created;
       }
 
-      @ApiOperationFromModel(ModelConstr, "GET", "bulk/:ids")
+      @ApiOperationFromModel(ModelConstr, "GET", "bulk")
       @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
       @ApiQuery({ name: "ids", required: true, type: "array" })
       @ApiOkResponse({
@@ -426,7 +429,7 @@ export class FromModelController {
         let read: Model[];
         try {
           log.debug(`reading ${ids.length} ${modelClazzName}: ${ids}`);
-          read = await this.persistence.readAll(ids);
+          read = await this.persistence.readAll(ids as any);
         } catch (e: unknown) {
           log.error(`Failed to ${modelClazzName} with id ${ids}`, e as Error);
           throw e;
@@ -467,7 +470,7 @@ export class FromModelController {
         return read;
       }
 
-      @ApiOperationFromModel(ModelConstr, "PUT", `${path}/bulk`)
+      @ApiOperationFromModel(ModelConstr, "PUT", `bulk`)
       @ApiParamsFromModel(apiProperties)
       @ApiOperation({
         summary: `Replace an existing ${modelClazzName} record with a new payload.`,
@@ -486,10 +489,10 @@ export class FromModelController {
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
-      async updateAll(@Body() body: T[]) {
+      async updateAll(@DecafBody() body: T[]) {
         const log = this.log.for(this.updateAll);
 
-        let updated: Model[];
+        let updated: T[];
         try {
           log.info(`updating ${body.length} ${modelClazzName}`);
           updated = await this.persistence.updateAll(body);
@@ -518,14 +521,14 @@ export class FromModelController {
       @ApiBadRequestResponse({ description: "Payload validation failed." })
       async update(
         @DecafParams(apiProperties) routeParams: DecafParamProps,
-        @Body() body: Model<any>
+        @DecafBody() body: T
       ) {
         const log = this.log.for(this.update);
         const id = getPK(...routeParams.valuesInOrder);
         if (typeof id === "undefined")
           throw new ValidationError(`No ${this.pk} provided`);
 
-        let updated: Model;
+        let updated: T;
         try {
           log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
           updated = await this.persistence.update(
@@ -541,7 +544,7 @@ export class FromModelController {
         return updated;
       }
 
-      @ApiOperationFromModel(ModelConstr, "DELETE", "bulk/:ids")
+      @ApiOperationFromModel(ModelConstr, "DELETE", "bulk")
       @ApiParamsFromModel(apiProperties)
       @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
       @ApiQuery({ name: "ids", required: true, type: "array" })

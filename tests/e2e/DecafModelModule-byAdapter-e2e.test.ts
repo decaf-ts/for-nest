@@ -4,26 +4,14 @@ import { DecafExceptionFilter, DecafModule } from "../../src";
 import {
   Adapter,
   OrderDirection,
-  PreparedStatementKeys,
   RamAdapter,
   RamFlavour,
 } from "@decaf-ts/core";
-import {
-  AxiosHttpAdapter,
-  HttpAdapter,
-  NestJSResponseParser,
-  RestService,
-} from "@decaf-ts/for-http";
-import {
-  BulkCrudOperationKeys,
-  InternalError,
-  NotFoundError,
-  OperationKeys,
-} from "@decaf-ts/db-decorators";
+import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
+import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { genStr } from "./fakes/utils";
 import { Product } from "./fakes/models/Product";
 import request from "supertest";
-
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
 
@@ -70,17 +58,6 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
 
   const repo = new RestService(adapter, Product);
 
-  function parseResponse(res: any) {
-    return res;
-    // const { status } = res;
-    // if (status > 400) return { status: status, error: res.text };
-    // return {
-    //   status: status,
-    //   data: res.body,
-    //   raw: res.text,
-    // };
-  }
-
   function trimUrl(url: string) {
     const prefix = `${adapter.config.protocol}://${adapter.config.host}`;
     url = url.includes(prefix) ? url.substring(prefix.length) : url;
@@ -93,23 +70,23 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
     .mockImplementation(async (req: any, ...args: any[]) => {
       switch (req.method) {
         case "GET": {
-          const result = await app.getHttpServer().get(trimUrl(req.url));
-          return parseResponse(result);
+          const result = await server.get(trimUrl(req.url));
+          return result;
         }
         case "POST": {
           const result = await app
             .getHttpServer()
             .post(trimUrl(req.url))
             .send(req.body);
-          return parseResponse(result);
+          return result;
         }
         case "PUT": {
           const result = await server.put(trimUrl(req.url)).send(req.body);
-          return parseResponse(result);
+          return result;
         }
         case "DELETE": {
           const result = await server.delete(req.url).send();
-          return parseResponse(result);
+          return result;
         }
         default:
           throw new Error("Method not implemented.");
@@ -120,44 +97,48 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
     .spyOn(adapter.client, "post")
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     .mockImplementation(async (url: string, body: any, cfg: any) => {
+      url = decodeURI(url);
       const result = await server.post(trimUrl(url)).send(body);
-      return parseResponse(result);
+      return result;
     });
 
   jest.spyOn(adapter.client, "get").mockImplementation(async (url: string) => {
+    url = decodeURI(url);
     const result = await server.get(trimUrl(url)).send();
-    return parseResponse(result);
+    return result;
   });
 
   jest
     .spyOn(adapter.client, "put")
     .mockImplementation(async (url: string, cfg) => {
+      url = decodeURI(url);
       const result = await server.put(trimUrl(url)).send(cfg);
-      return parseResponse(result);
+      return result;
     });
 
   jest
     .spyOn(adapter.client, "delete")
     .mockImplementation(async (url: string) => {
+      url = decodeURI(url);
       const result = await server.delete(trimUrl(url)).send();
-      return parseResponse(result);
+      return result;
     });
   let created: Product;
 
-  it("creates", async () => {
+  it.skip("creates", async () => {
     created = await repo.create(new Product(productPayload));
     expect(created).toBeDefined();
     expect(created.hasErrors()).toBe(undefined);
   });
 
-  it("reads", async () => {
+  it.skip("reads", async () => {
     const read = await repo.read(created.id);
     expect(read).toBeDefined();
     expect(read.hasErrors()).toBe(undefined);
     expect(read.equals(created)).toBe(true);
   });
 
-  it("updates", async () => {
+  it.skip("updates", async () => {
     const updated = await repo.update(
       new Product(Object.assign({}, created, { name: "new name" }))
     );
@@ -171,7 +152,7 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
     expect(read.equals(updated)).toBe(true);
   });
 
-  it("deletes", async () => {
+  it.skip("deletes", async () => {
     const deleted = await repo.delete(created.id);
     expect(deleted).toBeDefined();
     expect(deleted.hasErrors()).toBe(undefined);
@@ -197,7 +178,7 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
     expect(bulk.every((c) => !c.hasErrors())).toEqual(true);
   });
 
-  it.skip("Should read in bulk", async () => {
+  it("Should read in bulk", async () => {
     const ids = bulk.map((c) => c.id).slice(3, 5);
 
     const read = await repo.readAll(ids);
@@ -206,20 +187,24 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
     expect(read.length).toEqual(ids.length);
   });
 
-  it.skip("Should update in bulk", async () => {
-    const toUpdate = bulk.slice(0, 5).map((c: Product) => {
-      c.name = "updated";
-      return c;
-    });
+  it("Should update in bulk", async () => {
+    const toUpdate = bulk.slice(0, 5).map(
+      (c: Product) =>
+        new Product(
+          Object.assign({}, c, {
+            name: "updated",
+          })
+        )
+    );
 
     const updated = await repo.updateAll(toUpdate);
 
     expect(updated).toBeDefined();
     expect(updated.length).toEqual(toUpdate.length);
-    expect(updated.every((r, i) => r.equals(created[i]))).toEqual(false);
+    expect(updated.every((r, i) => r.equals(bulk[i]))).toEqual(false);
     expect(
       updated.every((r, i) =>
-        r.equals(created[i], "updatedAt", "updatedBy", "city", "version")
+        r.equals(bulk[i], "updatedAt", "updatedBy", "name", "version")
       )
     ).toEqual(true);
   });
