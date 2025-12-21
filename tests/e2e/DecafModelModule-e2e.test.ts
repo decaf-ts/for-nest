@@ -22,6 +22,7 @@ Adapter.setCurrent(RamFlavour);
 jest.setTimeout(180000);
 
 @repository(Product)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class CustomProductRepository extends Repository<
   Product,
   Adapter<any, any, any, any>
@@ -31,13 +32,16 @@ class CustomProductRepository extends Repository<
   }
 
   @query()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async findByCountry(country: string) {
     throw new Error("Should be override by @query decorator");
   }
 
   @query()
   async findByExpiryDateLessThanAndExpiryDateGreaterThanOrderByExpiryDate(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     expyDateLt: number,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     expyDateGt: number
   ) {
     throw new Error("Should be override by @query decorator");

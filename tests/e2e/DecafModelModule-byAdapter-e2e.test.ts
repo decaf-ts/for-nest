@@ -120,6 +120,7 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
 
   jest
     .spyOn(adapter.client, "request")
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     .mockImplementation(async (req: any, ...args: any[]) => {
       switch (req.method) {
         case "GET": {
@@ -165,6 +166,7 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
 
   jest
     .spyOn(adapter.client, "post")
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     .mockImplementation(async (url: string, body: any, cfg: any) => {
       let params = url.split("product/") || [];
       if (params.length === 2) params = params[1].split("/");

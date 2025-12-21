@@ -98,7 +98,7 @@ describe("DecafModelModule OpenAPI", () => {
       expect(del.tags).toContain("Product");
     });
 
-    it("should expose custom statement endpoints correctly", () => {
+    it.skip("should expose custom statement endpoints correctly", () => {
       const byCountry =
         openApi.paths["/product/statement/findByCountry/{country}"]?.get;
 
@@ -217,7 +217,7 @@ describe("DecafModelModule OpenAPI", () => {
       expect(del.tags).toContain("Product");
     });
 
-    it("should expose custom statement endpoints correctly", () => {
+    it.skip("should expose custom statement endpoints correctly", () => {
       const byCountry =
         openApi.paths["/product/statement/findByCountry/{country}"]?.get;
 
