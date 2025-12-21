@@ -8,15 +8,12 @@ import {
   RamAdapter,
   RamFlavour,
 } from "@decaf-ts/core";
-import { HttpModelClient } from "./fakes/server";
 import {
   AxiosHttpAdapter,
   HttpAdapter,
   NestJSResponseParser,
   RestService,
 } from "@decaf-ts/for-http";
-import { toKebabCase } from "@decaf-ts/logging";
-import { Model } from "@decaf-ts/decorator-validation";
 import {
   BulkCrudOperationKeys,
   InternalError,
@@ -25,15 +22,19 @@ import {
 } from "@decaf-ts/db-decorators";
 import { genStr } from "./fakes/utils";
 import { Product } from "./fakes/models/Product";
+import request from "supertest";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
 
 jest.setTimeout(180000);
 
+const host: string = "localhost:3000";
+const protocol = "http";
+
 describe("DecafModelModule CRUD by HttpAdapter", () => {
   let app: INestApplication;
-  let productHttpClient: HttpModelClient<Product>;
+  let server;
 
   beforeAll(async () => {
     app = await NestFactory.create(
@@ -46,61 +47,18 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
     );
 
     app.useGlobalFilters(new DecafExceptionFilter());
-
     await app.init();
 
-    productHttpClient = new HttpModelClient<Product>(
-      app.getHttpServer(),
-      Product
-    );
+    server = request(app.getHttpServer());
   });
 
   afterAll(async () => {
     await app?.close();
   });
 
-  class Parser extends NestJSResponseParser {
-    constructor() {
-      super();
-    }
-
-    override parse(
-      method: string,
-      response: {
-        status: number;
-        raw: any;
-        data: any;
-      }
-    ): any {
-      if (!(response.status >= 200 && response.status < 300))
-        throw HttpAdapter.parseError(response.status.toString());
-
-      switch (method) {
-        case BulkCrudOperationKeys.CREATE_ALL:
-        case BulkCrudOperationKeys.READ_ALL:
-        case BulkCrudOperationKeys.UPDATE_ALL:
-        case BulkCrudOperationKeys.DELETE_ALL:
-        case PreparedStatementKeys.FIND_BY:
-        case PreparedStatementKeys.LIST_BY:
-        case PreparedStatementKeys.PAGE_BY:
-          return response.raw;
-        case OperationKeys.CREATE:
-        case OperationKeys.READ:
-        case OperationKeys.UPDATE:
-        case OperationKeys.DELETE:
-          return response.data;
-        case PreparedStatementKeys.FIND_ONE_BY:
-        case "statement":
-        default:
-          return response.raw;
-      }
-    }
-  }
-
   const adapter = new AxiosHttpAdapter({
-    protocol: "http",
-    host: "localhost:3000",
-    responseParser: new Parser(),
+    protocol: protocol,
+    host: host,
   });
   const productCode = genStr(14);
   const batchNumber = `BATCH${genStr(3)}`;
@@ -112,10 +70,21 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
 
   const repo = new RestService(adapter, Product);
 
+  function parseResponse(res: any) {
+    return res;
+    // const { status } = res;
+    // if (status > 400) return { status: status, error: res.text };
+    // return {
+    //   status: status,
+    //   data: res.body,
+    //   raw: res.text,
+    // };
+  }
+
   function trimUrl(url: string) {
-    const prefix = `${adapter.config.protocol}://${adapter.config.host}/${toKebabCase(Model.tableName(repo.class))}`;
+    const prefix = `${adapter.config.protocol}://${adapter.config.host}`;
     url = url.includes(prefix) ? url.substring(prefix.length) : url;
-    return url.startsWith("/") ? url.substring(1) : url;
+    return url;
   }
 
   jest
@@ -124,40 +93,23 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
     .mockImplementation(async (req: any, ...args: any[]) => {
       switch (req.method) {
         case "GET": {
-          const result = await productHttpClient.get(trimUrl(req.url));
-          if (!result.status.toString().startsWith("20")) {
-            throw adapter.parseError(
-              new Error((result as any).status.toString())
-            );
-          }
-          return result;
+          const result = await app.getHttpServer().get(trimUrl(req.url));
+          return parseResponse(result);
         }
         case "POST": {
-          const result = await productHttpClient.post(req.data);
-          if (!result.status.toString().startsWith("20")) {
-            throw adapter.parseError(
-              new Error((result as any).status.toString())
-            );
-          }
-          return result;
+          const result = await app
+            .getHttpServer()
+            .post(trimUrl(req.url))
+            .send(req.body);
+          return parseResponse(result);
         }
         case "PUT": {
-          const result = await productHttpClient.put(req.data);
-          if (!result.status.toString().startsWith("20")) {
-            throw adapter.parseError(
-              new Error((result as any).status.toString())
-            );
-          }
-          return result;
+          const result = await server.put(trimUrl(req.url)).send(req.body);
+          return parseResponse(result);
         }
         case "DELETE": {
-          const result = await productHttpClient.delete(trimUrl(req.url));
-          if (!result.status.toString().startsWith("20")) {
-            throw adapter.parseError(
-              new Error((result as any).status.toString())
-            );
-          }
-          return result;
+          const result = await server.delete(req.url).send();
+          return parseResponse(result);
         }
         default:
           throw new Error("Method not implemented.");
@@ -168,45 +120,27 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
     .spyOn(adapter.client, "post")
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     .mockImplementation(async (url: string, body: any, cfg: any) => {
-      let params = url.split("product/") || [];
-      if (params.length === 2) params = params[1].split("/");
-      else params = [];
-      const result = await productHttpClient.post(body, ...params);
-      if (!result.status.toString().startsWith("20")) {
-        throw adapter.parseError(new Error(result.status.toString()));
-      }
-      return result;
+      const result = await server.post(trimUrl(url)).send(body);
+      return parseResponse(result);
     });
 
   jest.spyOn(adapter.client, "get").mockImplementation(async (url: string) => {
-    url = trimUrl(url);
-    const result = await productHttpClient.get(...url.split("/"));
-    if (!result.status.toString().startsWith("20")) {
-      throw adapter.parseError(new Error(result.status.toString()));
-    }
-    return result;
+    const result = await server.get(trimUrl(url)).send();
+    return parseResponse(result);
   });
 
   jest
     .spyOn(adapter.client, "put")
     .mockImplementation(async (url: string, cfg) => {
-      url = trimUrl(url);
-      const result = await productHttpClient.put(cfg, ...url.split("/"));
-      if (!result.status.toString().startsWith("20")) {
-        throw adapter.parseError(new Error(result.status.toString()));
-      }
-      return result;
+      const result = await server.put(trimUrl(url)).send(cfg);
+      return parseResponse(result);
     });
 
   jest
     .spyOn(adapter.client, "delete")
     .mockImplementation(async (url: string) => {
-      url = trimUrl(url);
-      const result = await productHttpClient.delete(...url.split("/"));
-      if (!result.status.toString().startsWith("20")) {
-        throw adapter.parseError(new Error(result.status.toString()));
-      }
-      return result;
+      const result = await server.delete(trimUrl(url)).send();
+      return parseResponse(result);
     });
   let created: Product;
 
@@ -290,7 +224,7 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
     ).toEqual(true);
   });
 
-  it.skip("Should delete in bulk", async () => {
+  it("Should delete in bulk", async () => {
     const ids = bulk.map((c) => c.id).slice(3, 5);
 
     const deleted = await repo.deleteAll(ids);
