@@ -12,7 +12,8 @@ import {
   type DecafParamProps,
   DecafParams,
 } from "./decorators";
-import { DirectionLimitOffset } from "@decaf-ts/core";
+import { DirectionLimitOffset, ModelService, Repo } from "@decaf-ts/core";
+import { Model } from "@decaf-ts/decorator-validation";
 
 const extractPathParams = (routePath: string): string[] => {
   return routePath
@@ -62,6 +63,25 @@ export function applyApiDecorators(
   decorators.params?.forEach((d, index) => d(proto, methodName, index));
 }
 
+export function resolvePersistenceMethod<T extends Model<boolean>>(
+  persistence: Repo<T> | ModelService<T>,
+  methodName: string,
+  ...args: any[]
+): any {
+  if (persistence instanceof ModelService) {
+    return typeof (persistence as any)[methodName] === "function"
+      ? (persistence as any)[methodName](...args)
+      : persistence.statement(methodName, ...args);
+  }
+
+  if (typeof (persistence as any)[methodName] === "function")
+    return (persistence as any)[methodName](...args);
+
+  throw new Error(
+    `Persistence method "${methodName}" not found on ${persistence?.constructor?.name}`
+  );
+}
+
 export function createRouteHandler<T>(methodName: string) {
   return async function (
     this: Controller,
@@ -75,12 +95,14 @@ export function createRouteHandler<T>(methodName: string) {
         `Invoking persistence method "${methodName}" given parameters: ${JSON.stringify(pathParams.valuesInOrder)}`
       );
       const { direction, limit, offset } = queryParams;
-      return (await (this.persistence as Record<string, any>)[methodName](
+      return await resolvePersistenceMethod(
+        this.persistence,
+        methodName,
         ...pathParams.valuesInOrder,
         direction,
         limit,
         offset
-      )) as T;
+      );
     } catch (e: any) {
       log.error(`Custom query "${methodName}" failed`, e);
       throw e;

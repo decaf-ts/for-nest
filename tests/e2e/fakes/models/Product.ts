@@ -33,10 +33,10 @@ export class Product extends Model {
   name!: string;
 
   @column()
-  country: string = "PT";
+  country!: string;
 
   @column()
-  expiryDate: Date = new Date();
+  expiryDate!: number;
 
   constructor(model?: ModelArg<Product>) {
     super(model);
