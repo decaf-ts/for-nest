@@ -1,131 +1,135 @@
-import { Command } from "commander";
-import { runCommand } from "@decaf-ts/utils";
 import { Logging } from "@decaf-ts/logging";
 
-enum Projects {
-  NEST_PROJECT = "nest-project",
-}
+const logger = Logging.for("for-nest");
 
-enum Types {
-  CONTROLLER = "page",
-  SCHEMATICS = "schematics",
-}
+import { Command } from "commander";
+import fs from "fs";
+import path from "path";
+import { normalizeImport } from "@decaf-ts/for-fabric/shared";
+import { InternalError } from "@decaf-ts/db-decorators";
+import { Logger } from "@decaf-ts/logging";
+import { NestFactory } from "@nestjs/core";
+import { INestApplication } from "@nestjs/common";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 
-const logger = Logging.for("nestjs-cli");
-
-/**
- * Creates and returns a Command object for the Angular CLI module in decaf-ts.
- * This function sets up a 'generate' command that can create various Angular artifacts.
- *
- * @returns {Command} A Command object configured with the 'generate' subcommand and its action.
- *
- * The command syntax is: generate <type> <name> [project]
- * @param {Types} type - The type of artifact to generate (e.g., service, component, directive, page).
- * @param {string} name - The name of the artifact to be generated.
- * @param {Projects} [project=Projects.FOR_ANGULAR] - The project for which to generate the artifact.
- *                   Defaults to the main Angular project if not specified.
- *
- * @throws {Error} If an invalid type is provided.
- *
- * @example
- * // Usage in CLI
- * // decaf-ts generate service my-service
- * // decaf-ts generate component my-component for-angular-app
- */
-export default function nest() {
-  return new Command()
-    .name("nest")
-    .command("generate <type> <name> [project]")
-    .description(`decaf-ts NestJS CLI module`)
-    .action(
-      async (
-        type: Types,
-        name: string,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        project: Projects = Projects.NEST_PROJECT
-      ) => {
-        if (!validateType(type))
-          return logger.error(
-            `${type} is not valid. Use service, component or directive.`
-          );
-        //
-        //   if (type === Types.SCHEMATICS) return await generateSchematics();
-        //
-        //   if (type === Types.CONTROLLER) {
-        //     logger.info(
-        //       `Pages can be only generate for app. Forcing project to: ${Projects.FOR_ANGULAR_APP}`
-        //     );
-        //     project = Projects.FOR_ANGULAR_APP;
-        //   }
-        //
-        //   (project as string) = parseProjectName(project);
-        //
-        //   if (!validateProject(project)) project = Projects.NEST_PROJECT;
-        //   const command =
-        //     project === Projects.FOR_ANGULAR_APP
-        //       ? "ionic generate"
-        //       : `ng generate --project=${Projects.NEST_PROJECT} --path=src/lib/${type}s`;
-        //
-        //   try {
-        //     const result = await execute(`${command} ${type} ${name}`);
-        //     logger.info(result as string);
-        //   } catch (error: any) {
-        //     logger.error(error?.message || error);
-        //   }
-      }
-    );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function generateSchematics() {
-  return Promise.all([
-    execute(`npm link schematics`),
-    execute(`cd schematics`),
-    execute(`npm install`),
-    execute(`npm run build`),
-    execute(`npx schematics .:schematics --name=decaf`),
-  ])
-    .then((res) => res)
-    .catch((error) => error);
-}
-
-/**
- * Executes a shell command asynchronously.
- *
- * @param command - The shell command to execute.
- * @returns A Promise that resolves with the command's stdout output as a string if successful,
- *          or rejects with an error message if the command fails or produces stderr output.
- */
-async function execute(command: string): Promise<string | void> {
+async function bootApp(log: Logger, p: string) {
+  log = log.for(bootApp);
+  let module: any;
   try {
-    return await runCommand(command).promise;
-  } catch (error: any) {
-    logger.error(error?.message || error);
+    module = await normalizeImport(import(p));
+  } catch (e: unknown) {
+    throw new InternalError(`Failed to load module under ${p}: ${e}`);
   }
+
+  log.verbose(`Booting app without opening a port`);
+  const app: INestApplication = await NestFactory.create(module, {
+    logger: false,
+  });
+  await app.init();
+  log.info(`dev mode app booted`);
+  return app;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function parseProjectName(value: string): string {
-  return value.toLowerCase();
+async function shutdownApp(log: Logger, app: INestApplication) {
+  log.for(shutdownApp).verbose(`Shutting down app`);
+  await app.close();
 }
 
-/**
- * Validates if the given type value is a valid enum member of Types.
- *
- * @param value - The type value to validate.
- * @returns A boolean indicating whether the value is a valid Types enum member.
- */
-function validateType(value: Types): boolean {
-  return Object.values(Types).includes(value);
+async function createSwagger(
+  log: Logger,
+  app: INestApplication,
+  cfg: { title: string; description: string; version: string }
+) {
+  const { title, description, version } = cfg;
+  const config = new DocumentBuilder()
+    .setTitle(title)
+    .setDescription(description)
+    .setVersion(version)
+    .build();
+
+  log = log.for(createSwagger);
+  log.verbose(`Creating swgger`);
+  const document = SwaggerModule.createDocument(app, config);
+  log.info(`Swagger doc created`);
+  return document;
 }
 
-/**
- * Validates if the given project value is a valid enum member of Projects.
- *
- * @param value - The project value to validate.
- * @returns A boolean indicating whether the value is a valid Projects enum member.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function validateProject(value: string): boolean {
-  return Object.values(Projects).includes(value as Projects);
+const compileCommand = new Command()
+  .name("export-api")
+  .description("exports the api in json format")
+  .option("--input <String>", "path to app module", "./src/app.module.ts")
+  .option("--output <String>", "output folder for api definition file", "./")
+  .option(
+    "--appendVersion <Boolean>",
+    "if the version if to be appended to the json file name",
+    false
+  )
+  .option(
+    "--title [String]",
+    "title of the OpenApi spec. defaults to name in package"
+  )
+  .option(
+    "--description [String]",
+    "description of the OpenApi spec. defaults to description in package"
+  )
+  .option(
+    "--name [String]",
+    "file name (without json). defaults to name on package.json"
+  )
+  .action(async (options: any) => {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), "package.json"), "utf-8")
+    );
+
+    const version = pkg.version;
+
+    // eslint-disable-next-line prefer-const
+    let { title, name, description, output, input, appendVersion } = options;
+    const log = logger.for("export-api");
+    log.debug(
+      `running with options: ${JSON.stringify(options)} for ${pkg.name} version ${version}`
+    );
+
+    description = description = description || pkg.description;
+    title = title || pkg.name;
+
+    output = path.resolve(output);
+    try {
+      fs.statfsSync(output);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e: unknown) {
+      fs.mkdirSync(output, { recursive: true });
+    }
+
+    output = path.resolve(
+      path.join(
+        output,
+        (name || pkg.name) + (appendVersion ? `-${version}` : "") + ".json"
+      )
+    );
+
+    const app = await bootApp(log, input);
+    const document = await createSwagger(log, app, {
+      title,
+      description,
+      version,
+    });
+
+    try {
+      fs.writeFileSync(output, JSON.stringify(document, null, 2), "utf8");
+    } catch (e: unknown) {
+      throw new InternalError(e as Error);
+    } finally {
+      await shutdownApp(log, app);
+    }
+  });
+
+const nestCmd = new Command()
+  .name("nest")
+  .description("exposes several commands to help manage the nest integration");
+
+nestCmd.addCommand(compileCommand);
+
+export default function nest() {
+  return nestCmd;
 }
