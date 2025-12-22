@@ -346,7 +346,7 @@ export class FromModelController {
             args = [
               args[0],
               direction as any,
-              { limit: limit, offset: args[1], bookmark: bookmark },
+              { limit: limit, offset: offset, bookmark: bookmark },
             ];
             break;
           case PreparedStatementKeys.FIND_ONE_BY:
