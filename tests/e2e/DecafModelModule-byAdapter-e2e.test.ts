@@ -4,6 +4,7 @@ import { DecafExceptionFilter, DecafModule } from "../../src";
 import {
   Adapter,
   OrderDirection,
+  Paginator,
   RamAdapter,
   RamFlavour,
 } from "@decaf-ts/core";
@@ -243,5 +244,13 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
       .execute();
     expect(list).toBeDefined();
     // expect(list.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("paginates simple queries", async () => {
+    const paginator = await repo.select().paginate(1);
+    expect(paginator).toBeInstanceOf(Paginator);
+    const firstPage = await paginator.page();
+    expect(firstPage).toBeDefined();
+    expect(firstPage.length).toBeGreaterThanOrEqual(1);
   });
 });

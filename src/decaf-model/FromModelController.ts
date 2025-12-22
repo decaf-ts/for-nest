@@ -239,6 +239,7 @@ export class FromModelController {
         description: "the sort order",
       })
       @ApiQuery({ name: "limit", required: true, description: "the page size" })
+      @ApiQuery({ name: "offset", description: "the bookmark when necessary" })
       @ApiOkResponse({
         description: `${modelClazzName} listed paginated.`,
       })
@@ -332,7 +333,6 @@ export class FromModelController {
         @Param("args") args: (string | number)[],
         @Query() details: DirectionLimitOffset
       ) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { direction, offset, limit } = details;
         args = args.map(
           (a) => (typeof a === "string" ? parseInt(a) : a) || a
@@ -344,7 +344,12 @@ export class FromModelController {
             args.push(direction as string);
             break;
           case PreparedStatementKeys.PAGE_BY:
-            args.push(direction as string, limit as number);
+            args = [
+              args[0],
+              direction as any,
+              limit,
+              { page: args[1], bookmark: offset },
+            ];
             break;
           case PreparedStatementKeys.FIND_ONE_BY:
             break;
