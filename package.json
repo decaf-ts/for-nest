@@ -89,6 +89,7 @@
     "@nestjs/swagger": "^11.2.0",
     "@nestjs/testing": "^11.0.1",
     "@types/lodash": "^4.17.20",
+    "commander": "^13.1.0",
     "supertest": "^7.1.4"
   },
   "dependencies": {
