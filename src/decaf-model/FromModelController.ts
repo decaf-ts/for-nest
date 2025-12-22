@@ -245,13 +245,12 @@ export class FromModelController {
       })
       async paginateBy(
         @Param("key") key: string,
-        @Param("page") page: string | number,
         @Query() details: DirectionLimitOffset
       ) {
         return this.persistence.paginateBy(
           key as keyof T,
           details.direction as OrderDirection,
-          details.limit as number
+          details as Omit<DirectionLimitOffset, "direction">
         );
       }
 
@@ -333,7 +332,7 @@ export class FromModelController {
         @Param("args") args: (string | number)[],
         @Query() details: DirectionLimitOffset
       ) {
-        const { direction, offset, limit } = details;
+        const { direction, offset, limit, bookmark } = details;
         args = args.map(
           (a) => (typeof a === "string" ? parseInt(a) : a) || a
         ) as any[];
@@ -347,8 +346,7 @@ export class FromModelController {
             args = [
               args[0],
               direction as any,
-              limit,
-              { page: args[1], bookmark: offset },
+              { limit: limit, offset: args[1], bookmark: bookmark },
             ];
             break;
           case PreparedStatementKeys.FIND_ONE_BY:
