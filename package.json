@@ -8,7 +8,7 @@
     "import": "./lib/esm/index.js"
   },
   "bin": {
-    "for-nest": "./lib/bin/cli.cjs"
+    "for-nest": "lib/bin/cli.cjs"
   },
   "types": "lib/index.d.ts",
   "scripts": {
@@ -48,7 +48,8 @@
     "repo:tests": "codex exec \"$(cat ./.codex/prompts/bulk-tests.md)\nbase_path is ./ and coverage is 95%\" -s workspace-write",
     "repo:readme": "codex exec \"$(cat ./.codex/prompts/update-readme.md)\nbase_path is ./\"",
     "repo:pr": "npm run repo:doc && npm run repo:tests && npm run repo:readme",
-    "sync-codex": "./bin/sync-codex.sh"
+    "sync-codex": "./bin/sync-codex.sh",
+    "cli": "node ./lib/bin/cli.cjs"
   },
   "repository": {
     "type": "git",
