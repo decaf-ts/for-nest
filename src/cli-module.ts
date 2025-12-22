@@ -23,8 +23,9 @@ async function bootApp(log: Logger, p: string) {
     throw new InternalError(`Failed to load module under ${p}: ${e}`);
   }
 
+  const { AppModule } = module;
   log.verbose(`Booting app without opening a port`);
-  const app: INestApplication = await NestFactory.create(module, {
+  const app: INestApplication = await NestFactory.create(AppModule, {
     logger: false,
   });
   await app.init();
