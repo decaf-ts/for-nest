@@ -25,11 +25,19 @@ async function bootApp(log: Logger, p: string) {
 
   const { AppModule } = module;
   log.verbose(`Booting app without opening a port`);
-  const app: INestApplication = await NestFactory.create(AppModule, {
-    logger: false,
-  });
-  await app.init();
-  log.info(`dev mode app booted`);
+
+  let app: INestApplication;
+
+  try {
+    app = await NestFactory.create(AppModule, {
+      logger: false,
+    });
+    await app.init();
+    log.info(`dev mode app booted`);
+  } catch (e: unknown) {
+    throw new InternalError(e as Error);
+  }
+
   return app;
 }
 
