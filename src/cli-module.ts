@@ -14,6 +14,8 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 
 async function bootApp(log: Logger, p: string) {
   log = log.for(bootApp);
+
+  p = path.join(process.cwd(), p);
   let module: any;
   try {
     module = await normalizeImport(import(p));
