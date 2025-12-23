@@ -19,3 +19,4 @@ gulpfile.js
 jest.config.ts
 tsconfig.json
 .codex
+!/workdocs/assets/slogans.json
