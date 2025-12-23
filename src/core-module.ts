@@ -39,6 +39,12 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
       const log = this.log.for(this.createAdapter);
       log.info("Creating adapter instance...");
       this._adapterInstance = new options.adapter(options.conf, options.alias);
+      try {
+        await this._adapterInstance.initialize();
+      } catch (e: unknown) {
+        log.error(`Failed to initialized adapter`);
+        throw e;
+      }
       log.info("Adapter instance created successfully!");
     }
     return this._adapterInstance;
