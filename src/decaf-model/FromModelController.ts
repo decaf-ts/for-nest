@@ -16,37 +16,36 @@ import {
 import {
   type DirectionLimitOffset,
   ModelService,
-  Repository,
   OrderDirection,
-  type Repo,
   PersistenceKeys,
   PreparedStatementKeys,
+  type Repo,
+  Repository,
 } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import {
+  ApiOperationFromModel,
+  ApiParamsFromModel,
   type DecafApiProperty,
   DecafBody,
   type DecafModelRoute,
   type DecafParamProps,
-} from "./decorators";
-import {
-  ApiOperationFromModel,
-  ApiParamsFromModel,
   DecafParams,
 } from "./decorators";
 import { DecafRequestContext } from "../request";
-import { DECAF_ADAPTER_OPTIONS } from "../constants";
+import { DECAF_ADAPTER_OPTIONS, DECAF_ROUTE } from "../constants";
 import {
   applyApiDecorators,
-  getApiDecorators,
   createRouteHandler,
   defineRouteMethod,
+  getApiDecorators,
 } from "./utils";
 import { Auth } from "./decorators/decorators";
 import { AbstractQueryController, ControllerConstructor } from "./types";
+import { RouteOptions } from "../decorators";
 
 /**
  * @description
@@ -115,11 +114,20 @@ export class FromModelController {
     persistence: Repo<T>,
     prefix: string = PersistenceKeys.QUERY
   ): ControllerConstructor<AbstractQueryController> {
+    const log = FromModelController.log.for(
+      FromModelController.createQueryRoutesFromRepository
+    );
     const ModelConstr: Constructor = persistence.class;
     const methodQueries: Record<string, { fields?: string[] | undefined }> =
       Metadata.get(
         persistence.constructor as Constructor,
         Metadata.key(PersistenceKeys.QUERY)
+      ) ?? {};
+
+    const routedMethods: Record<string, RouteOptions> =
+      Metadata.get(
+        persistence.constructor as Constructor,
+        Metadata.key(DECAF_ROUTE)
       ) ?? {};
 
     // create base class
@@ -151,7 +159,31 @@ export class FromModelController {
 
       if (descriptor) {
         const decorators = getApiDecorators(methodName, routePath);
+        applyApiDecorators(QueryController, methodName, descriptor, decorators);
+      }
+    }
 
+    for (const [methodName, params] of Object.entries(routedMethods)) {
+      // regex to trim slashes from start and end
+      const routePath = [methodName, params.path.replace(/^\/+|\/+$/g, "")]
+        .filter((segment) => segment && segment.trim())
+        .join("/");
+
+      const handler = params.handler.value;
+      if (!handler) {
+        const message = `Invalid or missing handler for model ${ModelConstr.name} on decorated method ${methodName}`;
+        log.error(message);
+        throw new Error(message);
+      }
+
+      const descriptor = defineRouteMethod(
+        QueryController,
+        methodName,
+        handler
+      );
+
+      if (descriptor) {
+        const decorators = getApiDecorators(methodName, routePath);
         applyApiDecorators(QueryController, methodName, descriptor, decorators);
       }
     }

@@ -33,7 +33,7 @@ export class HttpModelClient<T extends Model> extends Logger {
     return {
       status,
       raw: body,
-      data: new this.Constr(body),
+      data: status >= 200 && status < 300 ? new this.Constr(body) : undefined,
       bulkData: Array.isArray(body)
         ? body.map((b) => new this.Constr(b))
         : undefined,
