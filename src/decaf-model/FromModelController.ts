@@ -34,6 +34,7 @@ import {
   type DecafModelRoute,
   type DecafParamProps,
   DecafParams,
+  DecafRouteDecOptions,
 } from "./decorators";
 import { DecafRequestContext } from "../request";
 import { DECAF_ADAPTER_OPTIONS, DECAF_ROUTE } from "../constants";
@@ -45,7 +46,6 @@ import {
 } from "./utils";
 import { Auth } from "./decorators/decorators";
 import { AbstractQueryController, ControllerConstructor } from "./types";
-import { RouteOptions } from "../decorators";
 
 /**
  * @description
@@ -118,13 +118,13 @@ export class FromModelController {
       FromModelController.createQueryRoutesFromRepository
     );
     const ModelConstr: Constructor = persistence.class;
-    const methodQueries: Record<string, { fields?: string[] | undefined }> =
+    const queryMethods: Record<string, { fields?: string[] | undefined }> =
       Metadata.get(
         persistence.constructor as Constructor,
         Metadata.key(PersistenceKeys.QUERY)
       ) ?? {};
 
-    const routedMethods: Record<string, RouteOptions> =
+    const routeMethods: Record<string, DecafRouteDecOptions> =
       Metadata.get(
         persistence.constructor as Constructor,
         Metadata.key(DECAF_ROUTE)
@@ -144,26 +144,7 @@ export class FromModelController {
       }
     }
 
-    for (const [methodName, objValues] of Object.entries(methodQueries)) {
-      const fields = objValues.fields ?? [];
-      const routePath = [prefix, methodName, ...fields.map((f) => `:${f}`)]
-        .filter((segment) => segment && segment.trim())
-        .join("/");
-
-      const handler = createRouteHandler(methodName) as any;
-      const descriptor = defineRouteMethod(
-        QueryController,
-        methodName,
-        handler
-      );
-
-      if (descriptor) {
-        const decorators = getApiDecorators(methodName, routePath);
-        applyApiDecorators(QueryController, methodName, descriptor, decorators);
-      }
-    }
-
-    for (const [methodName, params] of Object.entries(routedMethods)) {
+    for (const [methodName, params] of Object.entries(routeMethods)) {
       // regex to trim slashes from start and end
       const routePath = [methodName, params.path.replace(/^\/+|\/+$/g, "")]
         .filter((segment) => segment && segment.trim())
@@ -183,7 +164,30 @@ export class FromModelController {
       );
 
       if (descriptor) {
-        const decorators = getApiDecorators(methodName, routePath);
+        const decorators = getApiDecorators(
+          methodName,
+          routePath,
+          params.httpMethod
+        );
+        applyApiDecorators(QueryController, methodName, descriptor, decorators);
+      }
+    }
+
+    for (const [methodName, objValues] of Object.entries(queryMethods)) {
+      const fields = objValues.fields ?? [];
+      const routePath = [prefix, methodName, ...fields.map((f) => `:${f}`)]
+        .filter((segment) => segment && segment.trim())
+        .join("/");
+
+      const handler = createRouteHandler(methodName) as any;
+      const descriptor = defineRouteMethod(
+        QueryController,
+        methodName,
+        handler
+      );
+
+      if (descriptor) {
+        const decorators = getApiDecorators(methodName, routePath, "GET", true);
         applyApiDecorators(QueryController, methodName, descriptor, decorators);
       }
     }

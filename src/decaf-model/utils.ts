@@ -1,4 +1,4 @@
-import { Get, Query } from "@nestjs/common";
+import { Query } from "@nestjs/common";
 import { Logger } from "@decaf-ts/logging";
 import { Controller, type DecoratorBundle } from "./types";
 import {
@@ -6,14 +6,22 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
 } from "@nestjs/swagger";
 import {
   DecafApiProperty,
   type DecafParamProps,
   DecafParams,
+  HttpVerbs,
 } from "./decorators";
-import { DirectionLimitOffset, ModelService, Repo } from "@decaf-ts/core";
+import {
+  DirectionLimitOffset,
+  ModelService,
+  OrderDirection,
+  Repo,
+} from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
+import { HttpVerbToDecorator } from "./decorators/utils";
 
 const extractPathParams = (routePath: string): string[] => {
   return routePath
@@ -31,21 +39,48 @@ const apiParamSpec = (name: string): DecafApiProperty => ({
 
 export function getApiDecorators(
   methodName: string,
-  routePath: string
+  routePath: string,
+  httpVerb: HttpVerbs,
+  includeQueryParams: boolean = false
 ): DecoratorBundle {
+  const NestHttpRouteDec = HttpVerbToDecorator(httpVerb);
   const apiPathParams = extractPathParams(routePath).map(apiParamSpec);
+
+  const swaggerQueryParams = [];
+  if (httpVerb === "GET" && includeQueryParams) {
+    swaggerQueryParams.push(
+      ApiQuery({
+        name: "direction",
+        required: false,
+        enum: OrderDirection,
+        description: "the sort order when applicable",
+      }),
+      ApiQuery({
+        name: "limit",
+        required: false,
+        description: "limit or page size when applicable",
+      }),
+      ApiQuery({
+        name: "offset",
+        required: false,
+        description: "offset or bookmark when applicable",
+      })
+    );
+  }
+
   return {
     method: [
-      Get(routePath),
+      NestHttpRouteDec(routePath),
       ...apiPathParams.map(ApiParam),
+      ...swaggerQueryParams,
       ApiOperation({
-        summary: `Retrieve records using custom query "${methodName}".`,
+        summary: `Retrieve records using according to "${methodName}".`,
       }),
       ApiOkResponse({
-        description: `Results successfully retrieved.`,
+        description: `Result successfully retrieved.`,
       }),
       ApiNoContentResponse({
-        description: `No content returned by the query.`,
+        description: `No content returned by the method.`,
       }),
     ],
     params: [DecafParams(apiPathParams), Query()],

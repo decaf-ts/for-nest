@@ -19,3 +19,9 @@ export type DecafParamProps = {
   keysInOrder: Array<string>;
   valuesInOrder: Array<string | number>;
 };
+
+export interface DecafRouteDecOptions {
+  path: string;
+  httpMethod: HttpVerbs;
+  handler: PropertyDescriptor;
+}

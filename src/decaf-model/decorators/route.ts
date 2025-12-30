@@ -4,19 +4,17 @@ import {
   Metadata,
   methodMetadata,
 } from "@decaf-ts/decoration";
-import { DECAF_ROUTE } from "./constants";
+import { DECAF_ROUTE } from "../../constants";
+import type { HttpVerbs } from "./types";
+import { DecafRouteDecOptions } from "./types";
 
-export interface RouteOptions {
-  path: string;
-  handler: PropertyDescriptor;
-}
-
-export function route(path: string) {
+export function route(httpMethod: HttpVerbs, path: string) {
   const key = DECAF_ROUTE;
   function route() {
     return function route(obj: object, prop?: any, descriptor?: any) {
-      const options: RouteOptions = {
+      const options: DecafRouteDecOptions = {
         path: path,
+        httpMethod: httpMethod,
         handler: descriptor,
       };
 
