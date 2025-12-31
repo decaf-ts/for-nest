@@ -83,7 +83,7 @@ export function getApiDecorators(
         description: `No content returned by the method.`,
       }),
     ],
-    params: [DecafParams(apiPathParams), Query()],
+    params: [DecafParams(apiPathParams), Query()], // , DecafBody()],
   };
 }
 

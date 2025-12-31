@@ -103,7 +103,7 @@ export class FromModelController {
     ModelClazz: ModelConstructor<T>
   ): Repo<T> | ModelService<T> {
     try {
-      return ModelService.forModel(ModelClazz as any) as ModelService<T>;
+      return ModelService.getService(ModelClazz) as ModelService<T>;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {
       return Repository.forModel(ModelClazz) as Repo<T>;
@@ -146,11 +146,12 @@ export class FromModelController {
 
     for (const [methodName, params] of Object.entries(routeMethods)) {
       // regex to trim slashes from start and end
-      const routePath = [methodName, params.path.replace(/^\/+|\/+$/g, "")]
+      const routePath = [params.path.replace(/^\/+|\/+$/g, "")]
         .filter((segment) => segment && segment.trim())
         .join("/");
 
-      const handler = params.handler.value;
+      // const handler = params.handler.value;
+      const handler = createRouteHandler(methodName) as any;
       if (!handler) {
         const message = `Invalid or missing handler for model ${ModelConstr.name} on decorated method ${methodName}`;
         log.error(message);
