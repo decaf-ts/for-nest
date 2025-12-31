@@ -16,34 +16,33 @@ import {
 import {
   type DirectionLimitOffset,
   ModelService,
-  Repository,
   OrderDirection,
-  type Repo,
   PersistenceKeys,
   PreparedStatementKeys,
+  type Repo,
+  Repository,
 } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Logging, toKebabCase } from "@decaf-ts/logging";
 import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import {
+  ApiOperationFromModel,
+  ApiParamsFromModel,
   type DecafApiProperty,
   DecafBody,
   type DecafModelRoute,
   type DecafParamProps,
-} from "./decorators";
-import {
-  ApiOperationFromModel,
-  ApiParamsFromModel,
   DecafParams,
+  DecafRouteDecOptions,
 } from "./decorators";
 import { DecafRequestContext } from "../request";
-import { DECAF_ADAPTER_OPTIONS } from "../constants";
+import { DECAF_ADAPTER_OPTIONS, DECAF_ROUTE } from "../constants";
 import {
   applyApiDecorators,
-  getApiDecorators,
   createRouteHandler,
   defineRouteMethod,
+  getApiDecorators,
 } from "./utils";
 import { Auth } from "./decorators/decorators";
 import { AbstractQueryController, ControllerConstructor } from "./types";
@@ -104,7 +103,7 @@ export class FromModelController {
     ModelClazz: ModelConstructor<T>
   ): Repo<T> | ModelService<T> {
     try {
-      return ModelService.forModel(ModelClazz as any) as ModelService<T>;
+      return ModelService.getService(ModelClazz) as ModelService<T>;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {
       return Repository.forModel(ModelClazz) as Repo<T>;
@@ -115,11 +114,20 @@ export class FromModelController {
     persistence: Repo<T>,
     prefix: string = PersistenceKeys.QUERY
   ): ControllerConstructor<AbstractQueryController> {
+    const log = FromModelController.log.for(
+      FromModelController.createQueryRoutesFromRepository
+    );
     const ModelConstr: Constructor = persistence.class;
-    const methodQueries: Record<string, { fields?: string[] | undefined }> =
+    const queryMethods: Record<string, { fields?: string[] | undefined }> =
       Metadata.get(
         persistence.constructor as Constructor,
         Metadata.key(PersistenceKeys.QUERY)
+      ) ?? {};
+
+    const routeMethods: Record<string, DecafRouteDecOptions> =
+      Metadata.get(
+        persistence.constructor as Constructor,
+        Metadata.key(DECAF_ROUTE)
       ) ?? {};
 
     // create base class
@@ -136,7 +144,37 @@ export class FromModelController {
       }
     }
 
-    for (const [methodName, objValues] of Object.entries(methodQueries)) {
+    for (const [methodName, params] of Object.entries(routeMethods)) {
+      // regex to trim slashes from start and end
+      const routePath = [params.path.replace(/^\/+|\/+$/g, "")]
+        .filter((segment) => segment && segment.trim())
+        .join("/");
+
+      // const handler = params.handler.value;
+      const handler = createRouteHandler(methodName) as any;
+      if (!handler) {
+        const message = `Invalid or missing handler for model ${ModelConstr.name} on decorated method ${methodName}`;
+        log.error(message);
+        throw new Error(message);
+      }
+
+      const descriptor = defineRouteMethod(
+        QueryController,
+        methodName,
+        handler
+      );
+
+      if (descriptor) {
+        const decorators = getApiDecorators(
+          methodName,
+          routePath,
+          params.httpMethod
+        );
+        applyApiDecorators(QueryController, methodName, descriptor, decorators);
+      }
+    }
+
+    for (const [methodName, objValues] of Object.entries(queryMethods)) {
       const fields = objValues.fields ?? [];
       const routePath = [prefix, methodName, ...fields.map((f) => `:${f}`)]
         .filter((segment) => segment && segment.trim())
@@ -150,8 +188,7 @@ export class FromModelController {
       );
 
       if (descriptor) {
-        const decorators = getApiDecorators(methodName, routePath);
-
+        const decorators = getApiDecorators(methodName, routePath, "GET", true);
         applyApiDecorators(QueryController, methodName, descriptor, decorators);
       }
     }

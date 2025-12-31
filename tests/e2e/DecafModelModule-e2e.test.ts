@@ -1,6 +1,6 @@
 import request from "supertest";
 import { INestApplication } from "@nestjs/common";
-import { DecafExceptionFilter, DecafModule } from "../../src";
+import { DecafExceptionFilter, DecafModule, route } from "../../src";
 import {
   Adapter,
   ModelService,
@@ -45,6 +45,18 @@ class CustomProductRepository extends Repository<
     expyDateGt: number
   ) {
     throw new Error("Should be override by @query decorator");
+  }
+
+  @route("POST", "metadata/for-product")
+  async createMetadata(body: Product) {
+    return { ...body, id: `${body.productCode}` };
+  }
+
+  @route("GET", "metadata/for-product/:productCode")
+  async metadata(productCode: string) {
+    if (!productCode.startsWith("00")) throw new Error("Invalid product code!");
+
+    return { productCode, metadata: Math.random() };
   }
 }
 
@@ -264,7 +276,7 @@ describe("DecafModelModule CRUD", () => {
 
     const products: Product[] = [];
     beforeAll(async () => {
-      const service = ModelService.getService(Product);
+      const repo = Repository.forModel(Product);
       const payload = [
         {
           productCode: "40700719670720",
@@ -311,7 +323,7 @@ describe("DecafModelModule CRUD", () => {
       ].map((x) => new Product({ ...x, expiryDate: Number(x.expiryDate) }));
 
       for (const p of payload) {
-        products.push(await service.create(p));
+        products.push(await repo.create(p));
       }
       expect(products.length).toEqual(payload.length);
     });
@@ -429,6 +441,56 @@ describe("DecafModelModule CRUD", () => {
         expect(resp.status).toBe(200);
         expect(Array.isArray(resp.raw)).toBe(true);
         expect(resp.raw).toHaveLength(0);
+      });
+    });
+  });
+
+  describe("ROUTE", () => {
+    let product!: Product;
+    const route = "metadata/for-product";
+
+    beforeAll(async () => {
+      const repo = Repository.forModel(Product);
+      const payload = new Product({
+        productCode: "00399113067865",
+        batchNumber: "BATCH-METADATA-001",
+        name: "Metadata",
+        country: "PT",
+        expiryDate: Number(new Date("2030-01-01")),
+      });
+      product = await repo.create(payload);
+    });
+
+    describe("POST /metadata", () => {
+      it.skip("should return product metadata created", async () => {
+        const resp = await productHttpClient.post(
+          { productCode: product.productCode },
+          route
+        );
+        expect(resp.status).toBe(200);
+        expect(resp.data.productCode).toEqual(product.productCode);
+        expect(resp.raw.metadata).toBeDefined();
+      });
+    });
+
+    describe("GET /metadata", () => {
+      it("should return product metadata", async () => {
+        const resp = await productHttpClient.get(route, product.productCode);
+        expect(resp.status).toBe(200);
+        expect(resp.data.productCode).toEqual(product.productCode);
+        expect(resp.raw.metadata).toBeDefined();
+      });
+
+      it("should reject request for invalid param", async () => {
+        const resp = await productHttpClient.get(route, "11399113067865");
+        expect(resp.status).toEqual(500);
+        expect(resp.raw.error).toContain("Invalid product code!");
+      });
+
+      it("should reject request for invalid route", async () => {
+        const resp = await productHttpClient.get(`${route}/`);
+        // no matches any route
+        expect(resp.status).toEqual(404);
       });
     });
   });
