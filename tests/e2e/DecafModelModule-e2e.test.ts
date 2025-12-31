@@ -276,7 +276,7 @@ describe("DecafModelModule CRUD", () => {
 
     const products: Product[] = [];
     beforeAll(async () => {
-      const service = ModelService.getService(Product);
+      const repo = Repository.forModel(Product);
       const payload = [
         {
           productCode: "40700719670720",
@@ -323,7 +323,7 @@ describe("DecafModelModule CRUD", () => {
       ].map((x) => new Product({ ...x, expiryDate: Number(x.expiryDate) }));
 
       for (const p of payload) {
-        products.push(await service.create(p));
+        products.push(await repo.create(p));
       }
       expect(products.length).toEqual(payload.length);
     });
