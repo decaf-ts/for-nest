@@ -111,16 +111,18 @@ export class FromModelController {
   }
 
   static createQueryRoutesFromRepository<T extends Model<boolean>>(
-    persistence: Repo<T>,
+    persistence: Repo<T> | ModelService<T>,
     prefix: string = PersistenceKeys.QUERY
   ): ControllerConstructor<AbstractQueryController> {
     const log = FromModelController.log.for(
       FromModelController.createQueryRoutesFromRepository
     );
-    const ModelConstr: Constructor = persistence.class;
+    const repo: Repo<T> =
+      persistence instanceof ModelService ? persistence.repo : persistence;
+    const ModelConstr: Constructor = repo.class;
     const queryMethods: Record<string, { fields?: string[] | undefined }> =
       Metadata.get(
-        persistence.constructor as Constructor,
+        repo.constructor as Constructor,
         Metadata.key(PersistenceKeys.QUERY)
       ) ?? {};
 
@@ -210,7 +212,7 @@ export class FromModelController {
     log.debug(`Creating controller for model: ${modelClazzName}`);
 
     const BaseController = FromModelController.createQueryRoutesFromRepository(
-      persistence instanceof ModelService ? persistence.repo : persistence
+      persistence // instanceof ModelService ? persistence.repo : persistence
     ) as Constructor<AbstractQueryController>;
 
     @Controller(routePath)
