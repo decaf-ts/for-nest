@@ -5,7 +5,7 @@ const logger = Logging.for("for-nest");
 import { Command } from "commander";
 import fs from "fs";
 import path from "path";
-import { normalizeImport } from "@decaf-ts/for-fabric/shared";
+import { normalizeImport } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Logger } from "@decaf-ts/logging";
 import { NestFactory } from "@nestjs/core";
