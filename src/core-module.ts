@@ -29,8 +29,6 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
     return this._persistence;
   }
 
-  private static _adapterInstance: Adapter<any, any, any, any> | null = null;
-
   protected static get log(): Logger {
     if (!this._logger) this._logger = Logging.for(DecafCoreModule);
     return this._logger;
@@ -98,15 +96,16 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
 
   async onApplicationShutdown(): Promise<void> {
     const log = DecafCoreModule.log.for(this.onApplicationShutdown);
-    const adapter = this.moduleRef.get<ADAPTER>(DECAF_ADAPTER_ID);
-    try {
-      if (adapter) {
-        log.info("Shutting down");
-        await adapter.shutdown();
-        DecafCoreModule._adapterInstance = null;
+    const adapters: Adapter<any, any, any, any>[] =
+      this.moduleRef.get<any>(DECAF_ADAPTER_ID);
+    for (const adapter of adapters)
+      try {
+        if (adapter) {
+          log.info(`Shutting down ${adapter.toString()}`);
+          await adapter.shutdown();
+        }
+      } catch (e: unknown) {
+        log.error(`Failed to shutdown application`, e as Error);
       }
-    } catch (e: unknown) {
-      log.error(`Failed to shutdown application`, e as Error);
-    }
   }
 }

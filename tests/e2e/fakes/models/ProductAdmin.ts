@@ -35,7 +35,7 @@ export class Product extends BaseModel {
   @column()
   name!: string;
 
-  constructor(model?: ModelArg<Product>) {
-    super(model);
+  constructor(args?: ModelArg<Product>) {
+    super(args);
   }
 }

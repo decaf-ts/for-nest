@@ -164,18 +164,16 @@ export abstract class DecafModelController<
 
     if (!allowCreate)
       return (this.persistence as any)["logCtx"](
-        args,
+        [...args, ctx],
         operation,
-        allowCreate as any,
-        ctx || {}
+        allowCreate as any
       ) as any;
 
     return Promise.resolve(
       (this.persistence as any)["logCtx"](
-        args,
+        [...args, ctx],
         operation,
-        allowCreate as any,
-        ctx || {}
+        allowCreate as any
       )
     ) as any;
   }

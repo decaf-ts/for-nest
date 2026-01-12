@@ -475,8 +475,12 @@ export class FromModelController {
         ).for(this.create);
         log.verbose(`creating new ${modelClazzName}`);
         let created: Model;
+        const payload = JSON.parse(JSON.stringify(data));
+        if (modelClazzName === "Fake") {
+          console.log("payload plain", payload);
+        }
         try {
-          created = await this.persistence.create(data, ctx);
+          created = await this.persistence.create(payload, ctx);
         } catch (e: unknown) {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
           throw e;
@@ -573,7 +577,10 @@ export class FromModelController {
         let updated: T[];
         try {
           log.info(`updating ${body.length} ${modelClazzName}`);
-          updated = await this.persistence.updateAll(body, ctx);
+          const payloads = body.map((entry) =>
+            JSON.parse(JSON.stringify(entry))
+          );
+          updated = await this.persistence.updateAll(payloads, ctx);
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
@@ -612,9 +619,10 @@ export class FromModelController {
         let updated: T;
         try {
           log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
+          const payload = JSON.parse(JSON.stringify(body));
           updated = await this.persistence.update(
             new ModelConstr({
-              ...body,
+              ...payload,
               [this.pk]: id,
             }),
             ctx
