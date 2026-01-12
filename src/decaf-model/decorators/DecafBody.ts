@@ -16,7 +16,7 @@ export const DecafBody = createParamDecorator(
     // The DynamicModelController will have 'ModelConstr' available
     const controller = ctx.getClass();
     // We access the static property we will add to the DynamicModelController
-    const ModelConstr = (controller as any).clazz;
+    const ModelConstr = (controller as any).class;
 
     if (!ModelConstr) {
       throw new InternalServerErrorException(

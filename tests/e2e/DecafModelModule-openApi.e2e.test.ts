@@ -1,14 +1,9 @@
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { DecafExceptionFilter, DecafModule } from "../../src";
-import {
-  Adapter,
-  ModelService,
-  query,
-  RamAdapter,
-  RamFlavour,
-  service,
-} from "@decaf-ts/core";
+import { Adapter, ModelService, query, service } from "@decaf-ts/core";
+// @ts-expect-error  import from ram
+import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { Product } from "./fakes/models/Product";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { OpenAPIObject } from "@nestjs/swagger/dist/interfaces/index";

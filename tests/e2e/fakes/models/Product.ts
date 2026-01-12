@@ -1,5 +1,6 @@
 import { uses } from "@decaf-ts/decoration";
-import { column, pk, RamFlavour, table } from "@decaf-ts/core";
+import { column, pk, table } from "@decaf-ts/core";
+import { RamFlavour } from "@decaf-ts/core/ram";
 import {
   maxlength,
   minlength,

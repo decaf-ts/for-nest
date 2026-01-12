@@ -24,7 +24,12 @@ import {
 } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Logging, toKebabCase } from "@decaf-ts/logging";
-import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
+import {
+  BulkCrudOperationKeys,
+  DBKeys,
+  OperationKeys,
+  ValidationError,
+} from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import {
   ApiOperationFromModel,
@@ -37,7 +42,7 @@ import {
   DecafRouteDecOptions,
 } from "./decorators";
 import { DecafRequestContext } from "../request";
-import { DECAF_ADAPTER_OPTIONS, DECAF_ROUTE } from "../constants";
+import { DECAF_ROUTE } from "../constants";
 import {
   applyApiDecorators,
   createRouteHandler,
@@ -45,7 +50,8 @@ import {
   getApiDecorators,
 } from "./utils";
 import { Auth } from "./decorators/decorators";
-import { AbstractQueryController, ControllerConstructor } from "./types";
+import { ControllerConstructor } from "./types";
+import { DecafModelController } from "../controllers";
 
 /**
  * @description
@@ -113,7 +119,7 @@ export class FromModelController {
   static createQueryRoutesFromRepository<T extends Model<boolean>>(
     persistence: Repo<T> | ModelService<T>,
     prefix: string = PersistenceKeys.QUERY
-  ): ControllerConstructor<AbstractQueryController> {
+  ): ControllerConstructor<T> {
     const log = FromModelController.log.for(
       FromModelController.createQueryRoutesFromRepository
     );
@@ -133,16 +139,12 @@ export class FromModelController {
       ) ?? {};
 
     // create base class
-    class QueryController extends AbstractQueryController {
-      constructor(clientContext: DecafRequestContext) {
-        super(clientContext);
-        this._persistence = FromModelController.getPersistence(ModelConstr);
+    class QueryController extends DecafModelController<T> {
+      override get class(): ModelConstructor<T> {
+        throw new Error("Method not implemented.");
       }
-
-      override get persistence() {
-        const adapterOptions = this.clientContext.get(DECAF_ADAPTER_OPTIONS);
-        if (adapterOptions) return this._persistence.for(adapterOptions) as any;
-        return this._persistence;
+      constructor(clientContext: DecafRequestContext, name: string) {
+        super(clientContext, name);
       }
     }
 
@@ -213,7 +215,7 @@ export class FromModelController {
 
     const BaseController = FromModelController.createQueryRoutesFromRepository(
       persistence // instanceof ModelService ? persistence.repo : persistence
-    ) as Constructor<AbstractQueryController>;
+    ) as Constructor<DecafModelController<T>>;
 
     @Controller(routePath)
     @ApiTags(modelClazzName)
@@ -222,7 +224,13 @@ export class FromModelController {
     class DynamicModelController extends BaseController {
       private readonly pk: string = Model.pk(ModelConstr) as string;
 
-      public static readonly clazz = ModelConstr;
+      protected static get class() {
+        return ModelConstr;
+      }
+
+      override get class(): ModelConstructor<T> {
+        return DynamicModelController.class;
+      }
 
       constructor(clientContext: DecafRequestContext) {
         super(clientContext);
@@ -258,9 +266,13 @@ export class FromModelController {
         description: `${modelClazzName} listed successfully.`,
       })
       async listBy(key: string, @Query() details: DirectionLimitOffset) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.LIST_BY, true)
+        ).for(this.listBy);
         return this.persistence.listBy(
           key as keyof T,
-          details.direction as OrderDirection
+          details.direction as OrderDirection,
+          ctx
         );
       }
 
@@ -286,10 +298,14 @@ export class FromModelController {
         @Param("key") key: string,
         @Query() details: DirectionLimitOffset
       ) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.PAGE_BY, true)
+        ).for(this.paginateBy);
         return this.persistence.paginateBy(
           key as keyof T,
           details.direction as OrderDirection,
-          details as Omit<DirectionLimitOffset, "direction">
+          details as Omit<DirectionLimitOffset, "direction">,
+          ctx
         );
       }
 
@@ -303,7 +319,10 @@ export class FromModelController {
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       async findOneBy(@Param("key") key: string, @Param("value") value: any) {
-        return this.persistence.findOneBy(key as keyof T, value);
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.FIND_ONE_BY, true)
+        ).for(this.findOneBy);
+        return this.persistence.findOneBy(key as keyof T, value, ctx);
       }
 
       @ApiOperationFromModel(ModelConstr, "GET", "findBy/:key/:value")
@@ -328,7 +347,10 @@ export class FromModelController {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         @Query() details: DirectionLimitOffset
       ) {
-        return this.persistence.findBy(key as keyof T, value);
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.FIND_BY, true)
+        ).for(this.findBy);
+        return this.persistence.findBy(key as keyof T, value, ctx);
       }
 
       @ApiOperationFromModel(ModelConstr, "GET", "statement/:method/*args")
@@ -371,6 +393,9 @@ export class FromModelController {
         @Param("args") args: (string | number)[],
         @Query() details: DirectionLimitOffset
       ) {
+        const { ctx } = (
+          await this.logCtx([], PersistenceKeys.STATEMENT, true)
+        ).for(this.statement);
         const { direction, offset, limit, bookmark } = details;
         args = args.map(
           (a) => (typeof a === "string" ? parseInt(a) : a) || a
@@ -391,7 +416,7 @@ export class FromModelController {
           case PreparedStatementKeys.FIND_ONE_BY:
             break;
         }
-        return this.persistence.statement(name, ...args);
+        return this.persistence.statement(name, ...args, ctx);
       }
 
       @ApiOperationFromModel(ModelConstr, "POST", "bulk")
@@ -411,12 +436,15 @@ export class FromModelController {
         description: "Repository rejected the provided payload.",
       })
       async createAll(@DecafBody() data: T[]): Promise<Model[]> {
-        const log = this.log.for(this.createAll);
+        const { ctx, log } = (
+          await this.logCtx([], BulkCrudOperationKeys.CREATE_ALL, true)
+        ).for(this.createAll);
         log.verbose(`creating new ${modelClazzName}`);
         let created: T[];
         try {
           created = await this.persistence.createAll(
-            data.map((d) => new ModelConstr(d))
+            data.map((d) => new ModelConstr(d)),
+            ctx
           );
         } catch (e: unknown) {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
@@ -442,11 +470,13 @@ export class FromModelController {
         description: "Repository rejected the provided payload.",
       })
       async create(@DecafBody() data: T): Promise<Model<any>> {
-        const log = this.log.for(this.create);
+        const { ctx, log } = (
+          await this.logCtx([], OperationKeys.CREATE, true)
+        ).for(this.create);
         log.verbose(`creating new ${modelClazzName}`);
         let created: Model;
         try {
-          created = await this.persistence.create(data);
+          created = await this.persistence.create(data, ctx);
         } catch (e: unknown) {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
           throw e;
@@ -467,11 +497,13 @@ export class FromModelController {
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       async readAll(@Query("ids") ids: string[]) {
-        const log = this.log.for(this.readAll);
+        const { ctx, log } = (
+          await this.logCtx([], BulkCrudOperationKeys.READ_ALL, true)
+        ).for(this.readAll);
         let read: Model[];
         try {
           log.debug(`reading ${ids.length} ${modelClazzName}: ${ids}`);
-          read = await this.persistence.readAll(ids as any);
+          read = await this.persistence.readAll(ids as any, ctx);
         } catch (e: unknown) {
           log.error(`Failed to ${modelClazzName} with id ${ids}`, e as Error);
           throw e;
@@ -491,15 +523,17 @@ export class FromModelController {
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       async read(@DecafParams(apiProperties) routeParams: DecafParamProps) {
+        const { ctx, log } = (
+          await this.logCtx([], OperationKeys.READ, true)
+        ).for(this.read);
         const id = getPK(...routeParams.valuesInOrder);
         if (typeof id === "undefined")
           throw new ValidationError(`No ${this.pk} provided`);
 
-        const log = this.log.for(this.read);
         let read: Model;
         try {
           log.debug(`reading ${modelClazzName} with ${this.pk} ${id}`);
-          read = await this.persistence.read(id);
+          read = await this.persistence.read(id, ctx);
         } catch (e: unknown) {
           log.error(
             `Failed to read ${modelClazzName} with id ${id}`,
@@ -532,12 +566,14 @@ export class FromModelController {
       })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
       async updateAll(@DecafBody() body: T[]) {
-        const log = this.log.for(this.updateAll);
+        const { ctx, log } = (
+          await this.logCtx([], BulkCrudOperationKeys.UPDATE_ALL, true)
+        ).for(this.updateAll);
 
         let updated: T[];
         try {
           log.info(`updating ${body.length} ${modelClazzName}`);
-          updated = await this.persistence.updateAll(body);
+          updated = await this.persistence.updateAll(body, ctx);
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
@@ -565,7 +601,10 @@ export class FromModelController {
         @DecafParams(apiProperties) routeParams: DecafParamProps,
         @DecafBody() body: T
       ) {
-        const log = this.log.for(this.update);
+        const { ctx, log } = (
+          await this.logCtx([], OperationKeys.UPDATE, true)
+        ).for(this.update);
+
         const id = getPK(...routeParams.valuesInOrder);
         if (typeof id === "undefined")
           throw new ValidationError(`No ${this.pk} provided`);
@@ -577,7 +616,8 @@ export class FromModelController {
             new ModelConstr({
               ...body,
               [this.pk]: id,
-            })
+            }),
+            ctx
           );
         } catch (e: unknown) {
           log.error(e as Error);
@@ -597,11 +637,13 @@ export class FromModelController {
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       async deleteAll(@Query("ids") ids: string[]) {
-        const log = this.log.for(this.deleteAll);
+        const { ctx, log } = (
+          await this.logCtx([], BulkCrudOperationKeys.DELETE_ALL, true)
+        ).for(this.deleteAll);
         let read: Model[];
         try {
           log.debug(`deleting ${ids.length} ${modelClazzName}: ${ids}`);
-          read = await this.persistence.deleteAll(ids);
+          read = await this.persistence.deleteAll(ids, ctx);
         } catch (e: unknown) {
           log.error(
             `Failed to delete ${modelClazzName} with id ${ids}`,
@@ -624,7 +666,10 @@ export class FromModelController {
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       async delete(@DecafParams(apiProperties) routeParams: DecafParamProps) {
-        const log = this.log.for(this.delete);
+        const { ctx, log } = (
+          await this.logCtx([], OperationKeys.DELETE, true)
+        ).for(this.delete);
+
         const id = getPK(...routeParams.valuesInOrder);
         if (typeof id === "undefined")
           throw new ValidationError(`No ${this.pk} provided`);
@@ -634,7 +679,7 @@ export class FromModelController {
           log.debug(
             `deleting ${modelClazzName} with ${this.pk as string} ${id}`
           );
-          del = await this.persistence.delete(id);
+          del = await this.persistence.delete(id, ctx);
         } catch (e: unknown) {
           log.error(
             `Failed to delete ${modelClazzName} with id ${id}`,

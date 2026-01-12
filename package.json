@@ -102,5 +102,13 @@
     "@decaf-ts/logging": "latest",
     "@decaf-ts/transactional-decorators": "latest",
     "@nestjs/common": "^11.0.1"
+  },
+  "overrides": {
+    "fabric-common": {
+      "jsrsasign": "^11.1.0"
+    },
+    "fabric-ca-client": {
+      "jsrsasign": "^11.1.0"
+    }
   }
 }

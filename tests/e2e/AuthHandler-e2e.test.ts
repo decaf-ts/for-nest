@@ -1,7 +1,10 @@
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { DecafExceptionFilter, DecafModule } from "../../src";
-import { Adapter, RamAdapter, RamFlavour } from "@decaf-ts/core";
+
+// @ts-expect-error  import from ram
+import { RamFlavour, RamAdapter } from "@decaf-ts/core/ram";
+import { Adapter } from "@decaf-ts/core";
 import { AuthModule } from "./fakes/auth.module";
 import { AuthHttpModelClient } from "./fakes/serverAuth";
 import { genStr } from "./fakes/utils";
@@ -299,7 +302,7 @@ describe("Authentication", () => {
       );
 
       expect(getDeletedProduct.raw.error).toContain(
-        `[NotFoundError] Record with id ${product.productCode}:${product.batchNumber} not found in table product`
+        `[NotFoundError][404] Record with id ${product.productCode}:${product.batchNumber} not found in table product`
       );
 
       const partnerToken = "partner";

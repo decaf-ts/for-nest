@@ -24,6 +24,7 @@ import { Metadata } from "@decaf-ts/decoration";
 import "./decoration";
 
 export * from "./constants";
+export * from "./controllers";
 export * from "./decoration";
 export * from "./module";
 export * from "./types";

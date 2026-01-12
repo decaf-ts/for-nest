@@ -1,6 +1,6 @@
 import { Query } from "@nestjs/common";
 import { Logger } from "@decaf-ts/logging";
-import { Controller, type DecoratorBundle } from "./types";
+import { type DecoratorBundle } from "./types";
 import {
   ApiNoContentResponse,
   ApiOkResponse,
@@ -22,6 +22,7 @@ import {
 } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
 import { HttpVerbToDecorator } from "./decorators/utils";
+import { DecafModelController } from "../controllers";
 
 const extractPathParams = (routePath: string): string[] => {
   return routePath
@@ -119,7 +120,7 @@ export function resolvePersistenceMethod<T extends Model<boolean>>(
 
 export function createRouteHandler<T>(methodName: string) {
   return async function (
-    this: Controller,
+    this: DecafModelController<any>,
     pathParams: DecafParamProps,
     queryParams: DirectionLimitOffset
   ): Promise<T> {

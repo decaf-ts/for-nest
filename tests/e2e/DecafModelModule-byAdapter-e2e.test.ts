@@ -1,13 +1,10 @@
 import { INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DecafExceptionFilter, DecafModule } from "../../src";
-import {
-  Adapter,
-  OrderDirection,
-  Paginator,
-  RamAdapter,
-  RamFlavour,
-} from "@decaf-ts/core";
+import { Adapter, OrderDirection, Paginator } from "@decaf-ts/core";
+
+// @ts-expect-error  import from ram
+import { RamFlavour, RamAdapter } from "@decaf-ts/core/ram";
 import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { genStr } from "./fakes/utils";

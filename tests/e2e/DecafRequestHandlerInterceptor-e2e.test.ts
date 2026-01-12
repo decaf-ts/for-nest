@@ -3,7 +3,8 @@ import request from "supertest";
 import { INestApplication } from "@nestjs/common";
 import { FakeHandler } from "./fakes/fake.handler";
 import { DecafModule } from "../../src";
-import { Adapter, RamAdapter, RamFlavour } from "@decaf-ts/core";
+import { Adapter } from "@decaf-ts/core";
+import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { Fake } from "./fakes/models/Fake";
 import { Model } from "@decaf-ts/decorator-validation";
 
