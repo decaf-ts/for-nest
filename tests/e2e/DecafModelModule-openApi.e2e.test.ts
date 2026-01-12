@@ -1,13 +1,13 @@
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { DecafExceptionFilter, DecafModule } from "../../src";
-import { Adapter, FlagsOf, ModelService, query, service } from "@decaf-ts/core";
-// @ts-expect-error  import from ram
+import { Adapter, ModelService, query, service } from "@decaf-ts/core";
 import {
   RamAdapter,
   RamContext,
   RamFlags,
   RamFlavour,
+  // @ts-expect-error  import from ram
 } from "@decaf-ts/core/ram";
 import { Product } from "./fakes/models/Product";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";

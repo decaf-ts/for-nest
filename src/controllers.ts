@@ -1,4 +1,5 @@
 import {
+  Adapter,
   ContextOf,
   ContextualizedArgs,
   ContextualLoggedClass,
@@ -11,6 +12,7 @@ import {
   Service,
 } from "@decaf-ts/core";
 import { DecafServerContext } from "./constants";
+import { Metadata } from "@decaf-ts/decoration";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { DecafRequestContext } from "./request/DecafRequestContext";
 

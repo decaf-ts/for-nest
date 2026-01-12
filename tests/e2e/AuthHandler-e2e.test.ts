@@ -2,14 +2,34 @@ import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { DecafExceptionFilter, DecafModule } from "../../src";
 
-// @ts-expect-error  import from ram
-import { RamFlavour, RamAdapter } from "@decaf-ts/core/ram";
-import { Adapter } from "@decaf-ts/core";
+import {
+  RamFlavour,
+  RamAdapter,
+  RamContext,
+  RamFlags,
+  // @ts-expect-error  import from ram
+} from "@decaf-ts/core/ram";
+import { Adapter, FlagsOf } from "@decaf-ts/core";
 import { AuthModule } from "./fakes/auth.module";
 import { AuthHttpModelClient } from "./fakes/serverAuth";
 import { genStr } from "./fakes/utils";
 import { Fake } from "./fakes/models/FakePartner";
 import { Product } from "./fakes/models/ProductAdmin";
+import {
+  RequestToContextTransformer,
+  requestToContextTransformer,
+} from "../../src/interceptors/context";
+
+@requestToContextTransformer(RamFlavour)
+class RamTransformer implements RequestToContextTransformer<RamContext> {
+  async from(req: any, args: any): Promise<RamFlags> {
+    return { user: "here" }; // should be populating from req
+  }
+
+  toAuth(ctx: RamContext): Partial<RamFlags> {
+    return { user: ctx.get("user") };
+  }
+}
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
@@ -83,7 +103,7 @@ describe("Authentication", () => {
       expect(res.pk).toEqual(id);
 
       const fakeId = genStr(6);
-      const fakePayload = { id: fakeId, name: "Fake ABC" };
+      const fakePayload = { id: "00" + fakeId, name: "Fake ABC" };
 
       const fake = new Fake(fakePayload);
 

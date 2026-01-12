@@ -1,19 +1,17 @@
 import { DecafServerContext } from "../constants";
 import { FlagsOf } from "@decaf-ts/core";
-import { metadata, Metadata } from "@decaf-ts/decoration";
-
-export type RequestToContextFlagsTransformer<
-  C extends DecafServerContext = DecafServerContext,
-> = (req: any) => Promise<C>;
+import { Metadata } from "@decaf-ts/decoration";
 
 export abstract class RequestToContextTransformer<
   C extends DecafServerContext,
 > {
   abstract from(req: any, ...args: any[]): Promise<FlagsOf<C>>;
+  abstract toAuth(ctx: C): Partial<FlagsOf<C>>;
 }
 
 export function requestToContextTransformer(flavour: string) {
   return function requestToContextTransformer(original: object) {
-    return metadata(Metadata.key("transformers", flavour), original)(original);
+    Metadata.set("transformers", flavour, original);
+    return original;
   };
 }
