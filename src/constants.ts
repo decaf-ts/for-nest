@@ -13,7 +13,7 @@ export const AUTH_META_KEY = "auth:meta";
 
 export const AuthRole = "AuthRole";
 
-export const DECAF_CONTEXT_KEY = "decaf:context";
+export const DECAF_CONTEXT_KEY = Symbol("decaf:context");
 
 export type DecafServerFlags<LOG extends Logger = Logger> =
   AdapterFlags<LOG> & {

@@ -1,4 +1,6 @@
 import { Injectable, Scope } from "@nestjs/common";
+import { DecafServerContext } from "../constants";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 /**
  * @description
@@ -22,14 +24,18 @@ import { Injectable, Scope } from "@nestjs/common";
  * ```
  */
 @Injectable({ scope: Scope.REQUEST })
-export class DecafRequestContext {
-  private cache = new Map<string | symbol, any>();
+export class DecafRequestContext<
+  C extends DecafServerContext = DecafServerContext,
+> {
+  private _ctx?: C;
 
-  set(key: string | symbol, value: any) {
-    this.cache.set(key, value);
+  applyCtx(ctx: C) {
+    this._ctx = ctx;
   }
 
-  get<T = any>(key: string | symbol): T | undefined {
-    return this.cache.get(key);
+  get ctx(): C {
+    if (!this._ctx)
+      throw new InternalError(`Context not initialized for request`);
+    return this._ctx;
   }
 }

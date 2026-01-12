@@ -1,5 +1,6 @@
 import { uses } from "@decaf-ts/decoration";
 import { BaseModel, column, pk, table } from "@decaf-ts/core";
+// @ts-expect-error ram
 import { RamFlavour } from "@decaf-ts/core/ram";
 import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 import { Roles } from "../../../../src/index";

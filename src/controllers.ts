@@ -7,12 +7,12 @@ import {
   MethodOrOperation,
   ModelService,
   Repo,
+  Repository,
   Service,
 } from "@decaf-ts/core";
-import { DECAF_ADAPTER_OPTIONS, DecafServerContext } from "./constants";
+import { DecafServerContext } from "./constants";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
-import { FromModelController } from "./decaf-model/index";
-import { DecafRequestContext } from "./request/index";
+import { DecafRequestContext } from "./request/DecafRequestContext";
 
 export abstract class DecafController<
   CONTEXT extends DecafServerContext,
@@ -92,7 +92,14 @@ export abstract class DecafModelController<
 
   get persistence() {
     if (!this._persistence)
-      this._persistence = FromModelController.getPersistence(this.class);
+      try {
+        this._persistence = ModelService.getService(
+          this.class
+        ) as ModelService<M>;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e: unknown) {
+        this._persistence = Repository.forModel(this.class) as Repo<M>;
+      }
     return this._persistence;
   }
 
@@ -159,14 +166,14 @@ export abstract class DecafModelController<
       > {
     // TODO get nestJS context
 
-    const adapterOptions = this.clientContext.get(DECAF_ADAPTER_OPTIONS);
+    const ctx = this.clientContext.ctx;
 
     if (!allowCreate)
       return (this.persistence as any)["logCtx"](
         args,
         operation,
         allowCreate as any,
-        adapterOptions || {}
+        ctx || {}
       ) as any;
 
     return Promise.resolve(
@@ -174,7 +181,7 @@ export abstract class DecafModelController<
         args,
         operation,
         allowCreate as any,
-        adapterOptions || {}
+        ctx || {}
       )
     ) as any;
   }

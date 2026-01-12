@@ -5,7 +5,9 @@ import {
   NestInterceptor,
   Scope,
 } from "@nestjs/common";
-import { DecafHandlerExecutor } from "../request";
+import { DecafHandlerExecutor, DecafRequestContext } from "../request";
+import { Context } from "@decaf-ts/core";
+import { DecafServerContext } from "../constants";
 
 /**
  * @description
@@ -55,11 +57,24 @@ import { DecafHandlerExecutor } from "../request";
  */
 @Injectable({ scope: Scope.REQUEST })
 export class DecafRequestHandlerInterceptor implements NestInterceptor {
-  constructor(private readonly executor: DecafHandlerExecutor) {}
+  constructor(
+    protected readonly requestContext: DecafRequestContext,
+    protected readonly executor: DecafHandlerExecutor
+  ) {}
 
-  async intercept(ctx: ExecutionContext, next: CallHandler) {
-    const req = ctx.switchToHttp().getRequest();
-    const res = ctx.switchToHttp().getResponse();
+  protected async contextualize(req: any): Promise<DecafServerContext> {
+    const headers = req.headers;
+    const ctx = new Context().accumulate({
+      headers: headers,
+    });
+    return ctx;
+  }
+
+  async intercept(context: ExecutionContext, next: CallHandler) {
+    const req = context.switchToHttp().getRequest();
+    const res = context.switchToHttp().getResponse();
+    const ctx = await this.contextualize(req);
+    this.requestContext.applyCtx(ctx);
     await this.executor.exec(req, res);
     return next.handle();
   }

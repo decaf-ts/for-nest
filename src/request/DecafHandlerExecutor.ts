@@ -56,7 +56,7 @@ export class DecafHandlerExecutor {
 
   async exec(req: Request, res: Response) {
     for (const handler of this.handlers) {
-      await handler.handle(this.context, req, res);
+      await handler.handle(this.context.ctx, req, res);
     }
   }
 }
