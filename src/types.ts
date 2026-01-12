@@ -1,4 +1,4 @@
-import { Adapter } from "@decaf-ts/core";
+import { Adapter, ConfigOf } from "@decaf-ts/core";
 import { Constructor } from "@decaf-ts/decoration";
 import { ExecutionContext, Type } from "@nestjs/common";
 import { DecafServerContext } from "./constants";
@@ -21,8 +21,7 @@ export type DecafModuleOptions<
   CONF = any,
   A extends Adapter<CONF, any, any, any> = Adapter<CONF, any, any, any>,
 > = {
-  adapter: Constructor<A>;
-  conf: CONF;
+  conf: [Constructor<A>, ConfigOf<A>, ...args: any[]][];
   alias?: string;
   autoControllers: boolean;
   autoServices?: boolean;

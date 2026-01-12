@@ -6,8 +6,10 @@ import { ContextOf } from "@decaf-ts/core";
 declare module "@decaf-ts/core" {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   export namespace Adapter {
-    function toContextFlags<A extends Adapter<any, any, any, any>>(
-      adapter: A
+    function transformerFor<A extends Adapter<any, any, any, any>>(
+      adapter: A | string
     ): Constructor<RequestToContextTransformer<ContextOf<A>>>;
+
+    function requestTransformers(): string[] | undefined;
   }
 }

@@ -25,8 +25,7 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
   beforeAll(async () => {
     app = await NestFactory.create(
       DecafModule.forRootAsync({
-        adapter: RamAdapter,
-        conf: undefined,
+        conf: [[RamAdapter, {}]],
         autoControllers: true,
         autoServices: false,
       })

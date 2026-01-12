@@ -26,9 +26,8 @@ describe("Authentication", () => {
       imports: [
         AuthModule,
         DecafModule.forRootAsync({
-          adapter: RamAdapter,
           // adapter: FabricClientAdapter as any,
-          conf: undefined, //config,
+          conf: [[RamAdapter, {}]], //config,
           autoControllers: true,
         }),
       ],

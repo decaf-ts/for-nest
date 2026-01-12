@@ -10,8 +10,9 @@ import { ModuleRef } from "@nestjs/core";
 import type { DecafModuleOptions } from "./types";
 import { DECAF_ADAPTER_ID, DECAF_MODULE_OPTIONS } from "./constants";
 import { FactoryProvider } from "@nestjs/common/interfaces/modules/provider.interface";
-import { Adapter } from "@decaf-ts/core";
+import { Adapter, PersistenceService } from "@decaf-ts/core";
 import { Logger, Logging } from "@decaf-ts/logging";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 @Global()
 @Module({})
@@ -19,6 +20,15 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
   implements OnApplicationShutdown
 {
   private static _logger: Logger;
+
+  private static _persistence?: PersistenceService<any>;
+
+  protected static get persistence(): PersistenceService<any> {
+    if (!this._persistence)
+      throw new InternalError("Persistence service not initialized");
+    return this._persistence;
+  }
+
   private static _adapterInstance: Adapter<any, any, any, any> | null = null;
 
   protected static get log(): Logger {
@@ -32,26 +42,28 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
     private readonly moduleRef: ModuleRef
   ) {}
 
-  static async createAdapter(
+  static async bootPersistence(
     options: DecafModuleOptions
-  ): Promise<Adapter<any, any, any, any>> {
-    if (!this._adapterInstance) {
-      const log = this.log.for(this.createAdapter);
-      log.info("Creating adapter instance...");
-      this._adapterInstance = new options.adapter(options.conf, options.alias);
-      try {
-        await this._adapterInstance.initialize();
-      } catch (e: unknown) {
-        log.error(`Failed to initialized adapter`);
-        throw e;
-      }
-      log.info("Adapter instance created successfully!");
-    }
-    return this._adapterInstance;
-  }
+  ): Promise<Adapter<any, any, any, any>[]> {
+    const log = this.log.for(this.bootPersistence);
 
-  static getAdapterInstance(): Adapter<any, any, any, any> | null {
-    return this._adapterInstance;
+    this._persistence = new PersistenceService();
+    log.info("persistence layer created successfully!");
+    return (await this._persistence.initialize(options.conf)).client;
+
+    //
+    // if (!this._adapterInstance) {
+    //   log.info("Creating adapter instance...");
+    //   this._adapterInstance = new options.adapter(options.conf, options.alias);
+    //   try {
+    //     await this._adapterInstance.initialize();
+    //   } catch (e: unknown) {
+    //     log.error(`Failed to initialized adapter`);
+    //     throw e;
+    //   }
+    //   log.info("Adapter instance created successfully!");
+    // }
+    // return this.persistence;
   }
 
   static forRoot(options: DecafModuleOptions): DynamicModule {
@@ -62,7 +74,7 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
 
     const adapter: FactoryProvider<any> = {
       useFactory: async (opts: DecafModuleOptions) => {
-        return DecafCoreModule.createAdapter(opts);
+        return DecafCoreModule.bootPersistence(opts);
       },
       provide: DECAF_ADAPTER_ID,
       durable: true,

@@ -64,21 +64,15 @@ export abstract class DecafController<
         ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>
       >
     | ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false> {
+    const ctx = this.clientContext.ctx;
+    args = args.filter((e) => typeof e !== "undefined");
     return ContextualLoggedClass.logCtx.call(
       this,
       operation,
       overrides || {},
       allowCreate,
-      ...args.filter((e) => typeof e !== "undefined")
-    ) as
-      | Promise<
-          ContextualizedArgs<
-            CONTEXT,
-            ARGS,
-            METHOD extends string ? true : false
-          >
-        >
-      | ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
+      ...[...args, ctx]
+    ) as any;
   }
 }
 

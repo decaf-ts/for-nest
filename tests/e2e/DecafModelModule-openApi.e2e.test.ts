@@ -30,8 +30,7 @@ describe("DecafModelModule OpenAPI", () => {
       const moduleRef = await Test.createTestingModule({
         imports: [
           DecafModule.forRootAsync({
-            adapter: RamAdapter,
-            conf: undefined,
+            conf: [[RamAdapter, {}]],
             autoControllers: true,
             autoServices: false,
           }),
@@ -148,8 +147,7 @@ describe("DecafModelModule OpenAPI", () => {
       const moduleRef = await Test.createTestingModule({
         imports: [
           DecafModule.forRootAsync({
-            adapter: RamAdapter,
-            conf: undefined,
+            conf: [[RamAdapter, {}]],
             autoControllers: true,
             autoServices: true,
           }),

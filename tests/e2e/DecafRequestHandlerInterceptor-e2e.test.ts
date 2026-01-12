@@ -4,6 +4,7 @@ import { INestApplication } from "@nestjs/common";
 import { FakeHandler } from "./fakes/fake.handler";
 import { DecafModule } from "../../src";
 import { Adapter } from "@decaf-ts/core";
+// @ts-expect-error ram
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { Fake } from "./fakes/models/Fake";
 import { Model } from "@decaf-ts/decorator-validation";
@@ -21,8 +22,7 @@ describe("DecafModule RequestHandlerInterceptor", () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         DecafModule.forRootAsync({
-          adapter: RamAdapter,
-          conf: undefined,
+          conf: [[RamAdapter, {}]],
           autoControllers: true,
           handlers: [FakeHandler],
         }),
