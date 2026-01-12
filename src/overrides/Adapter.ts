@@ -10,6 +10,6 @@ declare module "@decaf-ts/core" {
       adapter: A | string
     ): Constructor<RequestToContextTransformer<ContextOf<A>>>;
 
-    function requestTransformers(): string[] | undefined;
+    function flavoursToTransform(): string[] | undefined;
   }
 }

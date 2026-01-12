@@ -47,9 +47,13 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
   ): Promise<Adapter<any, any, any, any>[]> {
     const log = this.log.for(this.bootPersistence);
 
-    this._persistence = new PersistenceService();
-    log.info("persistence layer created successfully!");
-    return (await this._persistence.initialize(options.conf)).client;
+    if (!this._persistence) {
+      this._persistence = new PersistenceService();
+      await this._persistence.boot(options.conf);
+      log.info("persistence layer created successfully!");
+    }
+
+    return this.persistence.client;
 
     //
     // if (!this._adapterInstance) {

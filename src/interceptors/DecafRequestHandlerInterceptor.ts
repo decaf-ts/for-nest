@@ -10,7 +10,6 @@ import { Adapter, Context } from "@decaf-ts/core";
 import { DecafServerContext, DecafServerFlags } from "../constants";
 import "../overrides";
 import { Logging } from "@decaf-ts/logging";
-import { async } from "@decaf-ts/decorator-validation";
 import { InternalError } from "@decaf-ts/db-decorators";
 
 /**
@@ -72,7 +71,7 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
       headers: headers,
     } as any;
 
-    const flavours = Adapter.requestTransformers();
+    const flavours = Adapter.flavoursToTransform();
     if (flavours)
       for (const flavour of flavours) {
         try {

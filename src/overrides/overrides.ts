@@ -2,7 +2,7 @@ import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { RequestToContextTransformer } from "../interceptors/context";
 import { Adapter, ContextOf } from "@decaf-ts/core";
 
-(Adapter as any).trnasformerFor = function toContextFlags<
+(Adapter as any).transformerFor = function toContextFlags<
   A extends Adapter<any, any, any, any>,
 >(adapter: A | string): Constructor<RequestToContextTransformer<ContextOf<A>>> {
   const alias =
