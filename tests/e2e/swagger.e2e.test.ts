@@ -1,30 +1,16 @@
+import "../../src";
 import { INestApplication } from "@nestjs/common";
-import { HttpModelClient, HttpModelResponse } from "./fakes/server";
+import { HttpModelClient } from "./fakes/server";
 import { Product } from "./fakes/models/Product";
-import { genStr } from "./fakes/index";
-import { NestFactory } from "@nestjs/core";
-import {
-  DecafExceptionFilter,
-  DecafModule,
-  RamTransformer,
-} from "../../src/index";
-import { RamAdapter } from "@decaf-ts/core/ram";
 import { getApp } from "./app";
 
 const timeout = 600000;
 
 jest.setTimeout(timeout);
 
-describe.skip("swagger", () => {
+describe("swagger", () => {
   let app: INestApplication;
   let productHttpClient: HttpModelClient<Product>;
-
-  const productCode = genStr(14);
-  const batchNumber = `BATCH${genStr(3)}`;
-  const productPayload = { productCode, batchNumber, name: "Product ABC" };
-  const id = `${productCode}:${batchNumber}`;
-
-  let created: HttpModelResponse<Product>;
 
   beforeAll(async () => {
     app = await getApp();
