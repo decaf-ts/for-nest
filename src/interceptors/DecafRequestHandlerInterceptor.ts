@@ -11,6 +11,7 @@ import { DecafServerContext, DecafServerFlags } from "../constants";
 import "../overrides";
 import { Logging } from "@decaf-ts/logging";
 import { InternalError } from "@decaf-ts/db-decorators";
+import { RequestToContextTransformer } from "./context";
 
 /**
  * @description
@@ -76,8 +77,11 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
     if (flavours)
       for (const flavour of flavours) {
         try {
-          const transformer = Adapter.transformerFor(flavour);
-          Object.assign(flags.overrides, await new transformer().from(req));
+          const transformer = Adapter.transformerFor(
+            flavour
+          ) as RequestToContextTransformer<any>;
+          const from = await transformer.from(req);
+          Object.assign(flags.overrides, from);
         } catch (e: unknown) {
           throw new InternalError(`Failed to contextualize request: ${e}`);
         }

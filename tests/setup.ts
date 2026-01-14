@@ -1,5 +1,5 @@
 import { Decoration, DecorationKeys, Metadata } from "@decaf-ts/decoration";
-import { RamFlavour } from "@decaf-ts/core";
+import { RamFlavour } from "@decaf-ts/core/ram";
 
 // Ensure flavour metadata is initialized as arrays before any @uses decorators run.
 Metadata.set(DecorationKeys.FLAVOUR, Decoration.defaultFlavour, []);

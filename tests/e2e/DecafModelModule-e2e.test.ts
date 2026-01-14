@@ -15,6 +15,7 @@ import { HttpModelClient, HttpModelResponse } from "./fakes/server";
 import { genStr } from "./fakes/utils";
 import { Product } from "./fakes/models/Product";
 import { NestFactory } from "@nestjs/core";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 
 Adapter.setCurrent(RamFlavour);
 

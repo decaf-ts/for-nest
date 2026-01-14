@@ -23,6 +23,7 @@
 import { Metadata } from "@decaf-ts/decoration";
 import "./decoration";
 
+export * from "./decoration"; // on top on purpose
 export * from "./decaf-model";
 export * from "./factory";
 export * from "./interceptors";
@@ -30,7 +31,6 @@ export * from "./overrides";
 export * from "./request";
 export * from "./constants";
 export * from "./controllers";
-export * from "./decoration";
 export * from "./module";
 export * from "./types";
 export * from "./utils";
