@@ -1,6 +1,6 @@
 import { DecafServerContext } from "../constants";
 import { FlagsOf } from "@decaf-ts/core";
-import { Metadata } from "@decaf-ts/decoration";
+import { metadata, Metadata } from "@decaf-ts/decoration";
 
 export abstract class RequestToContextTransformer<
   C extends DecafServerContext,
@@ -11,6 +11,8 @@ export abstract class RequestToContextTransformer<
 export function requestToContextTransformer(flavour: string) {
   return function requestToContextTransformer(original: any) {
     Metadata.set("transformers", flavour, original);
+    if (typeof original === "function")
+      return metadata("transformers", flavour)(original);
     return original;
   };
 }
