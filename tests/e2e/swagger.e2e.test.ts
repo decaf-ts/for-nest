@@ -1,3 +1,4 @@
+import "../../src";
 import { INestApplication } from "@nestjs/common";
 import { HttpModelClient, HttpModelResponse } from "./fakes/server";
 import { Product } from "./fakes/models/Product";
