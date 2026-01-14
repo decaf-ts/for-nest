@@ -6,7 +6,7 @@ import {
 } from "@decaf-ts/injectable-decorators";
 import { Inject, Injectable, Scope } from "@nestjs/common";
 import { Constructor, Decoration, DecorationKeys } from "@decaf-ts/decoration";
-import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
+import { ValidationKeys } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "@decaf-ts/core";
 import { ApiProperty } from "@nestjs/swagger";
 
@@ -133,35 +133,25 @@ Decoration.for(ValidationKeys.LIST)
 //
 Decoration.for(ValidationKeys.DATE)
   .extend({
-    decorator: function dateDec() {
-      return ApiProperty({ type: Date });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    decorator: function dateDec(format: string) {
+      return ApiProperty({
+        type: String,
+        format: "date-time",
+        // example: parseDate(format, new Date()),
+      });
     },
   })
   .apply();
 
-Decoration.for(ValidationKeys.LIST)
+Decoration.for(ValidationKeys.ENUM)
   .extend({
-    decorator: function listDec(
-      clazz:
-        | Constructor<any>
-        | (() => Constructor<any>)
-        | (Constructor<any> | (() => Constructor<any>))[]
-    ) {
-      const c = Array.isArray(clazz) ? clazz[0] : clazz;
-      return ApiProperty({ type: [c] });
+    decorator: function optionDec(options: string[] | Record<string, any>) {
+      const opts = Array.isArray(options) ? options : Object.values(options);
+      return ApiProperty({ enum: opts });
     },
   })
   .apply();
-
-//
-// Decoration.for(ValidationKeys.OPTION)
-//   .extend({
-//     decorator: function optionDec(options: string[] | Record<string, any>) {
-//       const opts = Array.isArray(options) ? options : Object.values(options);
-//       return ApiProperty({ enum: opts });
-//     },
-//   })
-//   .apply();
 
 Decoration.for(ValidationKeys.PATTERN)
   .extend({

@@ -39,6 +39,7 @@ import {
   type DecafModelRoute,
   type DecafParamProps,
   DecafParams,
+  DecafQuery,
   DecafRouteDecOptions,
 } from "./decorators";
 import { DecafRequestContext } from "../request";
@@ -266,7 +267,7 @@ export class FromModelController {
       @ApiOkResponse({
         description: `${modelClazzName} listed successfully.`,
       })
-      async listBy(key: string, @Query() details: DirectionLimitOffset) {
+      async listBy(key: string, @DecafQuery() details: DirectionLimitOffset) {
         const { ctx } = (
           await this.logCtx([], PreparedStatementKeys.LIST_BY, true)
         ).for(this.listBy);
@@ -297,7 +298,7 @@ export class FromModelController {
       })
       async paginateBy(
         @Param("key") key: string,
-        @Query() details: DirectionLimitOffset
+        @DecafQuery() details: DirectionLimitOffset
       ) {
         const { ctx } = (
           await this.logCtx([], PreparedStatementKeys.PAGE_BY, true)
@@ -346,7 +347,7 @@ export class FromModelController {
         @Param("key") key: string,
         @Param("value") value: any,
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        @Query() details: DirectionLimitOffset
+        @DecafQuery() details: DirectionLimitOffset
       ) {
         const { ctx } = (
           await this.logCtx([], PreparedStatementKeys.FIND_BY, true)
@@ -392,7 +393,7 @@ export class FromModelController {
       async statement(
         @Param("method") name: string,
         @Param("args") args: (string | number)[],
-        @Query() details: DirectionLimitOffset
+        @DecafQuery() details: DirectionLimitOffset
       ) {
         const { ctx } = (
           await this.logCtx([], PersistenceKeys.STATEMENT, true)
@@ -411,7 +412,11 @@ export class FromModelController {
             args = [
               args[0],
               direction as any,
-              { limit: limit, offset: offset, bookmark: bookmark },
+              {
+                limit: limit,
+                offset: offset,
+                bookmark: bookmark,
+              },
             ];
             break;
           case PreparedStatementKeys.FIND_ONE_BY:

@@ -243,7 +243,7 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
   });
 
   it("paginates simple queries", async () => {
-    const paginator = await repo.select().paginate(1);
+    const paginator = await repo.select().paginate(2);
     expect(paginator).toBeInstanceOf(Paginator);
     const firstPage = await paginator.page();
     expect(firstPage).toBeDefined();
