@@ -85,7 +85,7 @@ describe("Authentication", () => {
 
       expect(res.status).toEqual(201);
       expect(res.toJSON()).toMatchObject(productPayload);
-      expect(new Product(productPayload).createdBy).toEqual("admin");
+      expect(new Product(res.toJSON()).createdBy).toEqual("admin");
       expect(res.pk).toEqual(id);
     });
 
