@@ -500,7 +500,7 @@ export class FromModelController {
           console.log("payload plain", payload);
         }
         try {
-          created = await this.persistence.create(payload, ctx);
+          created = await this.persistence(ctx).create(payload, ctx);
         } catch (e: unknown) {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
           throw e;
