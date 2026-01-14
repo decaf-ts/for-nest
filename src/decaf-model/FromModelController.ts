@@ -271,7 +271,7 @@ export class FromModelController {
         const { ctx } = (
           await this.logCtx([], PreparedStatementKeys.LIST_BY, true)
         ).for(this.listBy);
-        return this.persistence(ctx).listBy(
+        return this.persistence.listBy(
           key as keyof T,
           details.direction as OrderDirection,
           ctx
@@ -303,7 +303,7 @@ export class FromModelController {
         const { ctx } = (
           await this.logCtx([], PreparedStatementKeys.PAGE_BY, true)
         ).for(this.paginateBy);
-        return this.persistence(ctx).paginateBy(
+        return this.persistence.paginateBy(
           key as keyof T,
           details.direction as OrderDirection,
           details as Omit<DirectionLimitOffset, "direction">,
@@ -324,7 +324,7 @@ export class FromModelController {
         const { ctx } = (
           await this.logCtx([], PreparedStatementKeys.FIND_ONE_BY, true)
         ).for(this.findOneBy);
-        return this.persistence(ctx).findOneBy(key as keyof T, value, ctx);
+        return this.persistence.findOneBy(key as keyof T, value, ctx);
       }
 
       @ApiOperationFromModel(ModelConstr, "GET", "findBy/:key/:value")
@@ -352,9 +352,7 @@ export class FromModelController {
         const { ctx } = (
           await this.logCtx([], PreparedStatementKeys.FIND_BY, true)
         ).for(this.findBy);
-        return this.persistence(ctx)
-          .for(ctx.toOverrides())
-          .findBy(key as keyof T, value, ctx);
+        return this.persistence.findBy(key as keyof T, value, ctx);
       }
 
       @ApiOperationFromModel(ModelConstr, "GET", "statement/:method/*args")
@@ -424,7 +422,7 @@ export class FromModelController {
           case PreparedStatementKeys.FIND_ONE_BY:
             break;
         }
-        return this.persistence(ctx).statement(name, ...args, ctx);
+        return this.persistence.statement(name, ...args, ctx);
       }
 
       @ApiOperationFromModel(ModelConstr, "POST", "bulk")
@@ -434,19 +432,12 @@ export class FromModelController {
         schema: {
           type: "array",
           items: {
-            $ref: getSchemaPath(ModelConstr),
-            // $ref: getSchemaPath(DtoFor(OperationKeys.CREATE, ModelConstr)),
+            $ref: getSchemaPath(DtoFor(OperationKeys.CREATE, ModelConstr)),
           },
         },
       })
       @ApiCreatedResponse({
-        description: `${modelClazzName} created successfully.`,
-        schema: {
-          type: "array",
-          items: {
-            $ref: getSchemaPath(ModelConstr),
-          },
-        },
+        description: `x ${modelClazzName} created successfully.`,
       })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
       @ApiUnprocessableEntityResponse({
@@ -459,7 +450,7 @@ export class FromModelController {
         log.verbose(`creating new ${modelClazzName}`);
         let created: T[];
         try {
-          created = await this.persistence(ctx).createAll(
+          created = await this.persistence.createAll(
             data.map((d) => new ModelConstr(d)),
             ctx
           );
@@ -478,8 +469,7 @@ export class FromModelController {
       @ApiBody({
         description: `Payload for ${modelClazzName}`,
         schema: {
-          $ref: getSchemaPath(ModelConstr),
-          // $ref: getSchemaPath(DtoFor(OperationKeys.CREATE, ModelConstr)),
+          $ref: getSchemaPath(DtoFor(OperationKeys.CREATE, ModelConstr)),
         },
       })
       @ApiCreatedResponse({
@@ -527,7 +517,7 @@ export class FromModelController {
         let read: Model[];
         try {
           log.debug(`reading ${ids.length} ${modelClazzName}: ${ids}`);
-          read = await this.persistence(ctx).readAll(ids as any, ctx);
+          read = await this.persistence.readAll(ids as any, ctx);
         } catch (e: unknown) {
           log.error(`Failed to ${modelClazzName} with id ${ids}`, e as Error);
           throw e;
@@ -557,7 +547,7 @@ export class FromModelController {
         let read: Model;
         try {
           log.debug(`reading ${modelClazzName} with ${this.pk} ${id}`);
-          read = await this.persistence(ctx).read(id, ctx);
+          read = await this.persistence.read(id, ctx);
         } catch (e: unknown) {
           log.error(
             `Failed to read ${modelClazzName} with id ${id}`,
@@ -580,15 +570,12 @@ export class FromModelController {
         schema: {
           type: "array",
           items: {
-            $ref: getSchemaPath(ModelConstr),
-            // $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
+            $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
           },
         },
       })
-      @ApiCreatedResponse({
-        description: `${modelClazzName} updated successfully.`,
-        type: ModelConstr,
-        isArray: true,
+      @ApiOkResponse({
+        description: `${ModelConstr} record replaced successfully.`,
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
@@ -605,7 +592,7 @@ export class FromModelController {
           const payloads = body.map((entry) =>
             JSON.parse(JSON.stringify(entry))
           );
-          updated = await this.persistence(ctx).updateAll(payloads, ctx);
+          updated = await this.persistence.updateAll(payloads, ctx);
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
@@ -621,12 +608,11 @@ export class FromModelController {
       @ApiBody({
         description: `Payload for replace a existing record of ${modelClazzName}`,
         schema: {
-          $ref: getSchemaPath(ModelConstr),
-          // $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
+          $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
         },
       })
       @ApiOkResponse({
-        description: `${modelClazzName} updated successfully.`,
+        description: `${ModelConstr} record replaced successfully.`,
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
@@ -648,7 +634,7 @@ export class FromModelController {
         try {
           log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
           const payload = JSON.parse(JSON.stringify(body));
-          updated = await this.persistence(ctx).update(
+          updated = await this.persistence.update(
             new ModelConstr({
               ...payload,
               [this.pk]: id,
@@ -679,7 +665,7 @@ export class FromModelController {
         let read: Model[];
         try {
           log.debug(`deleting ${ids.length} ${modelClazzName}: ${ids}`);
-          read = await this.persistence(ctx).deleteAll(ids, ctx);
+          read = await this.persistence.deleteAll(ids, ctx);
         } catch (e: unknown) {
           log.error(
             `Failed to delete ${modelClazzName} with id ${ids}`,
@@ -715,7 +701,7 @@ export class FromModelController {
           log.debug(
             `deleting ${modelClazzName} with ${this.pk as string} ${id}`
           );
-          del = await this.persistence(ctx).delete(id, ctx);
+          del = await this.persistence.delete(id, ctx);
         } catch (e: unknown) {
           log.error(
             `Failed to delete ${modelClazzName} with id ${id}`,

@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
-import { DecafExceptionFilter, DecafModule, RamTransformer } from "../../src";
+import { DecafExceptionFilter, DecafModule } from "../../src";
 
 import {
   RamFlavour,
@@ -18,7 +18,23 @@ import { AuthHttpModelClient } from "./fakes/serverAuth";
 import { genStr } from "./fakes/utils";
 import { Fake } from "./fakes/models/FakePartner";
 import { Product } from "./fakes/models/ProductAdmin";
-import { RequestToContextTransformer } from "../../src/interceptors/context";
+import {
+  RequestToContextTransformer,
+  requestToContextTransformer,
+} from "../../src/interceptors/context";
+
+@requestToContextTransformer(RamFlavour)
+class RamTransformer implements RequestToContextTransformer<RamContext> {
+  async from(req: any): Promise<RamFlags> {
+    const user = req.headers.authorization
+      ? req.headers.authorization.split(" ")[1]
+      : undefined;
+    if (!user) throw new AuthorizationError("User not found in headers");
+    return {
+      UUID: user,
+    };
+  }
+}
 
 jest.setTimeout(180000);
 
@@ -33,7 +49,7 @@ describe("Authentication", () => {
         AuthModule,
         DecafModule.forRootAsync({
           // adapter: FabricClientAdapter as any,
-          conf: [[RamAdapter, { user: "root" }, new RamTransformer()]], //config,
+          conf: [[RamAdapter, {}]], //config,
           autoControllers: true,
         }),
       ],
@@ -69,7 +85,7 @@ describe("Authentication", () => {
 
       expect(res.status).toEqual(201);
       expect(res.toJSON()).toMatchObject(productPayload);
-      expect(new Product(res.toJSON()).createdBy).toEqual("admin");
+      expect(new Product(productPayload).createdBy).toEqual("admin");
       expect(res.pk).toEqual(id);
     });
 

@@ -87,7 +87,7 @@ export abstract class DecafModelController<
 
   abstract get class(): ModelConstructor<M>;
 
-  persistence(ctx?: Context<any>): Repo<M> | ModelService<M> {
+  get persistence() {
     if (!this._persistence)
       try {
         this._persistence = ModelService.getService(
@@ -97,11 +97,7 @@ export abstract class DecafModelController<
       } catch (e: unknown) {
         this._persistence = Repository.forModel(this.class) as Repo<M>;
       }
-    return ctx
-      ? this._persistence instanceof Repository
-        ? this._persistence.override(ctx.toOverrides())
-        : this._persistence.for(ctx.toOverrides())
-      : this._persistence;
+    return this._persistence;
   }
 
   protected constructor(clientContext: DecafRequestContext, name: string) {
@@ -115,7 +111,7 @@ export abstract class DecafModelController<
     args: MaybeContextualArg<any, ARGS>,
     operation: METHOD
   ): ContextualizedArgs<
-    ContextOf<ReturnType<this["persistence"]>>,
+    ContextOf<this["persistence"]>,
     ARGS,
     METHOD extends string ? true : false
   >;
@@ -123,11 +119,11 @@ export abstract class DecafModelController<
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<ContextOf<ReturnType<this["persistence"]>>, ARGS>,
+    args: MaybeContextualArg<ContextOf<this["persistence"]>, ARGS>,
     operation: METHOD,
     allowCreate: false
   ): ContextualizedArgs<
-    ContextOf<ReturnType<this["persistence"]>>,
+    ContextOf<this["persistence"]>,
     ARGS,
     METHOD extends string ? true : false
   >;
@@ -135,12 +131,12 @@ export abstract class DecafModelController<
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<ContextOf<ReturnType<this["persistence"]>>, ARGS>,
+    args: MaybeContextualArg<ContextOf<this["persistence"]>, ARGS>,
     operation: METHOD,
     allowCreate: true
   ): Promise<
     ContextualizedArgs<
-      ContextOf<ReturnType<this["persistence"]>>,
+      ContextOf<this["persistence"]>,
       ARGS,
       METHOD extends string ? true : false
     >
@@ -149,19 +145,19 @@ export abstract class DecafModelController<
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<ContextOf<ReturnType<this["persistence"]>>, ARGS>,
+    args: MaybeContextualArg<ContextOf<this["persistence"]>, ARGS>,
     operation: METHOD,
     allowCreate: boolean = false
   ):
     | Promise<
         ContextualizedArgs<
-          ContextOf<ReturnType<this["persistence"]>>,
+          ContextOf<this["persistence"]>,
           ARGS,
           METHOD extends string ? true : false
         >
       >
     | ContextualizedArgs<
-        ContextOf<any>,
+        ContextOf<this["persistence"]>,
         ARGS,
         METHOD extends string ? true : false
       > {
@@ -171,17 +167,16 @@ export abstract class DecafModelController<
     let overrides: Record<string, any> = {};
     try {
       overrides = ctx.get("overrides");
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {
       // do nothing
     }
-    const persistence = this.persistence(ctx);
+    const persistence = this.persistence;
     let contextual: Contextual | undefined = undefined;
     if (persistence instanceof ModelService)
       contextual = persistence.repo["adapter"];
     else if (persistence instanceof Repository)
       contextual = persistence["adapter"];
-    else if ((persistence as unknown as Contextual<any>).context) {
+    else if ((persistence as Contextual).context) {
       contextual = persistence;
     }
 
@@ -205,8 +200,8 @@ export abstract class DecafModelController<
         true,
         overrides
       ) as unknown as Promise<ContextualizedArgs<any>>
-    ).then((ctxArgs) => {
-      return ctxArgs;
+    ).then((a) => {
+      return a;
     }) as any;
   }
 }
