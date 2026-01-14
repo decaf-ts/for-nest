@@ -1,5 +1,12 @@
 import { uses } from "@decaf-ts/decoration";
-import { BaseModel, column, pk, table } from "@decaf-ts/core";
+import {
+  BaseModel,
+  column,
+  createdBy,
+  pk,
+  table,
+  updatedBy,
+} from "@decaf-ts/core";
 // @ts-expect-error ram
 import { RamFlavour } from "@decaf-ts/core/ram";
 import {
@@ -34,6 +41,12 @@ export class Product extends BaseModel {
 
   @column()
   name!: string;
+
+  @createdBy()
+  createdBy!: string;
+
+  @updatedBy()
+  updatedBy!: string;
 
   constructor(args?: ModelArg<Product>) {
     super(args);

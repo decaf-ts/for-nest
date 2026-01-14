@@ -18,6 +18,7 @@ export const DECAF_CONTEXT_KEY = Symbol("decaf:context");
 export type DecafServerFlags<LOG extends Logger = Logger> =
   AdapterFlags<LOG> & {
     headers: Record<string, any>;
+    overrides: Record<string, any>;
   };
 
 export type DecafServerContext = Context<DecafServerFlags>;

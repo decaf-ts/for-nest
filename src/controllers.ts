@@ -1,5 +1,6 @@
 import {
   Adapter,
+  Context,
   ContextOf,
   ContextualizedArgs,
   ContextualLoggedClass,
@@ -12,9 +13,9 @@ import {
   Service,
 } from "@decaf-ts/core";
 import { DecafServerContext } from "./constants";
-import { Metadata } from "@decaf-ts/decoration";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { DecafRequestContext } from "./request/DecafRequestContext";
+import { Contextual } from "@decaf-ts/db-decorators";
 
 export abstract class DecafController<
   CONTEXT extends DecafServerContext,
@@ -163,20 +164,44 @@ export abstract class DecafModelController<
     // TODO get nestJS context
 
     const ctx = this.clientContext.ctx;
+    let overrides: Record<string, any> = {};
+    try {
+      overrides = ctx.get("overrides");
+    } catch (e: unknown) {
+      // do nothing
+    }
+    const persistence = this.persistence;
+    let contextual: Contextual | undefined = undefined;
+    if (persistence instanceof ModelService)
+      contextual = persistence.repo["adapter"];
+    else if (persistence instanceof Repository)
+      contextual = persistence["adapter"];
+    else if ((persistence as Contextual).context) {
+      contextual = persistence;
+    }
 
-    if (!allowCreate)
-      return (this.persistence as any)["logCtx"](
-        [...args, ctx],
-        operation,
-        allowCreate as any
-      ) as any;
+    let ctxArgs: ContextualizedArgs<any>;
 
-    return Promise.resolve(
-      (this.persistence as any)["logCtx"](
-        [...args, ctx],
+    if (!allowCreate) {
+      ctxArgs = ((contextual as Adapter<any, any, any, any>)["logCtx"] as any)(
+        args,
         operation,
-        allowCreate as any
-      )
-    ) as any;
+        false,
+        overrides
+      );
+
+      return ctxArgs as any;
+    }
+
+    return (
+      ((contextual as Adapter<any, any, any, any>)["logCtx"] as any)(
+        args,
+        operation,
+        true,
+        overrides
+      ) as unknown as Promise<ContextualizedArgs<any>>
+    ).then((a) => {
+      return a;
+    }) as any;
   }
 }

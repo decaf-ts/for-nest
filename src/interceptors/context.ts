@@ -6,11 +6,10 @@ export abstract class RequestToContextTransformer<
   C extends DecafServerContext,
 > {
   abstract from(req: any, ...args: any[]): Promise<FlagsOf<C>>;
-  abstract toAuth(ctx: C): Partial<FlagsOf<C>>;
 }
 
 export function requestToContextTransformer(flavour: string) {
-  return function requestToContextTransformer(original: object) {
+  return function requestToContextTransformer(original: any) {
     Metadata.set("transformers", flavour, original);
     return original;
   };

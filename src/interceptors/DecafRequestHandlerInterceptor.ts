@@ -69,6 +69,7 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
     const headers = req.headers;
     const flags: DecafServerFlags = {
       headers: headers,
+      overrides: {},
     } as any;
 
     const flavours = Adapter.flavoursToTransform();
@@ -76,7 +77,7 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
       for (const flavour of flavours) {
         try {
           const transformer = Adapter.transformerFor(flavour);
-          Object.assign(flags, await new transformer().from(req));
+          Object.assign(flags.overrides, await new transformer().from(req));
         } catch (e: unknown) {
           throw new InternalError(`Failed to contextualize request: ${e}`);
         }
@@ -92,7 +93,7 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
         flags
       )
     );
-    return ctx;
+    return ctx as any;
   }
 
   async intercept(context: ExecutionContext, next: CallHandler) {

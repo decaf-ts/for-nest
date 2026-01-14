@@ -9,7 +9,10 @@ import {
   RamFlags,
   // @ts-expect-error  import from ram
 } from "@decaf-ts/core/ram";
-import { Adapter, FlagsOf } from "@decaf-ts/core";
+
+RamAdapter.decoration();
+import { Adapter, AuthorizationError, FlagsOf } from "@decaf-ts/core";
+Adapter.setCurrent(RamFlavour);
 import { AuthModule } from "./fakes/auth.module";
 import { AuthHttpModelClient } from "./fakes/serverAuth";
 import { genStr } from "./fakes/utils";
@@ -19,20 +22,20 @@ import {
   RequestToContextTransformer,
   requestToContextTransformer,
 } from "../../src/interceptors/context";
+import { Model } from "@decaf-ts/decorator-validation";
 
 @requestToContextTransformer(RamFlavour)
 class RamTransformer implements RequestToContextTransformer<RamContext> {
-  async from(req: any, args: any): Promise<RamFlags> {
-    return { user: "here" }; // should be populating from req
-  }
-
-  toAuth(ctx: RamContext): Partial<RamFlags> {
-    return { user: ctx.get("user") };
+  async from(req: any): Promise<RamFlags> {
+    const user = req.headers.authorization
+      ? req.headers.authorization.split(" ")[1]
+      : undefined;
+    if (!user) throw new AuthorizationError("User not found in headers");
+    return {
+      UUID: user,
+    };
   }
 }
-
-RamAdapter.decoration();
-Adapter.setCurrent(RamFlavour);
 
 jest.setTimeout(180000);
 
@@ -83,6 +86,7 @@ describe("Authentication", () => {
 
       expect(res.status).toEqual(201);
       expect(res.toJSON()).toMatchObject(productPayload);
+      expect(new Product(productPayload).createdBy).toEqual("admin");
       expect(res.pk).toEqual(id);
     });
 
