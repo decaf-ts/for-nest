@@ -41,10 +41,10 @@ export class Product extends BaseModel {
 
   @column()
   name!: string;
-
+  @column()
   @createdBy()
   createdBy!: string;
-
+  @column()
   @updatedBy()
   updatedBy!: string;
 

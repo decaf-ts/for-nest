@@ -11,7 +11,7 @@ import {
 } from "@decaf-ts/core/ram";
 
 RamAdapter.decoration();
-import { Adapter, AuthorizationError, FlagsOf } from "@decaf-ts/core";
+import { Adapter, AuthorizationError } from "@decaf-ts/core";
 Adapter.setCurrent(RamFlavour);
 import { AuthModule } from "./fakes/auth.module";
 import { AuthHttpModelClient } from "./fakes/serverAuth";
@@ -22,7 +22,6 @@ import {
   RequestToContextTransformer,
   requestToContextTransformer,
 } from "../../src/interceptors/context";
-import { Model } from "@decaf-ts/decorator-validation";
 
 @requestToContextTransformer(RamFlavour)
 class RamTransformer implements RequestToContextTransformer<RamContext> {

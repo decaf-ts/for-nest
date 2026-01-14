@@ -6,7 +6,7 @@ import {
 } from "@decaf-ts/injectable-decorators";
 import { Inject, Injectable, Scope } from "@nestjs/common";
 import { Constructor, Decoration, DecorationKeys } from "@decaf-ts/decoration";
-import { ValidationKeys } from "@decaf-ts/decorator-validation";
+import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "@decaf-ts/core";
 import { ApiProperty } from "@nestjs/swagger";
 
@@ -94,21 +94,50 @@ Decoration.for(ValidationKeys.MIN_LENGTH)
   })
   .apply();
 //
-// Decoration.for(ValidationKeys.TYPE)
-//   .extend({
-//     decorator: function typeDec(type: (string | (() => string))[] | string | (() => string)) {
-//       return ApiProperty({ type: type as any });
-//     },
-//   })
-//   .apply();
+Decoration.for(ValidationKeys.TYPE)
+  .extend({
+    decorator: function typeDec(
+      type:
+        | (Constructor | (() => Constructor))[]
+        | Constructor
+        | (() => Constructor)
+    ) {
+      return (target: object, prop: any) => {
+        type = Array.isArray(type) ? type[0] : type;
+        if (typeof type === "function" && !type.name)
+          type = (type as () => Constructor)();
+        return ApiProperty({ type: type as any })(target, prop);
+      };
+    },
+  })
+  .apply();
+Decoration.for(ValidationKeys.LIST)
+  .extend({
+    decorator: function listDec(
+      clazz:
+        | Constructor
+        | (() => Constructor)
+        | (Constructor | (() => Constructor))[],
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      collection: "Array" | "Set" = "Array"
+    ) {
+      return (target: object, prop: any) => {
+        clazz = Array.isArray(clazz) ? clazz[0] : clazz;
+        if (typeof clazz === "function" && !clazz.name)
+          clazz = (clazz as () => Constructor)();
+        return ApiProperty({ type: [clazz as any] })(target, prop);
+      };
+    },
+  })
+  .apply();
 //
-// Decoration.for(ValidationKeys.DATE)
-//   .extend({
-//     decorator: function dateDec() {
-//       return ApiProperty({ type: Date });
-//     },
-//   })
-//   .apply();
+Decoration.for(ValidationKeys.DATE)
+  .extend({
+    decorator: function dateDec() {
+      return ApiProperty({ type: Date });
+    },
+  })
+  .apply();
 
 Decoration.for(ValidationKeys.LIST)
   .extend({

@@ -52,6 +52,7 @@ import {
 import { Auth } from "./decorators/decorators";
 import { ControllerConstructor } from "./types";
 import { DecafModelController } from "../controllers";
+import { DtoFor } from "../factory/openapi/DtoBuilder";
 
 /**
  * @description
@@ -425,7 +426,9 @@ export class FromModelController {
         description: `Payload for ${modelClazzName}`,
         schema: {
           type: "array",
-          items: { $ref: getSchemaPath(ModelConstr) },
+          items: {
+            $ref: getSchemaPath(DtoFor(OperationKeys.CREATE, ModelConstr)),
+          },
         },
       })
       @ApiCreatedResponse({
@@ -460,7 +463,9 @@ export class FromModelController {
       @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
       @ApiBody({
         description: `Payload for ${modelClazzName}`,
-        schema: { $ref: getSchemaPath(ModelConstr) },
+        schema: {
+          $ref: getSchemaPath(DtoFor(OperationKeys.CREATE, ModelConstr)),
+        },
       })
       @ApiCreatedResponse({
         description: `${modelClazzName} created successfully.`,
@@ -559,7 +564,9 @@ export class FromModelController {
         description: `Payload for replace a existing record of ${modelClazzName}`,
         schema: {
           type: "array",
-          items: { $ref: getSchemaPath(ModelConstr) },
+          items: {
+            $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
+          },
         },
       })
       @ApiOkResponse({
@@ -595,7 +602,9 @@ export class FromModelController {
       })
       @ApiBody({
         description: `Payload for replace a existing record of ${modelClazzName}`,
-        schema: { $ref: getSchemaPath(ModelConstr) },
+        schema: {
+          $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
+        },
       })
       @ApiOkResponse({
         description: `${ModelConstr} record replaced successfully.`,
