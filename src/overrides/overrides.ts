@@ -13,7 +13,6 @@ import { Adapter, ContextOf } from "@decaf-ts/core";
 (Adapter as any).flavoursToTransform = function requestTransformers():
   | string[]
   | undefined {
-  const m = Metadata;
   const meta = Metadata["innerGet"](Symbol.for("transformers"));
   if (!meta) return undefined;
   return Object.keys(meta);

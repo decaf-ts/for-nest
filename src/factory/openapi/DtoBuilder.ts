@@ -6,12 +6,7 @@ import {
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
 import { TransactionOperationKeys } from "@decaf-ts/core";
-import {
-  ApiProperty,
-  ApiPropertyOptional,
-  OmitType,
-  PickType,
-} from "@nestjs/swagger";
+import { OmitType } from "@nestjs/swagger";
 import { toPascalCase } from "@decaf-ts/logging";
 
 // export function toCache(){

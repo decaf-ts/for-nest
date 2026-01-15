@@ -12,6 +12,7 @@ jest.setTimeout(timeout);
 
 describe.skip("swagger test for api", () => {
   let app: INestApplication;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let productHttpClient: HttpModelClient<Product>;
 
   beforeAll(async () => {

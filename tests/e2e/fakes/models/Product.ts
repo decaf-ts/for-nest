@@ -1,12 +1,5 @@
 import { uses } from "@decaf-ts/decoration";
-import {
-  Cascade,
-  column,
-  oneToMany,
-  oneToOne,
-  pk,
-  table,
-} from "@decaf-ts/core";
+import { Cascade, column, oneToMany, pk, table } from "@decaf-ts/core";
 // @ts-expect-error ram
 import { RamFlavour } from "@decaf-ts/core/ram";
 import {

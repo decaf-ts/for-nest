@@ -13,12 +13,10 @@ import { FactoryProvider } from "@nestjs/common/interfaces/modules/provider.inte
 import { Adapter, PersistenceService } from "@decaf-ts/core";
 import { Logger, Logging } from "@decaf-ts/logging";
 import { InternalError } from "@decaf-ts/db-decorators";
-import { Metadata } from "@decaf-ts/decoration";
 import {
   RequestToContextTransformer,
   requestToContextTransformer,
 } from "./interceptors/context";
-import { Constructor } from "@decaf-ts/decoration";
 
 @Global()
 @Module({})

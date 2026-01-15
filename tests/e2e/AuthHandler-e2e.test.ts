@@ -5,13 +5,11 @@ import { DecafExceptionFilter, DecafModule, RamTransformer } from "../../src";
 import {
   RamFlavour,
   RamAdapter,
-  RamContext,
-  RamFlags,
   // @ts-expect-error  import from ram
 } from "@decaf-ts/core/ram";
 
 RamAdapter.decoration();
-import { Adapter, AuthorizationError } from "@decaf-ts/core";
+import { Adapter } from "@decaf-ts/core";
 Adapter.setCurrent(RamFlavour);
 import { AuthModule } from "./fakes/auth.module";
 import { AuthHttpModelClient } from "./fakes/serverAuth";
