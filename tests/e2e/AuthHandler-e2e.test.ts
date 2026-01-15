@@ -18,7 +18,6 @@ import { AuthHttpModelClient } from "./fakes/serverAuth";
 import { genStr } from "./fakes/utils";
 import { FakePartner } from "./fakes/models/FakePartner";
 import { Product } from "./fakes/models/ProductAdmin";
-import { RequestToContextTransformer } from "../../src/interceptors/context";
 
 jest.setTimeout(180000);
 
@@ -103,7 +102,7 @@ describe("Authentication", () => {
 
       expect(res2.status).toEqual(201);
       expect(res2.toJSON()).toMatchObject(fakePayload);
-      expect(res2.pk).toEqual(fakeId);
+      expect(res2.pk).toEqual("00" + fakeId);
     });
 
     it("should FAIL CREATE a product and fake ( different roles )", async () => {
@@ -322,7 +321,7 @@ describe("Authentication", () => {
       const getDeletedFake = await FakeHttpRequest.get(partnerToken, fake.id);
 
       expect(getDeletedFake.raw.error).toEqual(
-        `[NotFoundError] Record with id ${fake.id} not found in table fake`
+        `[NotFoundError][404] Record with id ${fake.id} not found in table fake_partner`
       );
     });
 

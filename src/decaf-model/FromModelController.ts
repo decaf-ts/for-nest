@@ -231,13 +231,14 @@ export class FromModelController {
       }
 
       override get class(): ModelConstructor<T> {
-        return DynamicModelController.class;
+        return ModelConstr;
+        // return DynamicModelController.class;
       }
 
       constructor(clientContext: DecafRequestContext) {
         super(clientContext);
         log.info(
-          `Registering dynamic controller for model: ${modelClazzName} route: /${routePath}`
+          `Registering dynamic controller for model: ${this.class.name} route: /${routePath}`
         );
       }
 
@@ -495,12 +496,8 @@ export class FromModelController {
         ).for(this.create);
         log.verbose(`creating new ${modelClazzName}`);
         let created: Model;
-        const payload = JSON.parse(JSON.stringify(data));
-        if (modelClazzName === "Fake") {
-          console.log("payload plain", payload);
-        }
         try {
-          created = await this.persistence(ctx).create(payload, ctx);
+          created = await this.persistence(ctx).create(data, ctx);
         } catch (e: unknown) {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
           throw e;

@@ -1,5 +1,6 @@
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import request from "supertest";
+import { toKebabCase } from "@decaf-ts/logging";
 
 export interface HttpModelResponse<T> {
   pk: string;
@@ -19,7 +20,7 @@ export class AuthHttpModelClient<T extends Model> {
     private readonly Constr: ModelConstructor<T>
   ) {
     this.server = request(app);
-    this.path = `/${Constr.name.toLowerCase()}`;
+    this.path = `/${toKebabCase(Model.tableName(Constr))}`;
   }
 
   private wrapResponse(body: any, status: number): HttpModelResponse<T> {

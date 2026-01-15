@@ -6,7 +6,7 @@ import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 import { Roles } from "../../../../src/index";
 
 @uses(RamFlavour)
-@table("fake")
+@table("fake_partner")
 @Roles(["partner"])
 @model()
 export class FakePartner extends BaseModel {
