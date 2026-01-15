@@ -1,7 +1,7 @@
 import { Adapter, ConfigOf, ContextOf } from "@decaf-ts/core";
 import { Constructor } from "@decaf-ts/decoration";
 import { ExecutionContext, Type } from "@nestjs/common";
-import { DecafServerContext } from "./constants";
+import { DecafServerCtx } from "./constants";
 import { RequestToContextTransformer } from "./interceptors/context";
 
 export interface RequestContextAccessor {
@@ -10,7 +10,7 @@ export interface RequestContextAccessor {
 }
 
 export interface DecafRequestHandler<
-  C extends DecafServerContext = DecafServerContext,
+  C extends DecafServerCtx = DecafServerCtx,
 > {
   handle(context: C, req: Request, res: Response): Promise<void>;
 }

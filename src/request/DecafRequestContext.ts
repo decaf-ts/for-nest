@@ -1,5 +1,5 @@
 import { Injectable, Scope } from "@nestjs/common";
-import { DecafServerContext } from "../constants";
+import { DecafServerCtx } from "../constants";
 import { InternalError } from "@decaf-ts/db-decorators";
 
 /**
@@ -24,9 +24,7 @@ import { InternalError } from "@decaf-ts/db-decorators";
  * ```
  */
 @Injectable({ scope: Scope.REQUEST })
-export class DecafRequestContext<
-  C extends DecafServerContext = DecafServerContext,
-> {
+export class DecafRequestContext<C extends DecafServerCtx = DecafServerCtx> {
   private _ctx?: C;
 
   put(record: Record<any, any>) {

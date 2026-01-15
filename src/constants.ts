@@ -21,4 +21,4 @@ export type DecafServerFlags<LOG extends Logger = Logger> =
     overrides: Record<string, any>;
   };
 
-export type DecafServerContext = Context<DecafServerFlags>;
+export type DecafServerCtx = Context<DecafServerFlags>;

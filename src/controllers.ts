@@ -12,13 +12,13 @@ import {
   Repository,
   Service,
 } from "@decaf-ts/core";
-import { DecafServerContext } from "./constants";
+import { DecafServerCtx } from "./constants";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { DecafRequestContext } from "./request/DecafRequestContext";
 import { Contextual } from "@decaf-ts/db-decorators";
 
 export abstract class DecafController<
-  CONTEXT extends DecafServerContext,
+  CONTEXT extends DecafServerCtx,
 > extends Service<CONTEXT> {
   protected constructor(
     protected readonly clientContext: DecafRequestContext,
@@ -81,7 +81,7 @@ export abstract class DecafController<
 
 export abstract class DecafModelController<
   M extends Model<boolean>,
-  C extends DecafServerContext = DecafServerContext,
+  C extends DecafServerCtx = DecafServerCtx,
 > extends DecafController<C> {
   private _persistence?: Repo<M> | ModelService<M>;
 

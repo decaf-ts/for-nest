@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { DecafHandlerExecutor, DecafRequestContext } from "../request";
 import { Adapter, Context, DefaultAdapterFlags } from "@decaf-ts/core";
-import { DecafServerContext, DecafServerFlags } from "../constants";
+import { DecafServerCtx, DecafServerFlags } from "../constants";
 import "../overrides";
 import { Logging } from "@decaf-ts/logging";
 import { InternalError } from "@decaf-ts/db-decorators";
@@ -66,7 +66,7 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
     protected readonly executor: DecafHandlerExecutor
   ) {}
 
-  protected async contextualize(req: any): Promise<DecafServerContext> {
+  protected async contextualize(req: any): Promise<DecafServerCtx> {
     const headers = req.headers;
     const flags: DecafServerFlags = {
       headers: headers,
