@@ -1,16 +1,11 @@
 import { Adapter, ConfigOf, ContextOf } from "@decaf-ts/core";
 import { Constructor } from "@decaf-ts/decoration";
 import { ExecutionContext, Type } from "@nestjs/common";
-import { DecafServerCtx } from "./constants";
 import { RequestToContextTransformer } from "./interceptors/context";
-
-export interface RequestContextAccessor {
-  set(key: string | symbol, value: any): void;
-  get<T = any>(key: string | symbol): T | undefined;
-}
+import { DecafRequestContext } from "./request/index";
 
 export interface DecafRequestHandler<
-  C extends DecafServerCtx = DecafServerCtx,
+  C extends DecafRequestContext = DecafRequestContext,
 > {
   handle(context: C, req: Request, res: Response): Promise<void>;
 }
