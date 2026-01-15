@@ -29,6 +29,10 @@ export class DecafRequestContext<
 > {
   private _ctx?: C;
 
+  put(record: Record<any, any>) {
+    this._ctx = this.ctx.accumulate(record) as any;
+  }
+
   applyCtx(ctx: C) {
     this._ctx = ctx;
   }
