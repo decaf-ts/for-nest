@@ -1,18 +1,55 @@
 import { Type } from "@nestjs/common";
-import { EnumSchemaAttributes } from "@nestjs/swagger/dist/interfaces/enum-schema-attributes.interface";
-import {
+import type { EnumSchemaAttributes } from "@nestjs/swagger/dist/interfaces/enum-schema-attributes.interface";
+import type {
   EnumAllowedTypes,
   SchemaObjectMetadata,
 } from "@nestjs/swagger/dist/interfaces/schema-object-metadata.interface";
-import { getTypeIsArrayTuple } from "@nestjs/swagger/dist/decorators/helpers";
-import {
-  getEnumType,
-  getEnumValues,
-} from "@nestjs/swagger/dist/utils/enum.utils";
-import { DECORATORS } from "@nestjs/swagger/dist/constants";
-import { negate, pickBy } from "lodash";
-import { isUndefined } from "@nestjs/common/utils/shared.utils";
-import { METADATA_FACTORY_NAME } from "@nestjs/swagger/dist/plugin/plugin-constants";
+import { isString, negate, pickBy } from "lodash";
+import { DECORATORS } from "./constants";
+import { getTypeIsArrayTuple, METADATA_FACTORY_NAME } from "./helpers";
+import { type SwaggerEnumType } from "@nestjs/swagger/dist/types/swagger-enum.type";
+
+export const isUndefined = (obj: any): obj is undefined =>
+  typeof obj === "undefined";
+
+export function getEnumValues(
+  enumType: SwaggerEnumType | (() => SwaggerEnumType)
+): string[] | number[] {
+  if (typeof enumType === "function") {
+    return getEnumValues(enumType());
+  }
+
+  if (Array.isArray(enumType)) {
+    return enumType as string[];
+  }
+  if (typeof enumType !== "object") {
+    return [];
+  }
+  // Enums with numeric values
+  //   enum Size {
+  //     SMALL = 1,
+  //     BIG = 2
+  //   }
+  // are transpiled to include a reverse mapping
+  //   const Size = {
+  //     "1": "SMALL",
+  //     "2": "BIG",
+  //     "SMALL": 1,
+  //     "BIG": 2,
+  //   }
+  const numericValues = Object.values(enumType)
+    .filter((value) => typeof value === "number")
+    .map((value: any) => value.toString());
+
+  return Object.keys(enumType)
+    .filter((key) => !numericValues.includes(key))
+    .map((key) => enumType[key as any]);
+}
+
+export function getEnumType(values: (string | number)[]): "string" | "number" {
+  const hasString = values.filter(isString).length > 0;
+  return hasString ? "string" : "number";
+}
 
 export function createPropertyDecorator<T extends Record<string, any> = any>(
   metakey: string,
