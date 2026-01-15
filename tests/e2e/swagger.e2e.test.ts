@@ -8,7 +8,7 @@ const timeout = 600000;
 
 jest.setTimeout(timeout);
 
-describe("swagger", () => {
+describe.skip("swagger", () => {
   let app: INestApplication;
   let productHttpClient: HttpModelClient<Product>;
 

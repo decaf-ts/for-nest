@@ -9,7 +9,7 @@ import { Roles } from "../../../../src/index";
 @table("fake")
 @Roles(["partner"])
 @model()
-export class Fake extends BaseModel {
+export class FakePartner extends BaseModel {
   @pk({ type: String, generated: false })
   id!: string;
 
@@ -17,7 +17,7 @@ export class Fake extends BaseModel {
   @required()
   name!: string;
 
-  constructor(args?: ModelArg<Fake>) {
+  constructor(args?: ModelArg<FakePartner>) {
     super(args);
   }
 }

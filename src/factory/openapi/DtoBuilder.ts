@@ -6,7 +6,12 @@ import {
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
 import { TransactionOperationKeys } from "@decaf-ts/core";
-import { ApiProperty, ApiPropertyOptional, PickType } from "@nestjs/swagger";
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  OmitType,
+  PickType,
+} from "@nestjs/swagger";
 import { toPascalCase } from "@decaf-ts/logging";
 
 // export function toCache(){
@@ -52,64 +57,55 @@ export function DtoFor<M extends Model>(
   ].includes(op);
   const props = Metadata.properties(model) || [];
   const relations = Model.relations(model) || [];
-  let exceptions = props.filter(
-    (p) => Model.generated(model, p as any) || relations.includes(p)
-  );
+  let exceptions = props.filter((p) => Model.generated(model, p as any));
 
-  if (isUpdate)
-    exceptions = exceptions.filter(
-      (p) => p !== Model.pk(model) || Model.pkProps(model).generated
-    );
+  if (isUpdate) exceptions = exceptions.filter((p) => p !== Model.pk(model));
 
-  const dto = class DynamicDTO extends PickType(model, exceptions as any[]) {};
+  class DynamicDTO extends OmitType(model as any, exceptions as any) {}
 
-  if (!dto)
-    throw new InternalError(
-      `Failed to create DTO for model ${model.name} with operation ${op}`
-    );
+  Object.defineProperty(DynamicDTO, "name", {
+    value: `${toPascalCase(model.name)}${toPascalCase(op)}DTO`,
+  });
 
   function addRelation(relation: string, relationDto: any, isArray: boolean) {
     const result = isArray ? [relationDto] : relationDto;
 
     if (!isArray) {
-      Object.defineProperty(dto.prototype, relation, {
+      Object.defineProperty(DynamicDTO.prototype, relation, {
         value: result,
         writable: true,
         enumerable: true,
         configurable: true,
       });
+      Reflect.defineMetadata(
+        "design:type",
+        relationDto,
+        DynamicDTO.prototype,
+        relation
+      );
     } else {
       // // Swagger: tell it the element type
       // ApiProperty({
       //   type: [relationDto],
       // })(dto.prototype, relation);
     }
-    Reflect.defineMetadata(
-      "design:type",
-      isArray ? Array : relationDto,
-      dto.prototype,
-      relation
-    );
   }
-  //
-  // // Add processed relations back to the DTO
-  // for (const relation of relations) {
-  //   let type: any[] | any = Metadata.allowedTypes(model, relation as any);
-  //   type = type ? (Array.isArray(type) ? type[0] : type) : undefined;
-  //   type = typeof type === "function" && !type.name ? type() : type;
-  //
-  //   if (!type) {
-  //     throw new InternalError(`Type for relation ${relation} not found`);
-  //   }
-  //   if (Model.get(type.name)) {
-  //     const meta = Metadata.validationFor(model, relation as any);
-  //     const relationDto = DtoFor(op, type);
-  //     addRelation(relation, relationDto, !!(meta as any)[ValidationKeys.LIST]);
-  //   }
-  // }
 
-  Object.assign(dto, "name", {
-    value: `${toPascalCase(model.name)}${toPascalCase(op)}DTO`,
-  });
-  return dto;
+  // Add processed relations back to the DTO
+  for (const relation of relations) {
+    let type: any[] | any = Metadata.allowedTypes(model, relation as any);
+    type = type ? (Array.isArray(type) ? type[0] : type) : undefined;
+    type = typeof type === "function" && !type.name ? type() : type;
+
+    if (!type) {
+      throw new InternalError(`Type for relation ${relation} not found`);
+    }
+    if (Model.get(type.name)) {
+      const meta = Metadata.validationFor(model, relation as any);
+      const relationDto = DtoFor(op, type);
+      addRelation(relation, relationDto, !!(meta as any)[ValidationKeys.LIST]);
+    }
+  }
+
+  return DynamicDTO;
 }

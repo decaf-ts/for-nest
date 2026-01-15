@@ -477,13 +477,13 @@ export class FromModelController {
       @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
       @ApiBody({
         description: `Payload for ${modelClazzName}`,
-        schema: {
-          $ref: getSchemaPath(ModelConstr),
-          // $ref: getSchemaPath(DtoFor(OperationKeys.CREATE, ModelConstr)),
-        },
+        type: DtoFor(OperationKeys.CREATE, ModelConstr),
       })
       @ApiCreatedResponse({
         description: `${modelClazzName} created successfully.`,
+        schema: {
+          $ref: getSchemaPath(ModelConstr),
+        },
       })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
       @ApiUnprocessableEntityResponse({
@@ -516,6 +516,12 @@ export class FromModelController {
       @ApiQuery({ name: "ids", required: true, type: "array" })
       @ApiOkResponse({
         description: `${modelClazzName} retrieved successfully.`,
+        schema: {
+          type: "array",
+          items: {
+            $ref: getSchemaPath(ModelConstr),
+          },
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
@@ -542,6 +548,9 @@ export class FromModelController {
       @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
       @ApiOkResponse({
         description: `${modelClazzName} retrieved successfully.`,
+        schema: {
+          $ref: getSchemaPath(ModelConstr),
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
@@ -587,8 +596,12 @@ export class FromModelController {
       })
       @ApiCreatedResponse({
         description: `${modelClazzName} updated successfully.`,
-        type: ModelConstr,
-        isArray: true,
+        schema: {
+          type: "array",
+          items: {
+            $ref: getSchemaPath(ModelConstr),
+          },
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
