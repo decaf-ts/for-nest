@@ -1,6 +1,7 @@
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
-import { DecafExceptionFilter, DecafModule, RamTransformer } from "../../src";
+import { DecafExceptionFilter, DecafModule } from "../../src";
+import { RamTransformer } from "../../src/ram";
 
 import {
   RamFlavour,

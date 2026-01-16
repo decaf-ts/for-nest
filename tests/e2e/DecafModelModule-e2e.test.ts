@@ -15,6 +15,7 @@ import { HttpModelClient, HttpModelResponse } from "./fakes/server";
 import { genStr } from "./fakes/utils";
 import { Product } from "./fakes/models/Product";
 import { NestFactory } from "@nestjs/core";
+import { RamTransformer } from "../../src/ram/index";
 
 Adapter.setCurrent(RamFlavour);
 
@@ -73,7 +74,7 @@ describe("DecafModelModule CRUD", () => {
   beforeAll(async () => {
     app = await NestFactory.create(
       DecafModule.forRootAsync({
-        conf: [[RamAdapter, {}]],
+        conf: [[RamAdapter, {}, new RamTransformer()]],
         autoControllers: true,
         autoServices: false,
       })

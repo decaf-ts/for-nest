@@ -10,6 +10,7 @@ import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { genStr } from "./fakes/utils";
 import { Product } from "./fakes/models/Product";
 import request from "supertest";
+import { RamTransformer } from "../../src/ram/index";
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
 
@@ -25,7 +26,7 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
   beforeAll(async () => {
     app = await NestFactory.create(
       DecafModule.forRootAsync({
-        conf: [[RamAdapter, {}]],
+        conf: [[RamAdapter, {}, new RamTransformer()]],
         autoControllers: true,
         autoServices: false,
       })

@@ -8,6 +8,7 @@ import { Adapter } from "@decaf-ts/core";
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { Fake } from "./fakes/models/Fake";
 import { Model } from "@decaf-ts/decorator-validation";
+import { RamTransformer } from "../../src/ram/index";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
@@ -22,7 +23,7 @@ describe("DecafModule RequestHandlerInterceptor", () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         DecafModule.forRootAsync({
-          conf: [[RamAdapter, {}]],
+          conf: [[RamAdapter, {}, new RamTransformer()]],
           autoControllers: true,
           handlers: [FakeHandler],
         }),

@@ -4,8 +4,16 @@
   "description": "NestJS decaf integration",
   "type": "module",
   "exports": {
-    "require": "./lib/index.cjs",
-    "import": "./lib/esm/index.js"
+    ".": {
+      "require": "./lib/index.cjs",
+      "import": "./lib/esm/index.js",
+      "types": "./lib/index.d.ts"
+    },
+    "./ram": {
+      "require": "./lib/ram/index.cjs",
+      "import": "./lib/esm/ram/index.js",
+      "types": "./lib/ram/index.d.ts"
+    }
   },
   "bin": {
     "for-nest": "lib/bin/cli.cjs"
