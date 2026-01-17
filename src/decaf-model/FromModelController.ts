@@ -497,7 +497,8 @@ export class FromModelController {
         log.verbose(`creating new ${modelClazzName}`);
         let created: Model;
         try {
-          created = await this.persistence(ctx).create(data, ctx);
+          const persistence = this.persistence(ctx);
+          created = await persistence.create(data, ctx);
         } catch (e: unknown) {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
           throw e;
@@ -530,7 +531,8 @@ export class FromModelController {
         let read: Model[];
         try {
           log.debug(`reading ${ids.length} ${modelClazzName}: ${ids}`);
-          read = await this.persistence(ctx).readAll(ids as any, ctx);
+          const persistence = this.persistence(ctx);
+          read = await persistence.readAll(ids as any, ctx);
         } catch (e: unknown) {
           log.error(`Failed to ${modelClazzName} with id ${ids}`, e as Error);
           throw e;
@@ -563,7 +565,8 @@ export class FromModelController {
         let read: Model;
         try {
           log.debug(`reading ${modelClazzName} with ${this.pk} ${id}`);
-          read = await this.persistence(ctx).read(id, ctx);
+          const persistence = this.persistence(ctx);
+          read = await persistence.read(id, ctx);
         } catch (e: unknown) {
           log.error(
             `Failed to read ${modelClazzName} with id ${id}`,
@@ -658,7 +661,8 @@ export class FromModelController {
         try {
           log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
           const payload = JSON.parse(JSON.stringify(body));
-          updated = await this.persistence(ctx).update(
+          const persistence = this.persistence(ctx);
+          updated = await persistence.update(
             new ModelConstr({
               ...payload,
               [this.pk]: id,

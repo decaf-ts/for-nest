@@ -97,6 +97,7 @@ export abstract class DecafModelController<
       } catch (e: unknown) {
         this._persistence = Repository.forModel(this.class) as Repo<M>;
       }
+
     return ctx
       ? this._persistence instanceof Repository
         ? this._persistence.override(ctx.toOverrides())
