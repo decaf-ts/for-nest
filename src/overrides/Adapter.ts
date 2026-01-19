@@ -14,4 +14,7 @@ declare module "@decaf-ts/core" {
 
     function flavoursToTransform(): string[] | undefined;
   }
+  export interface Context {
+    toResponse<RES = any>(res: RES): RES;
+  }
 }

@@ -1,4 +1,4 @@
-import { Controller, Param, Query } from "@nestjs/common";
+import { Controller, Param, Query, Response } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -54,6 +54,7 @@ import { Auth } from "./decorators/decorators";
 import { ControllerConstructor } from "./types";
 import { DecafModelController } from "../controllers";
 import { DtoFor } from "../factory/openapi/DtoBuilder";
+import "../overrides";
 
 /**
  * @description
@@ -453,7 +454,10 @@ export class FromModelController {
       @ApiUnprocessableEntityResponse({
         description: "Repository rejected the provided payload.",
       })
-      async createAll(@DecafBody() data: T[]): Promise<Model[]> {
+      async createAll(
+        @DecafBody() data: T[],
+        @Response({ passthrough: true }) resp: any
+      ): Promise<Model[]> {
         const { ctx, log } = (
           await this.logCtx([], BulkCrudOperationKeys.CREATE_ALL, true)
         ).for(this.createAll);
@@ -471,6 +475,8 @@ export class FromModelController {
         log.info(
           `created new ${modelClazzName} with id ${(created as any)[this.pk]}`
         );
+
+        ctx.toResponse(resp);
         return created;
       }
 
@@ -490,7 +496,10 @@ export class FromModelController {
       @ApiUnprocessableEntityResponse({
         description: "Repository rejected the provided payload.",
       })
-      async create(@DecafBody() data: T): Promise<Model<any>> {
+      async create(
+        @DecafBody() data: T,
+        @Response({ passthrough: true }) resp: any
+      ): Promise<Model<any>> {
         const { ctx, log } = (
           await this.logCtx([], OperationKeys.CREATE, true)
         ).for(this.create);
@@ -506,6 +515,7 @@ export class FromModelController {
         log.info(
           `created new ${modelClazzName} with id ${(created as any)[this.pk]}`
         );
+        ctx.toResponse(resp);
         return created;
       }
 
@@ -607,7 +617,10 @@ export class FromModelController {
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
-      async updateAll(@DecafBody() body: T[]) {
+      async updateAll(
+        @DecafBody() body: T[],
+        @Response({ passthrough: true }) resp: any
+      ) {
         const { ctx, log } = (
           await this.logCtx([], BulkCrudOperationKeys.UPDATE_ALL, true)
         ).for(this.updateAll);
@@ -623,6 +636,7 @@ export class FromModelController {
           log.error(e as Error);
           throw e;
         }
+        ctx.toResponse(resp);
         return updated;
       }
 
@@ -647,7 +661,8 @@ export class FromModelController {
       @ApiBadRequestResponse({ description: "Payload validation failed." })
       async update(
         @DecafParams(apiProperties) routeParams: DecafParamProps,
-        @DecafBody() body: T
+        @DecafBody() body: T,
+        @Response({ passthrough: true }) resp: any
       ) {
         const { ctx, log } = (
           await this.logCtx([], OperationKeys.UPDATE, true)
@@ -673,6 +688,7 @@ export class FromModelController {
           log.error(e as Error);
           throw e;
         }
+        ctx.toResponse(resp);
         return updated;
       }
 
@@ -686,7 +702,10 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
-      async deleteAll(@Query("ids") ids: string[]) {
+      async deleteAll(
+        @Query("ids") ids: string[],
+        @Response({ passthrough: true }) resp: any
+      ) {
         const { ctx, log } = (
           await this.logCtx([], BulkCrudOperationKeys.DELETE_ALL, true)
         ).for(this.deleteAll);
@@ -703,6 +722,7 @@ export class FromModelController {
         }
 
         log.info(`deleted ${read.length} ${modelClazzName}`);
+        ctx.toResponse(resp);
         return read;
       }
 
@@ -715,7 +735,10 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
-      async delete(@DecafParams(apiProperties) routeParams: DecafParamProps) {
+      async delete(
+        @DecafParams(apiProperties) routeParams: DecafParamProps,
+        @Response({ passthrough: true }) resp: any
+      ) {
         const { ctx, log } = (
           await this.logCtx([], OperationKeys.DELETE, true)
         ).for(this.delete);
@@ -738,6 +761,7 @@ export class FromModelController {
           throw e;
         }
         log.info(`deleted ${modelClazzName} with id ${id}`);
+        ctx.toResponse(resp);
         return del;
       }
     }
