@@ -72,18 +72,19 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
           return result;
         }
         case "POST": {
-          const result = await app
-            .getHttpServer()
+          const result = await server
             .post(trimUrl(req.url))
-            .send(req.body);
+            .send(JSON.parse(req.data));
           return result;
         }
         case "PUT": {
-          const result = await server.put(trimUrl(req.url)).send(req.body);
+          const result = await server
+            .put(trimUrl(req.url))
+            .send(JSON.parse(req.data));
           return result;
         }
         case "DELETE": {
-          const result = await server.delete(req.url).send();
+          const result = await server.delete(trimUrl(req.url)).send();
           return result;
         }
         default:
