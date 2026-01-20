@@ -717,6 +717,8 @@ export class FromModelController {
     return DynamicModelController as any;
   }
 
+  static createStreamedController<T extends Model<any>>() {}
+
   static getRouteParametersFromModel<T extends Model<any>>(
     ModelClazz: ModelConstructor<T>
   ): DecafModelRoute {
