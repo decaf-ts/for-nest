@@ -3,6 +3,7 @@ import { Constructor } from "@decaf-ts/decoration";
 import { AUTH_META_KEY, AuthRole } from "../../constants";
 import { AuthInterceptor } from "../../interceptors/AuthInterceptor";
 import { metadata } from "@decaf-ts/decoration";
+import { ApiBearerAuth } from "@nestjs/swagger";
 
 /**
  * A decorator function that applies authentication and authorization metadata to a NestJS controller or method.
@@ -35,6 +36,7 @@ export function Auth(model: string | Constructor) {
   const resource = typeof model === "string" ? model : model.name;
 
   return applyDecorators(
+    ApiBearerAuth(),
     SetMetadata(AUTH_META_KEY, resource),
     UseInterceptors(AuthInterceptor)
   );
