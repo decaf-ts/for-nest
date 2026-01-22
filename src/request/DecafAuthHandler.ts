@@ -1,8 +1,7 @@
 import { ExecutionContext } from "@nestjs/common";
 import { Metadata } from "@decaf-ts/decoration";
-import { AuthorizationError } from "@decaf-ts/core";
+import { AuthorizationError, PersistenceKeys } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
-import { AuthRole } from "../constants";
 import { AuthHandler } from "../types";
 
 export class DecafAuthHandler implements AuthHandler {
@@ -17,7 +16,7 @@ export class DecafAuthHandler implements AuthHandler {
     const userRole = this.parseRequest(req);
     if (!userRole) throw new AuthorizationError("Unauthenticated");
 
-    const roles = Metadata.get(Model.get(resource)!, AuthRole);
+    const roles = Metadata.get(Model.get(resource)!, PersistenceKeys.AUTH_ROLE);
 
     if (!roles.includes(userRole)) {
       throw new AuthorizationError(`Missing role: ${userRole}`);
@@ -36,7 +35,7 @@ export class DecafRoleAuthHandler extends DecafAuthHandler {
     const userRole = this.parseRequest(req);
     if (!userRole) throw new AuthorizationError("Unauthenticated");
 
-    const roles = Metadata.get(Model.get(resource)!, AuthRole);
+    const roles = Metadata.get(Model.get(resource)!, PersistenceKeys.AUTH_ROLE);
 
     if (!roles.includes(userRole)) {
       throw new AuthorizationError(`Missing role: ${userRole}`);

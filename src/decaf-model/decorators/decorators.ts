@@ -2,7 +2,6 @@ import { applyDecorators, SetMetadata, UseInterceptors } from "@nestjs/common";
 import { Constructor } from "@decaf-ts/decoration";
 import { AUTH_META_KEY } from "../../constants";
 import { AuthInterceptor } from "../../interceptors/AuthInterceptor";
-import { metadata } from "@decaf-ts/decoration";
 import { ApiBearerAuth } from "@nestjs/swagger";
 
 /**
@@ -41,6 +40,3 @@ export function Auth(model: string | Constructor) {
     UseInterceptors(AuthInterceptor)
   );
 }
-
-
-
