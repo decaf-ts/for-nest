@@ -155,7 +155,7 @@ describe("SSE /events (e2e)", () => {
     expect(operationKey).toBe(OperationKeys.CREATE);
     expect(id).toBe(payload.id);
     expect(model).toMatchObject(payload);
-    // expect(tableName).toEqual(payload.constructor.name);
+    expect(tableName).toEqual(payload.constructor.name);
   });
 
   it("should receive UPDATE event", async () => {
@@ -176,7 +176,7 @@ describe("SSE /events (e2e)", () => {
     expect(operationKey).toBe(OperationKeys.UPDATE);
     expect(id).toBe(payload.id);
     expect(model).toMatchObject(payload);
-    // expect(tableName).toEqual(payload.constructor.name);
+    expect(tableName).toEqual(payload.constructor.name);
   });
 
   it("should receive DELETE event", async () => {
@@ -197,7 +197,7 @@ describe("SSE /events (e2e)", () => {
     expect(operationKey).toBe(OperationKeys.DELETE);
     expect(id).toBe(payload.id);
     expect(model).toMatchObject(payload);
-    // expect(tableName).toEqual(payload.constructor.name);
+    expect(tableName).toEqual(payload.constructor.name);
   });
 
   it("should listen for multiple events", async () => {
@@ -236,7 +236,7 @@ describe("SSE /events (e2e)", () => {
       expect(operationKey).toBe(OperationKeys.CREATE);
       expect(id).toBe(payload.id);
       expect(model).toMatchObject(payload);
-      // expect(tableName).toEqual(payload.constructor.name);
+      expect(tableName).toEqual(payload.constructor.name);
     }
   });
 });

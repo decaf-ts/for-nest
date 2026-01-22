@@ -2,7 +2,7 @@ import { DecafController } from "../controllers";
 import { DecafServerContext } from "../constants";
 import { DecafRequestContext } from "../request/index";
 import { Adapter, Observer } from "@decaf-ts/core";
-import { Controller, Inject, Param, Sse } from "@nestjs/common";
+import { Controller, Inject, Query, Sse } from "@nestjs/common";
 import { Observable } from "rxjs";
 import { Logging } from "@decaf-ts/logging";
 import { STREAM_FLAVOURS } from "./constant";
@@ -27,15 +27,16 @@ export class StreamController extends DecafController<DecafServerContext> {
       const cb = new (class implements Observer {
         refresh(...args: any[]): Promise<void> {
           return Promise.resolve().then(() => {
+            args[0] = args[0]?.name || args[0];
             observer.next({ data: args } as any);
           });
         }
       })();
 
-      if (!events || events.length === 0)
-        return observer.error({
-          message: `${NotFoundError.name} - No events available to listen for role: ${type}.`,
-        });
+      // if (!events || events.length === 0)
+      //   return observer.error({
+      //     message: `${NotFoundError.name} - No events available to listen for role: ${type}.`,
+      //   });
 
       try {
         for (const adapter of this.adapters) {
