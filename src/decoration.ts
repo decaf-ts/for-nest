@@ -9,6 +9,7 @@ import { Constructor, Decoration, DecorationKeys } from "@decaf-ts/decoration";
 import { ValidationKeys } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "@decaf-ts/core";
 import { ApiProperty } from "./overrides/decoration";
+import { Auth } from "./decaf-model";
 
 Decoration.for(InjectablesKeys.INJECTABLE)
   .extend({
@@ -183,3 +184,5 @@ Decoration.for(DecorationKeys.DESCRIPTION)
     },
   })
   .apply();
+
+  Decoration.for(PersistenceKeys.AUTH).extend({decorator:Auth}).apply();

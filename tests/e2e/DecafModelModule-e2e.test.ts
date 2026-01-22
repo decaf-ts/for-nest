@@ -1,12 +1,13 @@
 import request from "supertest";
 import { INestApplication } from "@nestjs/common";
-import { DecafExceptionFilter, DecafModule, route } from "../../src";
+import { DecafExceptionFilter, DecafModule } from "../../src";
 import {
   Adapter,
   OrderDirection,
   query,
   Repository,
   repository,
+  route,
 } from "@decaf-ts/core";
 
 // @ts-expect-error  import from ram
