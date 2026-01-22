@@ -628,10 +628,7 @@ export class FromModelController {
         let updated: T[];
         try {
           log.info(`updating ${body.length} ${modelClazzName}`);
-          const payloads = body.map((entry) =>
-            JSON.parse(JSON.stringify(entry))
-          );
-          updated = await this.persistence(ctx).updateAll(payloads, ctx);
+          updated = await this.persistence(ctx).updateAll(body, ctx);
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
