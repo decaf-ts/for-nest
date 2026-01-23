@@ -1,4 +1,4 @@
-import { Controller, Param, Query } from "@nestjs/common";
+import { Controller, Param, Query, Response } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -54,6 +54,7 @@ import { Auth } from "./decorators/decorators";
 import { ControllerConstructor } from "./types";
 import { DecafModelController } from "../controllers";
 import { DtoFor } from "../factory/openapi/DtoBuilder";
+import "../overrides";
 
 /**
  * @description
@@ -231,13 +232,14 @@ export class FromModelController {
       }
 
       override get class(): ModelConstructor<T> {
-        return DynamicModelController.class;
+        return ModelConstr;
+        // return DynamicModelController.class;
       }
 
       constructor(clientContext: DecafRequestContext) {
         super(clientContext);
         log.info(
-          `Registering dynamic controller for model: ${modelClazzName} route: /${routePath}`
+          `Registering dynamic controller for model: ${this.class.name} route: /${routePath}`
         );
       }
 
@@ -271,7 +273,7 @@ export class FromModelController {
         const { ctx } = (
           await this.logCtx([], PreparedStatementKeys.LIST_BY, true)
         ).for(this.listBy);
-        return this.persistence.listBy(
+        return this.persistence(ctx).listBy(
           key as keyof T,
           details.direction as OrderDirection,
           ctx
@@ -303,7 +305,7 @@ export class FromModelController {
         const { ctx } = (
           await this.logCtx([], PreparedStatementKeys.PAGE_BY, true)
         ).for(this.paginateBy);
-        return this.persistence.paginateBy(
+        return this.persistence(ctx).paginateBy(
           key as keyof T,
           details.direction as OrderDirection,
           details as Omit<DirectionLimitOffset, "direction">,
@@ -324,7 +326,7 @@ export class FromModelController {
         const { ctx } = (
           await this.logCtx([], PreparedStatementKeys.FIND_ONE_BY, true)
         ).for(this.findOneBy);
-        return this.persistence.findOneBy(key as keyof T, value, ctx);
+        return this.persistence(ctx).findOneBy(key as keyof T, value, ctx);
       }
 
       @ApiOperationFromModel(ModelConstr, "GET", "findBy/:key/:value")
@@ -352,7 +354,9 @@ export class FromModelController {
         const { ctx } = (
           await this.logCtx([], PreparedStatementKeys.FIND_BY, true)
         ).for(this.findBy);
-        return this.persistence.findBy(key as keyof T, value, ctx);
+        return this.persistence(ctx)
+          .for(ctx.toOverrides())
+          .findBy(key as keyof T, value, ctx);
       }
 
       @ApiOperationFromModel(ModelConstr, "GET", "statement/:method/*args")
@@ -422,7 +426,7 @@ export class FromModelController {
           case PreparedStatementKeys.FIND_ONE_BY:
             break;
         }
-        return this.persistence.statement(name, ...args, ctx);
+        return this.persistence(ctx).statement(name, ...args, ctx);
       }
 
       @ApiOperationFromModel(ModelConstr, "POST", "bulk")
@@ -432,25 +436,35 @@ export class FromModelController {
         schema: {
           type: "array",
           items: {
-            $ref: getSchemaPath(DtoFor(OperationKeys.CREATE, ModelConstr)),
+            $ref: getSchemaPath(ModelConstr),
+            // $ref: getSchemaPath(DtoFor(OperationKeys.CREATE, ModelConstr)),
           },
         },
       })
       @ApiCreatedResponse({
-        description: `x ${modelClazzName} created successfully.`,
+        description: `${modelClazzName} created successfully.`,
+        schema: {
+          type: "array",
+          items: {
+            $ref: getSchemaPath(ModelConstr),
+          },
+        },
       })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
       @ApiUnprocessableEntityResponse({
         description: "Repository rejected the provided payload.",
       })
-      async createAll(@DecafBody() data: T[]): Promise<Model[]> {
+      async createAll(
+        @DecafBody() data: T[],
+        @Response({ passthrough: true }) resp: any
+      ): Promise<Model[]> {
         const { ctx, log } = (
           await this.logCtx([], BulkCrudOperationKeys.CREATE_ALL, true)
         ).for(this.createAll);
         log.verbose(`creating new ${modelClazzName}`);
         let created: T[];
         try {
-          created = await this.persistence.createAll(
+          created = await this.persistence(ctx).createAll(
             data.map((d) => new ModelConstr(d)),
             ctx
           );
@@ -461,6 +475,8 @@ export class FromModelController {
         log.info(
           `created new ${modelClazzName} with id ${(created as any)[this.pk]}`
         );
+
+        ctx.toResponse(resp);
         return created;
       }
 
@@ -468,29 +484,30 @@ export class FromModelController {
       @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
       @ApiBody({
         description: `Payload for ${modelClazzName}`,
-        schema: {
-          $ref: getSchemaPath(DtoFor(OperationKeys.CREATE, ModelConstr)),
-        },
+        type: DtoFor(OperationKeys.CREATE, ModelConstr),
       })
       @ApiCreatedResponse({
         description: `${modelClazzName} created successfully.`,
+        schema: {
+          $ref: getSchemaPath(ModelConstr),
+        },
       })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
       @ApiUnprocessableEntityResponse({
         description: "Repository rejected the provided payload.",
       })
-      async create(@DecafBody() data: T): Promise<Model<any>> {
+      async create(
+        @DecafBody() data: T,
+        @Response({ passthrough: true }) resp: any
+      ): Promise<Model<any>> {
         const { ctx, log } = (
           await this.logCtx([], OperationKeys.CREATE, true)
         ).for(this.create);
         log.verbose(`creating new ${modelClazzName}`);
         let created: Model;
-        const payload = JSON.parse(JSON.stringify(data));
-        if (modelClazzName === "Fake") {
-          console.log("payload plain", payload);
-        }
         try {
-          created = await this.persistence.create(payload, ctx);
+          const persistence = this.persistence(ctx);
+          created = await persistence.create(data, ctx);
         } catch (e: unknown) {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
           throw e;
@@ -498,6 +515,7 @@ export class FromModelController {
         log.info(
           `created new ${modelClazzName} with id ${(created as any)[this.pk]}`
         );
+        ctx.toResponse(resp);
         return created;
       }
 
@@ -506,6 +524,12 @@ export class FromModelController {
       @ApiQuery({ name: "ids", required: true, type: "array" })
       @ApiOkResponse({
         description: `${modelClazzName} retrieved successfully.`,
+        schema: {
+          type: "array",
+          items: {
+            $ref: getSchemaPath(ModelConstr),
+          },
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
@@ -517,7 +541,8 @@ export class FromModelController {
         let read: Model[];
         try {
           log.debug(`reading ${ids.length} ${modelClazzName}: ${ids}`);
-          read = await this.persistence.readAll(ids as any, ctx);
+          const persistence = this.persistence(ctx);
+          read = await persistence.readAll(ids as any, ctx);
         } catch (e: unknown) {
           log.error(`Failed to ${modelClazzName} with id ${ids}`, e as Error);
           throw e;
@@ -532,6 +557,9 @@ export class FromModelController {
       @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
       @ApiOkResponse({
         description: `${modelClazzName} retrieved successfully.`,
+        schema: {
+          $ref: getSchemaPath(ModelConstr),
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
@@ -547,7 +575,8 @@ export class FromModelController {
         let read: Model;
         try {
           log.debug(`reading ${modelClazzName} with ${this.pk} ${id}`);
-          read = await this.persistence.read(id, ctx);
+          const persistence = this.persistence(ctx);
+          read = await persistence.read(id, ctx);
         } catch (e: unknown) {
           log.error(
             `Failed to read ${modelClazzName} with id ${id}`,
@@ -570,18 +599,28 @@ export class FromModelController {
         schema: {
           type: "array",
           items: {
-            $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
+            $ref: getSchemaPath(ModelConstr),
+            // $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
           },
         },
       })
-      @ApiOkResponse({
-        description: `${ModelConstr} record replaced successfully.`,
+      @ApiCreatedResponse({
+        description: `${modelClazzName} updated successfully.`,
+        schema: {
+          type: "array",
+          items: {
+            $ref: getSchemaPath(ModelConstr),
+          },
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
-      async updateAll(@DecafBody() body: T[]) {
+      async updateAll(
+        @DecafBody() body: T[],
+        @Response({ passthrough: true }) resp: any
+      ) {
         const { ctx, log } = (
           await this.logCtx([], BulkCrudOperationKeys.UPDATE_ALL, true)
         ).for(this.updateAll);
@@ -589,14 +628,12 @@ export class FromModelController {
         let updated: T[];
         try {
           log.info(`updating ${body.length} ${modelClazzName}`);
-          const payloads = body.map((entry) =>
-            JSON.parse(JSON.stringify(entry))
-          );
-          updated = await this.persistence.updateAll(payloads, ctx);
+          updated = await this.persistence(ctx).updateAll(body, ctx);
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
         }
+        ctx.toResponse(resp);
         return updated;
       }
 
@@ -608,11 +645,12 @@ export class FromModelController {
       @ApiBody({
         description: `Payload for replace a existing record of ${modelClazzName}`,
         schema: {
-          $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
+          $ref: getSchemaPath(ModelConstr),
+          // $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
         },
       })
       @ApiOkResponse({
-        description: `${ModelConstr} record replaced successfully.`,
+        description: `${modelClazzName} updated successfully.`,
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
@@ -620,7 +658,8 @@ export class FromModelController {
       @ApiBadRequestResponse({ description: "Payload validation failed." })
       async update(
         @DecafParams(apiProperties) routeParams: DecafParamProps,
-        @DecafBody() body: T
+        @DecafBody() body: T,
+        @Response({ passthrough: true }) resp: any
       ) {
         const { ctx, log } = (
           await this.logCtx([], OperationKeys.UPDATE, true)
@@ -634,7 +673,8 @@ export class FromModelController {
         try {
           log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
           const payload = JSON.parse(JSON.stringify(body));
-          updated = await this.persistence.update(
+          const persistence = this.persistence(ctx);
+          updated = await persistence.update(
             new ModelConstr({
               ...payload,
               [this.pk]: id,
@@ -645,6 +685,7 @@ export class FromModelController {
           log.error(e as Error);
           throw e;
         }
+        ctx.toResponse(resp);
         return updated;
       }
 
@@ -658,14 +699,17 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
-      async deleteAll(@Query("ids") ids: string[]) {
+      async deleteAll(
+        @Query("ids") ids: string[],
+        @Response({ passthrough: true }) resp: any
+      ) {
         const { ctx, log } = (
           await this.logCtx([], BulkCrudOperationKeys.DELETE_ALL, true)
         ).for(this.deleteAll);
         let read: Model[];
         try {
           log.debug(`deleting ${ids.length} ${modelClazzName}: ${ids}`);
-          read = await this.persistence.deleteAll(ids, ctx);
+          read = await this.persistence(ctx).deleteAll(ids, ctx);
         } catch (e: unknown) {
           log.error(
             `Failed to delete ${modelClazzName} with id ${ids}`,
@@ -675,6 +719,7 @@ export class FromModelController {
         }
 
         log.info(`deleted ${read.length} ${modelClazzName}`);
+        ctx.toResponse(resp);
         return read;
       }
 
@@ -687,7 +732,10 @@ export class FromModelController {
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
-      async delete(@DecafParams(apiProperties) routeParams: DecafParamProps) {
+      async delete(
+        @DecafParams(apiProperties) routeParams: DecafParamProps,
+        @Response({ passthrough: true }) resp: any
+      ) {
         const { ctx, log } = (
           await this.logCtx([], OperationKeys.DELETE, true)
         ).for(this.delete);
@@ -701,7 +749,7 @@ export class FromModelController {
           log.debug(
             `deleting ${modelClazzName} with ${this.pk as string} ${id}`
           );
-          del = await this.persistence.delete(id, ctx);
+          del = await this.persistence(ctx).delete(id, ctx);
         } catch (e: unknown) {
           log.error(
             `Failed to delete ${modelClazzName} with id ${id}`,
@@ -710,6 +758,7 @@ export class FromModelController {
           throw e;
         }
         log.info(`deleted ${modelClazzName} with id ${id}`);
+        ctx.toResponse(resp);
         return del;
       }
     }

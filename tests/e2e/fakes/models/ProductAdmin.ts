@@ -6,6 +6,7 @@ import {
   pk,
   table,
   updatedBy,
+  roles
 } from "@decaf-ts/core";
 // @ts-expect-error ram
 import { RamFlavour } from "@decaf-ts/core/ram";
@@ -16,13 +17,13 @@ import {
   ModelArg,
   pattern,
 } from "@decaf-ts/decorator-validation";
-import { Roles } from "../../../../src";
+
 import { composed, readonly } from "@decaf-ts/db-decorators";
 
 @uses(RamFlavour)
 @table("product")
 @model()
-@Roles(["admin"])
+@roles(["admin"])
 export class Product extends BaseModel {
   @pk({ type: "String", generated: false })
   @composed(["productCode", "batchNumber"], ":", true)

@@ -1,5 +1,5 @@
 import { Injectable, Scope } from "@nestjs/common";
-import { DecafServerContext } from "../constants";
+import { DecafServerCtx } from "../constants";
 import { InternalError } from "@decaf-ts/db-decorators";
 
 /**
@@ -24,10 +24,22 @@ import { InternalError } from "@decaf-ts/db-decorators";
  * ```
  */
 @Injectable({ scope: Scope.REQUEST })
-export class DecafRequestContext<
-  C extends DecafServerContext = DecafServerContext,
-> {
+export class DecafRequestContext<C extends DecafServerCtx = DecafServerCtx> {
   private _ctx?: C;
+
+  put(record: Record<any, any>) {
+    let overrides: any;
+    try {
+      overrides = this.ctx.get("overrides");
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e: unknown) {
+      overrides = {};
+    }
+
+    this._ctx = this.ctx.accumulate({
+      overrides: Object.assign(overrides, record),
+    }) as any;
+  }
 
   applyCtx(ctx: C) {
     this._ctx = ctx;

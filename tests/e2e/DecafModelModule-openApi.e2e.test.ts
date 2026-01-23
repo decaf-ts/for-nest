@@ -19,7 +19,9 @@ import {
 } from "../../src/interceptors/context";
 
 @requestToContextTransformer(RamFlavour)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class RamTransformer implements RequestToContextTransformer<RamContext> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async from(req: any, args: any): Promise<RamFlags> {
     return { user: "here" }; // should be populating from req
   }

@@ -8,8 +8,13 @@ declare module "@decaf-ts/core" {
   export namespace Adapter {
     function transformerFor<A extends Adapter<any, any, any, any>>(
       adapter: A | string
-    ): Constructor<RequestToContextTransformer<ContextOf<A>>>;
+    ):
+      | Constructor<RequestToContextTransformer<ContextOf<A>>>
+      | RequestToContextTransformer<ContextOf<A>>;
 
     function flavoursToTransform(): string[] | undefined;
+  }
+  export interface Context {
+    toResponse<RES = any>(res: RES): RES;
   }
 }

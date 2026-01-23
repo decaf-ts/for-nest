@@ -7,6 +7,7 @@ import {
   query,
   Repository,
   repository,
+  route,
 } from "@decaf-ts/core";
 
 // @ts-expect-error  import from ram
@@ -15,7 +16,7 @@ import { HttpModelClient, HttpModelResponse } from "./fakes/server";
 import { genStr } from "./fakes/utils";
 import { Product } from "./fakes/models/Product";
 import { NestFactory } from "@nestjs/core";
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { RamTransformer } from "../../src/ram/index";
 
 Adapter.setCurrent(RamFlavour);
 
@@ -74,7 +75,7 @@ describe("DecafModelModule CRUD", () => {
   beforeAll(async () => {
     app = await NestFactory.create(
       DecafModule.forRootAsync({
-        conf: [[RamAdapter, {}]],
+        conf: [[RamAdapter, {}, new RamTransformer()]],
         autoControllers: true,
         autoServices: false,
       })
@@ -89,7 +90,7 @@ describe("DecafModelModule CRUD", () => {
   });
 
   afterAll(async () => {
-    // await app?.close();
+    await app?.close();
   });
 
   describe("CREATE", () => {

@@ -1,6 +1,6 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { RequestToContextTransformer } from "../interceptors/context";
-import { Adapter, ContextOf } from "@decaf-ts/core";
+import { Adapter, ContextOf, Context } from "@decaf-ts/core";
 
 (Adapter as any).transformerFor = function toContextFlags<
   A extends Adapter<any, any, any, any>,
@@ -13,8 +13,15 @@ import { Adapter, ContextOf } from "@decaf-ts/core";
 (Adapter as any).flavoursToTransform = function requestTransformers():
   | string[]
   | undefined {
-  const m = Metadata;
   const meta = Metadata["innerGet"](Symbol.for("transformers"));
   if (!meta) return undefined;
   return Object.keys(meta);
 }.bind(Adapter);
+
+(Context as any).prototype.toResponse = function toResponse<
+  RES extends { header: any },
+>(this: Context, res: RES): RES {
+  const pending = this.pending();
+  if (pending) res.header("x-pending-task", JSON.stringify(pending));
+  return res;
+};

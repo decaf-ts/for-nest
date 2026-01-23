@@ -1,5 +1,5 @@
 import { uses } from "@decaf-ts/decoration";
-import { column, pk, table } from "@decaf-ts/core";
+import { Cascade, column, oneToMany, pk, table } from "@decaf-ts/core";
 // @ts-expect-error ram
 import { RamFlavour } from "@decaf-ts/core/ram";
 import {
@@ -11,12 +11,13 @@ import {
   pattern,
 } from "@decaf-ts/decorator-validation";
 import { composed, readonly } from "@decaf-ts/db-decorators";
+import { Fake } from "./Fake";
 
 @uses(RamFlavour)
 @table("product")
 @model()
 export class Product extends Model {
-  @pk({ type: "String", generated: false })
+  @pk({ type: String, generated: false })
   @composed(["productCode", "batchNumber"], ":")
   id!: string;
 
@@ -39,6 +40,26 @@ export class Product extends Model {
 
   @column()
   expiryDate!: number;
+  //
+  // @oneToOne(
+  //   () => Fake,
+  //   {
+  //     update: Cascade.CASCADE,
+  //     delete: Cascade.CASCADE,
+  //   },
+  //   true
+  // )
+  // partner!: Fake;
+
+  @oneToMany(
+    () => Fake,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    true
+  )
+  partners!: Fake;
 
   constructor(model?: ModelArg<Product>) {
     super(model);

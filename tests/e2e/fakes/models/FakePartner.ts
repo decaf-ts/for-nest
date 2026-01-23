@@ -1,20 +1,15 @@
 import { uses } from "@decaf-ts/decoration";
-import { BaseModel, column, pk, table } from "@decaf-ts/core";
+import { BaseModel, column, pk, roles, table } from "@decaf-ts/core";
 // @ts-expect-error ram
 import { RamFlavour } from "@decaf-ts/core/ram";
-import {
-  model,
-  Model,
-  ModelArg,
-  required,
-} from "@decaf-ts/decorator-validation";
-import { Roles } from "../../../../src/index";
+import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
+
 
 @uses(RamFlavour)
-@table("fake")
-@Roles(["partner"])
+@table("fake_partner")
+@roles(["partner"])
 @model()
-export class Fake extends BaseModel {
+export class FakePartner extends BaseModel {
   @pk({ type: String, generated: false })
   id!: string;
 
@@ -22,7 +17,7 @@ export class Fake extends BaseModel {
   @required()
   name!: string;
 
-  constructor(args?: ModelArg<Fake>) {
+  constructor(args?: ModelArg<FakePartner>) {
     super(args);
   }
 }

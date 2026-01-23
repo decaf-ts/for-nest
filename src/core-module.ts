@@ -13,6 +13,10 @@ import { FactoryProvider } from "@nestjs/common/interfaces/modules/provider.inte
 import { Adapter, PersistenceService } from "@decaf-ts/core";
 import { Logger, Logging } from "@decaf-ts/logging";
 import { InternalError } from "@decaf-ts/db-decorators";
+import {
+  RequestToContextTransformer,
+  requestToContextTransformer,
+} from "./interceptors/context";
 
 @Global()
 @Module({})
@@ -46,8 +50,28 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
     const log = this.log.for(this.bootPersistence);
 
     if (!this._persistence) {
+      const trimmed = options.conf.map(([contr, cfg, ...args]) => {
+        const possible = args.pop();
+        if (!possible) return [contr, cfg];
+        return [contr, cfg, ...args];
+      });
       this._persistence = new PersistenceService();
-      await this._persistence.boot(options.conf);
+      await this._persistence.boot(trimmed);
+      const clients = this._persistence.client;
+      for (let i = 0; i < clients.length; i++) {
+        const c = options.conf[i];
+        let [, , transformer] = c;
+        if (!transformer) {
+          const contr = Adapter.transformerFor(clients[i].flavour);
+          if (!contr)
+            throw new InternalError(
+              `No transformer found for flavour ${clients[i].flavour}. you should either @requestToContextTransformer or provide a transformer in the config`
+            );
+          transformer =
+            contr instanceof RequestToContextTransformer ? contr : new contr();
+        }
+        requestToContextTransformer(clients[i].flavour)(transformer);
+      }
       log.info("persistence layer created successfully!");
     }
 

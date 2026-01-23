@@ -1,24 +1,16 @@
 import "../../src";
 import { INestApplication } from "@nestjs/common";
-import { HttpModelClient, HttpModelResponse } from "./fakes/server";
 import { Product } from "./fakes/models/Product";
-import { genStr } from "./fakes/index";
 import { getApp } from "../app";
 
 const timeout = 600000;
 
 jest.setTimeout(timeout);
 
-describe.skip("swagger", () => {
+describe.skip("swagger test for api", () => {
   let app: INestApplication;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let productHttpClient: HttpModelClient<Product>;
-
-  const productCode = genStr(14);
-  const batchNumber = `BATCH${genStr(3)}`;
-  const productPayload = { productCode, batchNumber, name: "Product ABC" };
-  const id = `${productCode}:${batchNumber}`;
-
-  let created: HttpModelResponse<Product>;
 
   beforeAll(async () => {
     app = await getApp();
