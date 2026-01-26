@@ -5,23 +5,23 @@ import { Adapter, Observer } from "@decaf-ts/core";
 import { Controller, Inject, Query, Sse } from "@nestjs/common";
 import { Observable } from "rxjs";
 import { Logging } from "@decaf-ts/logging";
-import { STREAM_FLAVOURS } from "./constant";
+import { LISTENING_ADAPTERS_FLAVOURS } from "./constant";
 
 @Controller()
-export class StreamController extends DecafController<DecafServerContext> {
+export class EventsController extends DecafController<DecafServerContext> {
   private readonly adapters: Adapter<any, any, any, any>[];
 
   constructor(
     clientContext: DecafRequestContext,
-    @Inject(STREAM_FLAVOURS) flavours: string[]
+    @Inject(LISTENING_ADAPTERS_FLAVOURS) flavours: string[]
   ) {
-    super(clientContext, StreamController.name);
-    this.adapters = flavours.map((flavour) => (Adapter as any).get(flavour)); // alterar para Adapter.cache("")
+    super(clientContext, EventsController.name);
+    this.adapters = flavours.map((flavour) => (Adapter as any).get(flavour)); // change to Adapter.cache("")
   }
 
   @Sse()
   listen(): Observable<MessageEvent> {
-    const logger = Logging.for(StreamController.name);
+    const logger = Logging.for(EventsController.name);
 
     return new Observable<MessageEvent>((observer) => {
       const cb = new (class implements Observer {
@@ -60,7 +60,7 @@ export class StreamController extends DecafController<DecafServerContext> {
 
   @Sse("/:model")
   listenForModel(@Query("model") model: string): Observable<MessageEvent> {
-    const logger = Logging.for(StreamController.name);
+    const logger = Logging.for(EventsController.name);
 
     return new Observable<MessageEvent>((observer) => {
       const cb = new (class implements Observer {

@@ -12,9 +12,9 @@ import { DecafExceptionFilter, DecafModule } from "../../src/index";
 import { RamAdapter } from "@decaf-ts/core/ram";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 import { EventSource } from "eventsource";
-import { DecafStreamModule } from "../../src/stream/index";
+import { DecafStreamModule } from "../../src/events-module";
 
-const PORT = 3000;
+const PORT = 3001;
 const serverUrl = `http://127.0.0.1:${PORT}`;
 
 @repository(ProcessStep)

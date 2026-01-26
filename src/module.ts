@@ -3,7 +3,7 @@ import { DecafModuleOptions } from "./types";
 import { DecafCoreModule } from "./core-module";
 import { Adapter } from "@decaf-ts/core";
 import { getModuleFor } from "./decaf-model/index";
-import { DecafStreamModule } from "./stream/index";
+import { DecafStreamModule } from "./events-module";
 
 /**
  * @publicApi
@@ -39,7 +39,7 @@ export class DecafModule {
       });
     }
 
-    if (options.streamOptions?.enableStreamEvents) {
+    if (options.observerOptions?.enableObserverEvents) {
       imports.push(DecafStreamModule.forFlavours(flavours));
     }
 

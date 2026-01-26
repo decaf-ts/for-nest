@@ -1,7 +1,7 @@
 import { DynamicModule, Module } from "@nestjs/common";
-import { StreamController } from "./stream.controller";
+import { EventsController } from "./events.controller";
 import { RouterModule } from "@nestjs/core";
-import { STREAM_FLAVOURS } from "./constant";
+import { LISTENING_ADAPTERS_FLAVOURS } from "./constant";
 import { DecafRequestContext } from "../request/index";
 
 @Module({})
@@ -12,7 +12,7 @@ export class DecafStreamModule {
   ): DynamicModule {
     return {
       module: DecafStreamModule,
-      controllers: [StreamController],
+      controllers: [EventsController],
       imports: [
         RouterModule.register([
           {
@@ -24,7 +24,7 @@ export class DecafStreamModule {
       providers: [
         DecafRequestContext,
         {
-          provide: STREAM_FLAVOURS,
+          provide: LISTENING_ADAPTERS_FLAVOURS,
           useValue: flavours ?? [],
         },
       ],
