@@ -10,9 +10,10 @@ import { ProcessStep } from "./fakes/models/ProcessStep";
 import { NestFactory } from "@nestjs/core";
 import { DecafExceptionFilter, DecafModule } from "../../src/index";
 import { RamAdapter } from "@decaf-ts/core/ram";
-import { DecafStreamModule } from "../../src/stream/index";
+import { DecafStreamModule } from "../../src/events-module/index";
 import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
 import { Logging } from "@decaf-ts/logging";
+import { RamTransformer } from "../../src/ram";
 
 const PORT = 3000;
 const serverUrl = `127.0.0.1:${PORT}`;
@@ -20,7 +21,7 @@ const serverUrl = `127.0.0.1:${PORT}`;
 @Module({
   imports: [
     DecafModule.forRootAsync({
-      conf: [[RamAdapter, {}]],
+      conf: [[RamAdapter, {}, new RamTransformer()]],
       autoControllers: true,
       autoServices: false,
     } as any),
@@ -40,6 +41,8 @@ describe("Listen for /events (e2e)", () => {
   let repo: Repo<ProcessStep>;
   let httpAdapter: AxiosHttpAdapter;
   let restService: RestService<any, any, any>;
+  let _observer: Observer;
+  const id = getId();
 
   const ctx = new Context().accumulate({
     logger: Logging.for(expect.getState().currentTestName),
@@ -47,11 +50,9 @@ describe("Listen for /events (e2e)", () => {
 
   function listenForEvent(
     handler: () => void | Promise<any>,
-    timeoutMs = 180000
+    timeoutMs = 80000
   ): Promise<any> {
     return new Promise((resolve, reject) => {
-      let _observer: Observer;
-
       const timeout = setTimeout(() => {
         restService.unObserve(_observer);
         reject(new Error(`No SSE event received within ${timeoutMs / 1000}s`));
@@ -64,11 +65,9 @@ describe("Listen for /events (e2e)", () => {
       };
 
       _observer = new (class implements Observer {
-        refresh(event: any): Promise<any> {
-          clearTimeout(timeout);
-          return Promise.resolve().finally(() => {
-            response(undefined, JSON.parse(event.data));
-          });
+        refresh(model, event, id): Promise<any> {
+          response(undefined, { model, event, id });
+          return Promise.resolve();
         }
       })();
 
@@ -111,7 +110,7 @@ describe("Listen for /events (e2e)", () => {
 
   it("should receive CREATE event", async () => {
     const payload = new ProcessStep({
-      id: getId(),
+      id: id,
       currentStep: 1,
       totalSteps: 1,
       label: `Step ${1}`,
@@ -122,6 +121,43 @@ describe("Listen for /events (e2e)", () => {
       expect(r).toBeDefined();
     });
 
-    expect(event).toMatchObject(payload);
+    expect(event).toMatchObject({
+      model: ProcessStep.name,
+      event: "create",
+      id: payload.id,
+    });
+  });
+
+  it("should receive UPDATE event", async () => {
+    const payload = new ProcessStep({
+      id: id,
+      currentStep: 2,
+      totalSteps: 2,
+      label: `Step ${2}`,
+    });
+
+    const event = await listenForEvent(async () => {
+      const r = await repo.update(payload);
+      expect(r).toBeDefined();
+    });
+
+    expect(event).toMatchObject({
+      model: ProcessStep.name,
+      event: "update",
+      id: payload.id,
+    });
+  });
+
+  it("should receive DELETE event", async () => {
+    const event = await listenForEvent(async () => {
+      const r = await repo.delete(id);
+      expect(r).toBeDefined();
+    });
+
+    expect(event).toMatchObject({
+      model: ProcessStep.name,
+      event: "delete",
+      id: id,
+    });
   });
 });
