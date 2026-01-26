@@ -6,6 +6,7 @@ import { Observable } from "rxjs";
 import { Logging } from "@decaf-ts/logging";
 import { LISTENING_ADAPTERS_FLAVOURS } from "./constant";
 import { DecafServerCtx } from "../constants";
+import { normalizeEventResponse } from "./utils";
 
 @Controller()
 export class EventsController extends DecafController<DecafServerCtx> {
@@ -27,8 +28,8 @@ export class EventsController extends DecafController<DecafServerCtx> {
       const cb = new (class implements Observer {
         refresh(...args: any[]): Promise<void> {
           return Promise.resolve().then(() => {
-            args[0] = args[0]?.name || args[0];
-            observer.next({ data: args } as any);
+            const data = normalizeEventResponse(args);
+            observer.next({ data } as any);
           });
         }
       })();
