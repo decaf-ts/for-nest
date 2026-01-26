@@ -10,6 +10,25 @@ export interface DecafRequestHandler<
   handle(context: C, req: Request, res: Response): Promise<void>;
 }
 
+export interface ObserverEventsOptions {
+  /**
+   * Enables or disables SSE stream events globally
+   */
+  enableObserverEvents?: boolean;
+
+  /**
+   * List of adapter flavours that will emit stream events
+   * If omitted, all registered flavours may be used
+   */
+  observerFlavours?: any[];
+
+  /**
+   * SSE endpoint path
+   * @default "/events"
+   */
+  observerApiPath?: string;
+}
+
 /**
  * @publicApi
  */
@@ -33,6 +52,7 @@ export type DecafModuleOptions<
   alias?: string;
   autoControllers: boolean;
   autoServices?: boolean;
+  observerOptions?: ObserverEventsOptions;
   handlers?: Type<DecafRequestHandler>[];
 };
 

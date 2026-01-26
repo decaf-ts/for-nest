@@ -78,7 +78,7 @@ describe("DecafModelModule CRUD", () => {
         conf: [[RamAdapter, {}, new RamTransformer()]],
         autoControllers: true,
         autoServices: false,
-      })
+      } as any)
     );
 
     app.useGlobalFilters(new DecafExceptionFilter());

@@ -1,10 +1,7 @@
 import "../../src";
 import { INestApplication } from "@nestjs/common";
-import { HttpModelClient } from "./fakes/server";
-import { FakePartner } from "./fakes/models/FakePartner";
-console.log(FakePartner.name);
 import { Product } from "./fakes/models/Product";
-import { getApp } from "./app";
+import { getApp } from "../app";
 
 const timeout = 600000;
 
