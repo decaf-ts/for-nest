@@ -14,6 +14,7 @@ import { OperationKeys } from "@decaf-ts/db-decorators";
 import { EventSource } from "eventsource";
 import { DecafStreamModule } from "../../src/events-module";
 import { RamTransformer } from "../../src/ram";
+import { Serialization } from "@decaf-ts/decorator-validation";
 
 const PORT = 3001;
 const serverUrl = `http://127.0.0.1:${PORT}`;
@@ -155,7 +156,7 @@ describe("SSE /events (e2e)", () => {
     const [tableName, operationKey, id, model, _] = event;
     expect(operationKey).toBe(OperationKeys.CREATE);
     expect(id).toBe(payload.id);
-    expect(model).toMatchObject(payload);
+    expect(Serialization.deserialize(model)).toMatchObject(payload);
     expect(tableName).toEqual(payload.constructor.name);
   });
 
@@ -176,7 +177,7 @@ describe("SSE /events (e2e)", () => {
     const [tableName, operationKey, id, model, _] = event;
     expect(operationKey).toBe(OperationKeys.UPDATE);
     expect(id).toBe(payload.id);
-    expect(model).toMatchObject(payload);
+    expect(Serialization.deserialize(model)).toMatchObject(payload);
     expect(tableName).toEqual(payload.constructor.name);
   });
 
@@ -197,7 +198,7 @@ describe("SSE /events (e2e)", () => {
     const [tableName, operationKey, id, model, _] = event;
     expect(operationKey).toBe(OperationKeys.DELETE);
     expect(id).toBe(payload.id);
-    expect(model).toMatchObject(payload);
+    expect(Serialization.deserialize(model)).toMatchObject(payload);
     expect(tableName).toEqual(payload.constructor.name);
   });
 
@@ -236,7 +237,7 @@ describe("SSE /events (e2e)", () => {
 
       expect(operationKey).toBe(OperationKeys.CREATE);
       expect(id).toBe(payload.id);
-      expect(model).toMatchObject(payload);
+      expect(Serialization.deserialize(model)).toMatchObject(payload);
       expect(tableName).toEqual(payload.constructor.name);
     }
   });
