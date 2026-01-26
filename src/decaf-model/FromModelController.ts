@@ -425,8 +425,172 @@ export class FromModelController {
             break;
           case PreparedStatementKeys.FIND_ONE_BY:
             break;
+          case PreparedStatementKeys.COUNT_OF:
+          case PreparedStatementKeys.MAX_OF:
+          case PreparedStatementKeys.MIN_OF:
+          case PreparedStatementKeys.AVG_OF:
+          case PreparedStatementKeys.SUM_OF:
+          case PreparedStatementKeys.DISTINCT_OF:
+          case PreparedStatementKeys.GROUP_OF:
+            // Aggregation methods - args[0] is the field name (if provided)
+            break;
         }
         return this.persistence(ctx).statement(name, ...args, ctx);
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "countOf")
+      @ApiOperation({ summary: `Count all ${modelClazzName} records.` })
+      @ApiOkResponse({
+        description: `Count of ${modelClazzName} records.`,
+        type: Number,
+      })
+      async countOf() {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.COUNT_OF, true)
+        ).for(this.countOf);
+        return this.persistence(ctx).statement(
+          PreparedStatementKeys.COUNT_OF,
+          ctx
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "countOf/:field")
+      @ApiOperation({ summary: `Count ${modelClazzName} records by field.` })
+      @ApiParam({ name: "field", description: "The field to count" })
+      @ApiOkResponse({
+        description: `Count of ${modelClazzName} records.`,
+        type: Number,
+      })
+      async countOfField(@Param("field") field: string) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.COUNT_OF, true)
+        ).for(this.countOfField);
+        return this.persistence(ctx).statement(
+          PreparedStatementKeys.COUNT_OF,
+          field,
+          ctx
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "maxOf/:field")
+      @ApiOperation({
+        summary: `Find maximum value of a field in ${modelClazzName}.`,
+      })
+      @ApiParam({ name: "field", description: "The field to find max of" })
+      @ApiOkResponse({
+        description: `Maximum value of the field in ${modelClazzName}.`,
+      })
+      async maxOf(@Param("field") field: string) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.MAX_OF, true)
+        ).for(this.maxOf);
+        return this.persistence(ctx).statement(
+          PreparedStatementKeys.MAX_OF,
+          field,
+          ctx
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "minOf/:field")
+      @ApiOperation({
+        summary: `Find minimum value of a field in ${modelClazzName}.`,
+      })
+      @ApiParam({ name: "field", description: "The field to find min of" })
+      @ApiOkResponse({
+        description: `Minimum value of the field in ${modelClazzName}.`,
+      })
+      async minOf(@Param("field") field: string) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.MIN_OF, true)
+        ).for(this.minOf);
+        return this.persistence(ctx).statement(
+          PreparedStatementKeys.MIN_OF,
+          field,
+          ctx
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "avgOf/:field")
+      @ApiOperation({
+        summary: `Calculate average of a field in ${modelClazzName}.`,
+      })
+      @ApiParam({
+        name: "field",
+        description: "The field to calculate average of",
+      })
+      @ApiOkResponse({
+        description: `Average value of the field in ${modelClazzName}.`,
+        type: Number,
+      })
+      async avgOf(@Param("field") field: string) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.AVG_OF, true)
+        ).for(this.avgOf);
+        return this.persistence(ctx).statement(
+          PreparedStatementKeys.AVG_OF,
+          field,
+          ctx
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "sumOf/:field")
+      @ApiOperation({ summary: `Calculate sum of a field in ${modelClazzName}.` })
+      @ApiParam({ name: "field", description: "The field to calculate sum of" })
+      @ApiOkResponse({
+        description: `Sum of the field in ${modelClazzName}.`,
+        type: Number,
+      })
+      async sumOf(@Param("field") field: string) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.SUM_OF, true)
+        ).for(this.sumOf);
+        return this.persistence(ctx).statement(
+          PreparedStatementKeys.SUM_OF,
+          field,
+          ctx
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "distinctOf/:field")
+      @ApiOperation({
+        summary: `Find distinct values of a field in ${modelClazzName}.`,
+      })
+      @ApiParam({
+        name: "field",
+        description: "The field to find distinct values of",
+      })
+      @ApiOkResponse({
+        description: `Distinct values of the field in ${modelClazzName}.`,
+        type: [String],
+      })
+      async distinctOf(@Param("field") field: string) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.DISTINCT_OF, true)
+        ).for(this.distinctOf);
+        return this.persistence(ctx).statement(
+          PreparedStatementKeys.DISTINCT_OF,
+          field,
+          ctx
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "groupOf/:field")
+      @ApiOperation({
+        summary: `Group ${modelClazzName} records by a field.`,
+      })
+      @ApiParam({ name: "field", description: "The field to group by" })
+      @ApiOkResponse({
+        description: `${modelClazzName} records grouped by the field.`,
+      })
+      async groupOf(@Param("field") field: string) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.GROUP_OF, true)
+        ).for(this.groupOf);
+        return this.persistence(ctx).statement(
+          PreparedStatementKeys.GROUP_OF,
+          field,
+          ctx
+        );
       }
 
       @ApiOperationFromModel(ModelConstr, "POST", "bulk")
