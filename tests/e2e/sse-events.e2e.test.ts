@@ -8,11 +8,12 @@ import {
 } from "@decaf-ts/core";
 import { ProcessStep } from "./fakes/models/ProcessStep";
 import { NestFactory } from "@nestjs/core";
-import { DecafExceptionFilter, DecafModule } from "../../src/index";
+import { DecafExceptionFilter, DecafModule } from "../../src";
 import { RamAdapter } from "@decaf-ts/core/ram";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 import { EventSource } from "eventsource";
 import { DecafStreamModule } from "../../src/events-module";
+import { RamTransformer } from "../../src/ram";
 
 const PORT = 3001;
 const serverUrl = `http://127.0.0.1:${PORT}`;
@@ -30,7 +31,7 @@ class CustomRepository extends Repository<
 @Module({
   imports: [
     DecafModule.forRootAsync({
-      conf: [[RamAdapter, {}]],
+      conf: [[RamAdapter, {}, new RamTransformer()]],
       autoControllers: true,
       autoServices: false,
     } as any),

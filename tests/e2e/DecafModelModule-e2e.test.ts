@@ -1,6 +1,6 @@
 import request from "supertest";
 import { INestApplication } from "@nestjs/common";
-import { DecafExceptionFilter, DecafModule, route } from "../../src";
+import { DecafExceptionFilter, DecafModule } from "../../src";
 import {
   Adapter,
   OrderDirection,
@@ -78,7 +78,7 @@ describe("DecafModelModule CRUD", () => {
         conf: [[RamAdapter, {}, new RamTransformer()]],
         autoControllers: true,
         autoServices: false,
-      })
+      } as any)
     );
 
     app.useGlobalFilters(new DecafExceptionFilter());

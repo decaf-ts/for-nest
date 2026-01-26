@@ -1,14 +1,14 @@
 import { DecafController } from "../controllers";
-import { DecafServerContext } from "../constants";
 import { DecafRequestContext } from "../request/index";
 import { Adapter, Observer } from "@decaf-ts/core";
 import { Controller, Inject, Query, Sse } from "@nestjs/common";
 import { Observable } from "rxjs";
 import { Logging } from "@decaf-ts/logging";
 import { LISTENING_ADAPTERS_FLAVOURS } from "./constant";
+import { DecafServerCtx } from "../constants";
 
 @Controller()
-export class EventsController extends DecafController<DecafServerContext> {
+export class EventsController extends DecafController<DecafServerCtx> {
   private readonly adapters: Adapter<any, any, any, any>[];
 
   constructor(
