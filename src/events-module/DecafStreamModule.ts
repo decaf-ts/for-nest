@@ -1,8 +1,8 @@
 import { DynamicModule, Module } from "@nestjs/common";
-import { EventsController } from "./events.controller";
+import { EventsController } from "./EventsController";
 import { RouterModule } from "@nestjs/core";
 import { LISTENING_ADAPTERS_FLAVOURS } from "./constant";
-import { DecafRequestContext } from "../request/index";
+import { DecafRequestContext } from "../request";
 
 @Module({})
 export class DecafStreamModule {
