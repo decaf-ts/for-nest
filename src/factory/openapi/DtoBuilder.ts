@@ -6,6 +6,11 @@ import { PersistenceKeys, TransactionOperationKeys } from "@decaf-ts/core";
 import { OmitType } from "@nestjs/swagger";
 import { toPascalCase } from "@decaf-ts/logging";
 
+const dtoCache = new Map<
+  OperationKeys,
+  WeakMap<Constructor<any>, Constructor<any>>
+>();
+
 // export function toCache(){
 //   const cacheableProps: Record<keyof M, any> = Metadata.get(
 //     model.constructor as Constructor,
@@ -43,9 +48,11 @@ export function DtoFor<M extends Model>(
   if (!TransactionOperationKeys.includes(op)) {
     return model;
   }
+  const cache = getDtoCache(op);
+  const cached = cache.get(model);
+  if (cached) return cached;
   const attributeProps = Metadata.getAttributes(model) || [];
-  const metadata = Metadata.get(model);
-  const schemaProps = metadata?.properties ? Object.keys(metadata.properties) : [];
+  const schemaProps = collectSchemaProperties(model);
   const createdByMetadata = Metadata.get(model, PersistenceKeys.CREATED_BY);
   const updatedByMetadata = Metadata.get(model, PersistenceKeys.UPDATED_BY);
   const metadataOwnershipProps = [
@@ -71,6 +78,7 @@ export function DtoFor<M extends Model>(
   );
 
   class DynamicDTO extends OmitType(model as any, exceptions as any) {}
+  cache.set(model, DynamicDTO);
 
   Object.defineProperty(DynamicDTO, "name", {
     value: `${toPascalCase(model.name)}${toPascalCase(op)}DTO`,
@@ -91,44 +99,58 @@ export function DtoFor<M extends Model>(
     ApiProperty(apiOptions)(DynamicDTO.prototype, prop);
   }
 
-  function addRelation(relation: string, relationDto: any, isArray: boolean) {
-    const result = isArray ? [relationDto] : relationDto;
-
-    if (!isArray) {
-      Object.defineProperty(DynamicDTO.prototype, relation, {
-        value: result,
-        writable: true,
-        enumerable: true,
-        configurable: true,
-      });
-      Reflect.defineMetadata(
-        "design:type",
-        relationDto,
-        DynamicDTO.prototype,
-        relation
-      );
-    } else {
-      // // Swagger: tell it the element type
-      // ApiProperty({
-      //   type: [relationDto],
-      // })(dto.prototype, relation);
-    }
+  function addRelation(
+    relation: string,
+    relationDto: any,
+    isArray: boolean,
+    isRequired: boolean
+  ) {
+    const apiOptions: Parameters<typeof ApiProperty>[0] = {
+      type: relationDto,
+      required: isRequired,
+      isArray,
+    };
+    ApiProperty(apiOptions)(DynamicDTO.prototype, relation);
+    Object.defineProperty(DynamicDTO.prototype, relation, {
+      value: undefined,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+    Reflect.defineMetadata(
+      "design:type",
+      isArray ? Array : relationDto,
+      DynamicDTO.prototype,
+      relation
+    );
   }
 
   // Add processed relations back to the DTO
   for (const relation of relations) {
-    let type: any[] | any = Metadata.allowedTypes(model, relation as any);
-    type = type ? (Array.isArray(type) ? type[0] : type) : undefined;
-    type = typeof type === "function" && !type.name ? type() : type;
-
-    if (!type) {
+    const relationMeta = Metadata.relations(model, relation as any);
+    if (!relationMeta) {
+      throw new InternalError(`Metadata for relation ${relation} not found`);
+    }
+    let relationType: Constructor<any> | undefined =
+      relationMeta.class as Constructor<any>;
+    if (typeof relationType === "function" && !relationType.name) {
+      relationType = (relationType as any)();
+    }
+    if (!relationType || typeof relationType !== "function") {
       throw new InternalError(`Type for relation ${relation} not found`);
     }
-    if (Model.get(type.name)) {
-      const meta = Metadata.validationFor(model, relation as any);
-      const relationDto = DtoFor(op, type);
-      addRelation(relation, relationDto, !!(meta as any)[ValidationKeys.LIST]);
+    if (!Model.get(relationType.name)) {
+      continue;
     }
+    const meta = Metadata.validationFor(model, relation as any);
+    const relationDto = DtoFor(op, relationType);
+    const isArray = !!(meta as any)[ValidationKeys.LIST];
+    addRelation(
+      relation,
+      relationDto,
+      isArray,
+      !!(meta as any)[ValidationKeys.REQUIRED]
+    );
   }
 
   return DynamicDTO;
@@ -156,4 +178,25 @@ function isGeneratedAcrossInheritance(model: Constructor<any>, prop: string) {
   }
 
   return false;
+}
+
+function collectSchemaProperties(model: Constructor<any>) {
+  const collected = new Set<string>();
+  let current: any = model;
+
+  while (current && current !== Object && current !== Function) {
+    const metadata = Metadata.get(current);
+    const props = metadata?.properties ? Object.keys(metadata.properties) : [];
+    props.forEach((prop) => collected.add(prop));
+    current = Object.getPrototypeOf(current);
+  }
+
+  return Array.from(collected);
+}
+
+function getDtoCache(op: OperationKeys) {
+  if (!dtoCache.has(op)) {
+    dtoCache.set(op, new WeakMap());
+  }
+  return dtoCache.get(op)!;
 }

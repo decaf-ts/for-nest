@@ -94,5 +94,24 @@ describe("DtoFor Swagger output", () => {
       "nameMedicinalProduct",
     ].sort();
     expect(required).toEqual(expectedRequired);
+
+    expect(
+      properties.imageData?.allOf?.[0]?.["$ref"]
+    ).toBe("#/components/schemas/ProductImageCreateDTO");
+    expect(properties.strengths?.items?.["$ref"]).toBe(
+      "#/components/schemas/ProductStrengthCreateDTO"
+    );
+    expect(properties.markets?.items?.["$ref"]).toBe(
+      "#/components/schemas/ProductMarketCreateDTO"
+    );
+    expect(
+      document.components?.schemas?.ProductImageCreateDTO
+    ).toBeDefined();
+    expect(
+      document.components?.schemas?.ProductStrengthCreateDTO
+    ).toBeDefined();
+    expect(
+      document.components?.schemas?.ProductMarketCreateDTO
+    ).toBeDefined();
   });
 });
