@@ -53,6 +53,7 @@ export type DecafModuleOptions<
   autoControllers: boolean;
   autoServices?: boolean;
   observerOptions?: ObserverEventsOptions;
+  aggregations?: boolean;
   handlers?: Type<DecafRequestHandler>[];
 };
 

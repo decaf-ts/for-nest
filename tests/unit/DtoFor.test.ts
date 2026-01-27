@@ -16,7 +16,7 @@ Adapter.setCurrent(RamFlavour);
 
 describe("DtoFor", () => {
   describe("CREATE operation", () => {
-    it("should exclude all generated properties including PK", () => {
+    it("should exclude all generated properties including PK (ONLY IF the pk  property is also @generated)", () => {
       const CreateDTO = DtoFor(OperationKeys.CREATE, TestDtoModel);
 
       // Get the properties from the DTO prototype

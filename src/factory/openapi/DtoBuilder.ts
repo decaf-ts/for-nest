@@ -1,9 +1,6 @@
-import {
-  BulkCrudOperationKeys,
-  InternalError,
-  OperationKeys,
-} from "@decaf-ts/db-decorators";
+import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
+import { ApiProperty } from "../../overrides/decoration";
 import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
 import { TransactionOperationKeys } from "@decaf-ts/core";
 import { OmitType } from "@nestjs/swagger";
@@ -46,21 +43,28 @@ export function DtoFor<M extends Model>(
   if (!TransactionOperationKeys.includes(op)) {
     return model;
   }
-  const isUpdate = [
-    OperationKeys.UPDATE,
-    BulkCrudOperationKeys.UPDATE_ALL,
-  ].includes(op);
-  const props = Metadata.properties(model) || [];
-  const relations = Model.relations(model) || [];
-  let exceptions = props.filter((p) => Model.generated(model, p as any));
-
-  if (isUpdate) exceptions = exceptions.filter((p) => p !== Model.pk(model));
+  const props = Metadata.getAttributes(model) || [];
+  const relations = collectRelations(model);
+  const relationProps = new Set(relations);
+  const exceptions = Array.from(
+    new Set(
+      props.filter((prop) => Model.generated(model, prop as any))
+    )
+  );
 
   class DynamicDTO extends OmitType(model as any, exceptions as any) {}
 
   Object.defineProperty(DynamicDTO, "name", {
     value: `${toPascalCase(model.name)}${toPascalCase(op)}DTO`,
   });
+
+  for (const prop of props) {
+    if (exceptions.includes(prop)) continue;
+    if (relationProps.has(prop)) continue;
+    const validation = Metadata.validationFor(model, prop as any);
+    const isRequired = !!validation?.[ValidationKeys.REQUIRED];
+    ApiProperty({ required: isRequired })(DynamicDTO.prototype, prop);
+  }
 
   function addRelation(relation: string, relationDto: any, isArray: boolean) {
     const result = isArray ? [relationDto] : relationDto;
@@ -103,4 +107,17 @@ export function DtoFor<M extends Model>(
   }
 
   return DynamicDTO;
+}
+
+function collectRelations(model: Constructor<any>) {
+  const collected = new Set<string>();
+  let current: any = model;
+
+  while (current && current !== Object && current !== Function) {
+    const relationKeys = Model.relations(current) || [];
+    relationKeys.forEach((key) => collected.add(key));
+    current = Object.getPrototypeOf(current);
+  }
+
+  return Array.from(collected);
 }
