@@ -269,7 +269,10 @@ export class FromModelController {
       @ApiOkResponse({
         description: `${modelClazzName} listed successfully.`,
       })
-      async listBy(key: string, @DecafQuery() details: DirectionLimitOffset) {
+      async listBy(
+        @Param("key") key: string,
+        @DecafQuery() details: DirectionLimitOffset
+      ) {
         const { ctx } = (
           await this.logCtx([], PreparedStatementKeys.LIST_BY, true)
         ).for(this.listBy);
@@ -534,7 +537,9 @@ export class FromModelController {
       }
 
       @ApiOperationFromModel(ModelConstr, "GET", "sumOf/:field")
-      @ApiOperation({ summary: `Calculate sum of a field in ${modelClazzName}.` })
+      @ApiOperation({
+        summary: `Calculate sum of a field in ${modelClazzName}.`,
+      })
       @ApiParam({ name: "field", description: "The field to calculate sum of" })
       @ApiOkResponse({
         description: `Sum of the field in ${modelClazzName}.`,
@@ -929,8 +934,6 @@ export class FromModelController {
 
     return DynamicModelController as any;
   }
-
-  static createStreamedController<T extends Model<any>>() {}
 
   static getRouteParametersFromModel<T extends Model<any>>(
     ModelClazz: ModelConstructor<T>

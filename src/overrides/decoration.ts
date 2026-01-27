@@ -92,6 +92,7 @@ export function createPropertyDecorator<T extends Record<string, any> = any>(
         metakey,
         {
           type,
+          required: false, // Default to optional unless @required() is used
           ...pickBy(metadata, negate(isUndefined)),
         },
         target,

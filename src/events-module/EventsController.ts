@@ -60,6 +60,7 @@ export class EventsController extends DecafController<DecafServerCtx> {
   }
 
   @Sse("/:model")
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   listenForModel(@Query("model") model: string): Observable<MessageEvent> {
     const logger = Logging.for(EventsController.name);
 

@@ -1,18 +1,12 @@
 import { INestApplication, Module } from "@nestjs/common";
-import {
-  Context,
-  Observer,
-  RamFlavour,
-  Repo,
-  Repository,
-} from "@decaf-ts/core";
+import { Observer, Repo, Repository } from "@decaf-ts/core";
 import { ProcessStep } from "./fakes/models/ProcessStep";
 import { NestFactory } from "@nestjs/core";
 import { DecafExceptionFilter, DecafModule } from "../../src";
-import { RamAdapter } from "@decaf-ts/core/ram";
+// @ts-expect-error paths
+import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { DecafStreamModule } from "../../src/events-module";
 import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
-import { Logging } from "@decaf-ts/logging";
 import { RamTransformer } from "../../src/ram";
 
 const PORT = 3000;
@@ -43,10 +37,6 @@ describe("Listen for /events (e2e)", () => {
   let restService: RestService<any, any, any>;
   let _observer: Observer;
   const id = getId();
-
-  const ctx = new Context().accumulate({
-    logger: Logging.for(expect.getState().currentTestName),
-  });
 
   function listenForEvent(
     handler: () => void | Promise<any>,
