@@ -1,5 +1,5 @@
 import { DecafController } from "../controllers";
-import { DecafRequestContext } from "../request/index";
+import { DecafRequestContext } from "../request";
 import { Adapter, Observer } from "@decaf-ts/core";
 import { Controller, Inject, Query, Sse } from "@nestjs/common";
 import { Observable } from "rxjs";

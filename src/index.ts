@@ -34,6 +34,7 @@ export * from "./controllers";
 export * from "./module";
 export * from "./types";
 export * from "./utils";
+export * from "./events-module";
 
 /**
  * Represents the current version of the ts-workspace module.
