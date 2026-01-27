@@ -18,14 +18,14 @@ import {
   // @ts-expect-error import from ram
 } from "@decaf-ts/core/ram";
 import { DtoFor } from "../../src/factory/openapi/DtoBuilder";
-import { TestDtoModel } from "../e2e/fakes/models/TestDtoModel";
+import { Product } from "./Product";
 
 jest.setTimeout(30000);
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
 
-const CreateDTO = DtoFor(OperationKeys.CREATE, TestDtoModel);
+const CreateDTO = DtoFor(OperationKeys.CREATE, Product);
 
 @Controller("dto-for-test")
 class TestDtoController {
@@ -69,25 +69,29 @@ describe("DtoFor Swagger output", () => {
     const propertyNames = Object.keys(properties).sort();
 
     const expectedProperties = [
-      "optionalNoValidation",
-      "optionalWithValidation",
-      "requiredWithValidationAfter",
-      "requiredWithValidationAround",
-      "requiredWithValidationBefore",
-      "simpleRequired",
+      "imageData",
+      "internalMaterialCode",
+      "inventedName",
+      "markets",
+      "nameMedicinalProduct",
+      "owner",
+      "productCode",
+      "productRecall",
+      "strengths",
     ].sort();
     expect(propertyNames).toEqual(expectedProperties);
-
-    expect(properties).not.toHaveProperty("id");
+    expect(properties).toHaveProperty("productCode");
     expect(properties).not.toHaveProperty("createdAt");
     expect(properties).not.toHaveProperty("updatedAt");
+    expect(properties).not.toHaveProperty("updatedBy");
+    expect(properties).not.toHaveProperty("createdBy");
+    expect(properties).not.toHaveProperty("version");
 
     const required = [...(schema.required ?? [])].sort();
     const expectedRequired = [
-      "requiredWithValidationBefore",
-      "requiredWithValidationAfter",
-      "requiredWithValidationAround",
-      "simpleRequired",
+      "productCode",
+      "inventedName",
+      "nameMedicinalProduct",
     ].sort();
     expect(required).toEqual(expectedRequired);
   });

@@ -2,7 +2,7 @@ import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { ApiProperty } from "../../overrides/decoration";
 import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
-import { TransactionOperationKeys } from "@decaf-ts/core";
+import { PersistenceKeys, TransactionOperationKeys } from "@decaf-ts/core";
 import { OmitType } from "@nestjs/swagger";
 import { toPascalCase } from "@decaf-ts/logging";
 
@@ -43,13 +43,31 @@ export function DtoFor<M extends Model>(
   if (!TransactionOperationKeys.includes(op)) {
     return model;
   }
-  const props = Metadata.getAttributes(model) || [];
+  const attributeProps = Metadata.getAttributes(model) || [];
+  const metadata = Metadata.get(model);
+  const schemaProps = metadata?.properties ? Object.keys(metadata.properties) : [];
+  const createdByMetadata = Metadata.get(model, PersistenceKeys.CREATED_BY);
+  const updatedByMetadata = Metadata.get(model, PersistenceKeys.UPDATED_BY);
+  const metadataOwnershipProps = [
+    ...Object.keys(createdByMetadata || {}),
+    ...Object.keys(updatedByMetadata || {}),
+  ];
+  const manualOwnershipProps = ["createdBy", "updatedBy"].filter(
+    (prop) => schemaProps.includes(prop) || attributeProps.includes(prop)
+  );
+  const ownershipProps = Array.from(
+    new Set([...metadataOwnershipProps, ...manualOwnershipProps])
+  );
+  const props = Array.from(
+    new Set([...schemaProps, ...attributeProps, ...ownershipProps])
+  );
   const relations = collectRelations(model);
   const relationProps = new Set(relations);
+  const generatedProps = props.filter((prop) =>
+    isGeneratedAcrossInheritance(model, prop as any)
+  );
   const exceptions = Array.from(
-    new Set(
-      props.filter((prop) => Model.generated(model, prop as any))
-    )
+    new Set([...generatedProps, ...ownershipProps])
   );
 
   class DynamicDTO extends OmitType(model as any, exceptions as any) {}
@@ -63,7 +81,14 @@ export function DtoFor<M extends Model>(
     if (relationProps.has(prop)) continue;
     const validation = Metadata.validationFor(model, prop as any);
     const isRequired = !!validation?.[ValidationKeys.REQUIRED];
-    ApiProperty({ required: isRequired })(DynamicDTO.prototype, prop);
+    const typeHint = Metadata.type(model, prop as any);
+    const apiOptions: Parameters<typeof ApiProperty>[0] = {
+      required: isRequired,
+    };
+    if (typeHint) {
+      apiOptions.type = typeHint;
+    }
+    ApiProperty(apiOptions)(DynamicDTO.prototype, prop);
   }
 
   function addRelation(relation: string, relationDto: any, isArray: boolean) {
@@ -120,4 +145,15 @@ function collectRelations(model: Constructor<any>) {
   }
 
   return Array.from(collected);
+}
+
+function isGeneratedAcrossInheritance(model: Constructor<any>, prop: string) {
+  let current: any = model;
+
+  while (current && current !== Object && current !== Function) {
+    if (Model.generated(current, prop as any)) return true;
+    current = Object.getPrototypeOf(current);
+  }
+
+  return false;
 }
