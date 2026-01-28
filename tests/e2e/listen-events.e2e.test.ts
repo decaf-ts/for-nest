@@ -2,15 +2,23 @@ import { INestApplication, Module } from "@nestjs/common";
 import { Observer, Repo, Repository } from "@decaf-ts/core";
 import { ProcessStep } from "./fakes/models/ProcessStep";
 import { NestFactory } from "@nestjs/core";
-import { DecafExceptionFilter, DecafModule } from "../../src";
+import {
+  DecafExceptionFilter,
+  DecafModule,
+  DecafStreamModule,
+} from "../../src";
 // @ts-expect-error paths
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
-import { DecafStreamModule } from "../../src/events-module";
-import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
+import {
+  AxiosHttpAdapter,
+  RestService,
+  ServerEventConnector,
+} from "@decaf-ts/for-http";
 import { RamTransformer } from "../../src/ram";
 
 const PORT = 3000;
-const serverUrl = `127.0.0.1:${PORT}`;
+const HOST = "0.0.0.0";
+const serverUrl = `${HOST}:${PORT}`;
 
 @Module({
   imports: [
@@ -30,7 +38,7 @@ const getId = () => Math.random().toString(36).slice(2);
 
 jest.setTimeout(180000);
 
-describe("Listen for /events (e2e)", () => {
+describe.skip("Listen for /events (e2e)", () => {
   let app: INestApplication;
   let repo: Repo<ProcessStep>;
   let httpAdapter: AxiosHttpAdapter;
@@ -77,7 +85,7 @@ describe("Listen for /events (e2e)", () => {
     app = await NestFactory.create(AppModule);
     app.useGlobalFilters(new DecafExceptionFilter());
     await app.init();
-    await app.listen(PORT);
+    await app.listen(PORT, HOST);
 
     repo = Repository.forModel(ProcessStep);
 
@@ -95,10 +103,11 @@ describe("Listen for /events (e2e)", () => {
   });
 
   afterAll(async () => {
+    ServerEventConnector.close(`${serverUrl}/events`);
     await app?.close();
   });
 
-  it.skip("should receive CREATE event", async () => {
+  it("should receive CREATE event", async () => {
     const payload = new ProcessStep({
       id: id,
       currentStep: 1,
@@ -118,7 +127,7 @@ describe("Listen for /events (e2e)", () => {
     });
   });
 
-  it.skip("should receive UPDATE event", async () => {
+  it("should receive UPDATE event", async () => {
     const payload = new ProcessStep({
       id: id,
       currentStep: 2,
@@ -138,7 +147,7 @@ describe("Listen for /events (e2e)", () => {
     });
   });
 
-  it.skip("should receive DELETE event", async () => {
+  it("should receive DELETE event", async () => {
     const event = await listenForEvent(async () => {
       const r = await repo.delete(id);
       expect(r).toBeDefined();

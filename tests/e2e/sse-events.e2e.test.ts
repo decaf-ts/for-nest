@@ -2,17 +2,21 @@ import { INestApplication, Module } from "@nestjs/common";
 import { Adapter, Repo, repository, Repository } from "@decaf-ts/core";
 import { ProcessStep } from "./fakes/models/ProcessStep";
 import { NestFactory } from "@nestjs/core";
-import { DecafExceptionFilter, DecafModule } from "../../src";
+import {
+  DecafExceptionFilter,
+  DecafModule,
+  DecafStreamModule,
+} from "../../src";
 //  @ts-expect-error paths
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 import { EventSource } from "eventsource";
-import { DecafStreamModule } from "../../src/events-module";
 import { RamTransformer } from "../../src/ram";
 import { Serialization } from "@decaf-ts/decorator-validation";
 
 const PORT = 3001;
-const serverUrl = `http://127.0.0.1:${PORT}`;
+const HOST = "0.0.0.0";
+const serverUrl = `${HOST}:${PORT}`;
 
 @repository(ProcessStep)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -126,7 +130,7 @@ describe.skip("SSE /events (e2e)", () => {
     app = await NestFactory.create(AppModule);
     app.useGlobalFilters(new DecafExceptionFilter());
     await app.init();
-    await app.listen(PORT);
+    await app.listen(PORT, HOST);
 
     repo = Repository.forModel(ProcessStep);
   });
