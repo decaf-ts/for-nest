@@ -2,11 +2,18 @@ import { INestApplication, Module } from "@nestjs/common";
 import { Observer, Repo, Repository } from "@decaf-ts/core";
 import { ProcessStep } from "./fakes/models/ProcessStep";
 import { NestFactory } from "@nestjs/core";
-import { DecafExceptionFilter, DecafModule } from "../../src";
+import {
+  DecafExceptionFilter,
+  DecafModule,
+  DecafStreamModule,
+} from "../../src";
 // @ts-expect-error paths
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
-import { DecafStreamModule } from "../../src/events-module";
-import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
+import {
+  AxiosHttpAdapter,
+  RestService,
+  ServerEventConnector,
+} from "@decaf-ts/for-http";
 import { RamTransformer } from "../../src/ram";
 
 const PORT = 3000;
@@ -95,10 +102,11 @@ describe("Listen for /events (e2e)", () => {
   });
 
   afterAll(async () => {
+    ServerEventConnector.close(`${serverUrl}/events`);
     await app?.close();
   });
 
-  it.skip("should receive CREATE event", async () => {
+  it("should receive CREATE event", async () => {
     const payload = new ProcessStep({
       id: id,
       currentStep: 1,
@@ -118,7 +126,7 @@ describe("Listen for /events (e2e)", () => {
     });
   });
 
-  it.skip("should receive UPDATE event", async () => {
+  it("should receive UPDATE event", async () => {
     const payload = new ProcessStep({
       id: id,
       currentStep: 2,
@@ -138,7 +146,7 @@ describe("Listen for /events (e2e)", () => {
     });
   });
 
-  it.skip("should receive DELETE event", async () => {
+  it("should receive DELETE event", async () => {
     const event = await listenForEvent(async () => {
       const r = await repo.delete(id);
       expect(r).toBeDefined();
