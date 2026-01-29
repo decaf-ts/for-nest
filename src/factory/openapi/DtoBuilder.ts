@@ -3,7 +3,6 @@ import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { ApiProperty } from "../../overrides/decoration";
 import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys, TransactionOperationKeys } from "@decaf-ts/core";
-import { PickType } from "@nestjs/swagger";
 import { toPascalCase } from "@decaf-ts/logging";
 
 const dtoCache = new Map<
@@ -51,8 +50,29 @@ export function DtoFor<M extends Model>(
   const cache = getDtoCache(op);
   const cached = cache.get(model);
   if (cached) return cached;
-  const attributeProps = Metadata.getAttributes(model) || [];
-  const schemaProps = collectSchemaProperties(model);
+
+  const ancestors = collectInheritance(model);
+  for (const ancestor of ancestors) {
+    if (Model.isModel(ancestor)) {
+      DtoFor(op, ancestor);
+    }
+  }
+
+  const parentModel = ancestors.at(-1);
+  const parentDto =
+    parentModel && Model.isModel(parentModel)
+      ? cache.get(parentModel) || DtoFor(op, parentModel)
+      : Model;
+
+  class DynamicDTO extends (parentDto as Constructor<any>) {}
+  cache.set(model, DynamicDTO);
+
+  Object.defineProperty(DynamicDTO, "name", {
+    value: `${toPascalCase(model.name)}${toPascalCase(op)}DTO`,
+  });
+
+  const metadata = Metadata.get(model);
+  const schemaProps = Metadata.properties(model) || [];
   const createdByMetadata = Metadata.get(model, PersistenceKeys.CREATED_BY);
   const updatedByMetadata = Metadata.get(model, PersistenceKeys.UPDATED_BY);
   const metadataOwnershipProps = [
@@ -60,40 +80,36 @@ export function DtoFor<M extends Model>(
     ...Object.keys(updatedByMetadata || {}),
   ];
   const manualOwnershipProps = ["createdBy", "updatedBy"].filter(
-    (prop) => schemaProps.includes(prop) || attributeProps.includes(prop)
+    (prop) => schemaProps.includes(prop)
   );
   const ownershipProps = Array.from(
     new Set([...metadataOwnershipProps, ...manualOwnershipProps])
   );
-  const props = Array.from(
-    new Set([...schemaProps, ...attributeProps, ...ownershipProps])
-  );
+  const props = Array.from(new Set([...schemaProps, ...ownershipProps]));
   const relations = collectRelations(model);
   const relationProps = new Set(relations);
   const generatedProps = props.filter((prop) =>
     isGeneratedAcrossInheritance(model, prop as any)
   );
   const exceptions = new Set([...generatedProps, ...ownershipProps]);
-  const allowedProps = props.filter(
-    (prop) => !exceptions.has(prop) && !relationProps.has(prop)
-  );
-
-  class DynamicDTO extends PickType(model as any, allowedProps as any) {}
-  cache.set(model, DynamicDTO);
-
-  Object.defineProperty(DynamicDTO, "name", {
-    value: `${toPascalCase(model.name)}${toPascalCase(op)}DTO`,
+  const pkProp = (() => {
+    try {
+      return Model.pk(model);
+    } catch {
+      return undefined;
+    }
+  })();
+  const isUpdateOp = op === OperationKeys.UPDATE;
+  const allowedProps = props.filter((prop) => {
+    if (relationProps.has(prop)) return false;
+    if (exceptions.has(prop)) {
+      return isUpdateOp && prop === pkProp;
+    }
+    return true;
   });
 
-  for (const ancestor of collectInheritance(model)) {
-    if (Model.isModel(ancestor)) {
-      DtoFor(op, ancestor);
-    }
-  }
 
-  for (const prop of props) {
-    if (exceptions.has(prop)) continue;
-    if (relationProps.has(prop)) continue;
+  for (const prop of allowedProps) {
     const validation = Metadata.validationFor(model, prop as any);
     const isRequired = !!validation?.[ValidationKeys.REQUIRED];
     const typeHint = Metadata.type(model, prop as any);
@@ -104,6 +120,17 @@ export function DtoFor<M extends Model>(
       apiOptions.type = typeHint;
     }
     ApiProperty(apiOptions)(DynamicDTO.prototype, prop);
+    const designType =
+      Reflect.getMetadata("design:type", model.prototype, prop) ?? typeHint;
+    if (typeof designType !== "undefined") {
+      Reflect.defineMetadata("design:type", designType, DynamicDTO.prototype, prop);
+    }
+    Object.defineProperty(DynamicDTO.prototype, prop, {
+      value: undefined,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
   }
 
   function addRelation(
@@ -176,16 +203,7 @@ function collectInheritance(model: Constructor<any>) {
 }
 
 function collectRelations(model: Constructor<any>) {
-  const collected = new Set<string>();
-  let current: any = model;
-
-  while (current && current !== Object && current !== Function) {
-    const relationKeys = Model.relations(current) || [];
-    relationKeys.forEach((key) => collected.add(key));
-    current = Object.getPrototypeOf(current);
-  }
-
-  return Array.from(collected);
+  return Model.relations(model) || [];
 }
 
 function isGeneratedAcrossInheritance(model: Constructor<any>, prop: string) {
@@ -197,20 +215,6 @@ function isGeneratedAcrossInheritance(model: Constructor<any>, prop: string) {
   }
 
   return false;
-}
-
-function collectSchemaProperties(model: Constructor<any>) {
-  const collected = new Set<string>();
-  let current: any = model;
-
-  while (current && current !== Object && current !== Function) {
-    const metadata = Metadata.get(current);
-    const props = metadata?.properties ? Object.keys(metadata.properties) : [];
-    props.forEach((prop) => collected.add(prop));
-    current = Object.getPrototypeOf(current);
-  }
-
-  return Array.from(collected);
 }
 
 function getDtoCache(op: OperationKeys) {

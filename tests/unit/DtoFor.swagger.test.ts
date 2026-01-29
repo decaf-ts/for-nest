@@ -66,7 +66,7 @@ describe("DtoFor Swagger output", () => {
     expect(schema).toBeDefined();
 
     const properties = schema.properties || {};
-    const propertyNames = Object.keys(properties).sort();
+    const propertyNames = [...collectSchemaPropertyNames(schema, document)].sort();
 
     const expectedProperties = [
       "imageData",
@@ -81,11 +81,12 @@ describe("DtoFor Swagger output", () => {
     ].sort();
     expect(propertyNames).toEqual(expectedProperties);
     expect(properties).toHaveProperty("productCode");
-    expect(properties).not.toHaveProperty("createdAt");
-    expect(properties).not.toHaveProperty("updatedAt");
-    expect(properties).not.toHaveProperty("updatedBy");
-    expect(properties).not.toHaveProperty("createdBy");
-    expect(properties).not.toHaveProperty("version");
+    expect(propertyNames).not.toContain("createdAt");
+    expect(propertyNames).not.toContain("updatedAt");
+    expect(propertyNames).not.toContain("updatedBy");
+    expect(propertyNames).not.toContain("createdBy");
+    expect(propertyNames).not.toContain("version");
+    expect(properties.productRecall?.type).toBe("boolean");
 
     const required = [...(schema.required ?? [])].sort();
     const expectedRequired = [
@@ -114,5 +115,49 @@ describe("DtoFor Swagger output", () => {
     expect(
       document.components?.schemas?.ProductMarketCreateDTO
     ).toBeDefined();
+
+  });
+
+  it("should keep the primary key in the UPDATE DTO while still excluding generated fields", () => {
+    const UpdateDTO = DtoFor(OperationKeys.UPDATE, Product);
+    expect(UpdateDTO).toBeDefined();
+
+    const protoProps = Object.keys(
+      Object.getOwnPropertyDescriptors(UpdateDTO.prototype)
+    ).filter((prop) => prop !== "constructor");
+
+    expect(protoProps).toContain("productCode");
+    expect(protoProps).not.toContain("createdAt");
+    expect(protoProps).not.toContain("updatedAt");
+    expect(protoProps).not.toContain("version");
   });
 });
+
+function collectSchemaPropertyNames(
+  schema: any,
+  document: any,
+  visited: Set<string> = new Set()
+) {
+  if (!schema) {
+    return new Set<string>();
+  }
+  const properties = new Set(Object.keys(schema.properties || {}));
+  for (const entry of schema.allOf ?? []) {
+    const ref = entry?.["$ref"];
+    if (!ref?.startsWith("#/components/schemas/")) continue;
+    const schemaName = ref.split("#/components/schemas/")[1];
+    if (!schemaName || visited.has(schemaName)) continue;
+    visited.add(schemaName);
+    const nestedSchema = document.components?.schemas?.[schemaName];
+    if (!nestedSchema) continue;
+    for (const nestedProp of collectSchemaPropertyNames(
+      nestedSchema,
+      document,
+      visited
+    )) {
+      properties.add(nestedProp);
+    }
+  }
+
+  return properties;
+}
