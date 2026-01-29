@@ -767,10 +767,7 @@ export class FromModelController {
         description: `Payload for replace a existing record of ${modelClazzName}`,
         schema: {
           type: "array",
-          items: {
-            $ref: getSchemaPath(ModelConstr),
-            // $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
-          },
+          $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
         },
       })
       @ApiOkResponse({
@@ -813,10 +810,7 @@ export class FromModelController {
       })
       @ApiBody({
         description: `Payload for replace a existing record of ${modelClazzName}`,
-        schema: {
-          $ref: getSchemaPath(ModelConstr),
-          // $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
-        },
+        type: DtoFor(OperationKeys.UPDATE, ModelConstr),
       })
       @ApiOkResponse({
         description: `${modelClazzName} updated successfully.`,
