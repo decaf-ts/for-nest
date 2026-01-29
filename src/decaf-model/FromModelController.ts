@@ -773,7 +773,7 @@ export class FromModelController {
           },
         },
       })
-      @ApiCreatedResponse({
+      @ApiOkResponse({
         description: `${modelClazzName} updated successfully.`,
         schema: {
           type: "array",
@@ -820,6 +820,9 @@ export class FromModelController {
       })
       @ApiOkResponse({
         description: `${modelClazzName} updated successfully.`,
+        schema: {
+          $ref: getSchemaPath(ModelConstr),
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
@@ -863,7 +866,13 @@ export class FromModelController {
       @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
       @ApiQuery({ name: "ids", required: true, type: "array" })
       @ApiOkResponse({
-        description: `${modelClazzName} retrieved successfully.`,
+        description: `${modelClazzName} deleted successfully.`,
+        schema: {
+          type: "array",
+          items: {
+            $ref: getSchemaPath(ModelConstr),
+          },
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
@@ -896,7 +905,10 @@ export class FromModelController {
       @ApiParamsFromModel(apiProperties)
       @ApiOperation({ summary: `Delete a ${modelClazzName} record by id.` })
       @ApiOkResponse({
-        description: `${modelClazzName} record deleted successfully.`,
+        description: `${modelClazzName} deleted successfully.`,
+        schema: {
+          $ref: getSchemaPath(ModelConstr),
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,

@@ -95,15 +95,16 @@ describe("DtoFor Swagger output", () => {
     ].sort();
     expect(required).toEqual(expectedRequired);
 
-    expect(
-      properties.imageData?.allOf?.[0]?.["$ref"]
-    ).toBe("#/components/schemas/ProductImageCreateDTO");
-    expect(properties.strengths?.items?.["$ref"]).toBe(
-      "#/components/schemas/ProductStrengthCreateDTO"
-    );
-    expect(properties.markets?.items?.["$ref"]).toBe(
-      "#/components/schemas/ProductMarketCreateDTO"
-    );
+    const imageDataRef =
+      properties.imageData?.allOf?.[0]?.["$ref"] ?? properties.imageData?.["$ref"];
+    const strengthsRef =
+      properties.strengths?.items?.["$ref"] ?? properties.strengths?.items?.type;
+    const marketsRef =
+      properties.markets?.items?.["$ref"] ?? properties.markets?.items?.type;
+
+    expect(imageDataRef).toBe("#/components/schemas/ProductImageCreateDTO");
+    expect(strengthsRef).toBe("#/components/schemas/ProductStrengthCreateDTO");
+    expect(marketsRef).toBe("#/components/schemas/ProductMarketCreateDTO");
     expect(
       document.components?.schemas?.ProductImageCreateDTO
     ).toBeDefined();

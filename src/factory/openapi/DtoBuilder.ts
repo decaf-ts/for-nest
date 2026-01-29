@@ -3,7 +3,7 @@ import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { ApiProperty } from "../../overrides/decoration";
 import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys, TransactionOperationKeys } from "@decaf-ts/core";
-import { OmitType } from "@nestjs/swagger";
+import { PickType } from "@nestjs/swagger";
 import { toPascalCase } from "@decaf-ts/logging";
 
 const dtoCache = new Map<
@@ -73,19 +73,26 @@ export function DtoFor<M extends Model>(
   const generatedProps = props.filter((prop) =>
     isGeneratedAcrossInheritance(model, prop as any)
   );
-  const exceptions = Array.from(
-    new Set([...generatedProps, ...ownershipProps])
+  const exceptions = new Set([...generatedProps, ...ownershipProps]);
+  const allowedProps = props.filter(
+    (prop) => !exceptions.has(prop) && !relationProps.has(prop)
   );
 
-  class DynamicDTO extends OmitType(model as any, exceptions as any) {}
+  class DynamicDTO extends PickType(model as any, allowedProps as any) {}
   cache.set(model, DynamicDTO);
 
   Object.defineProperty(DynamicDTO, "name", {
     value: `${toPascalCase(model.name)}${toPascalCase(op)}DTO`,
   });
 
+  for (const ancestor of collectInheritance(model)) {
+    if (Model.isModel(ancestor)) {
+      DtoFor(op, ancestor);
+    }
+  }
+
   for (const prop of props) {
-    if (exceptions.includes(prop)) continue;
+    if (exceptions.has(prop)) continue;
     if (relationProps.has(prop)) continue;
     const validation = Metadata.validationFor(model, prop as any);
     const isRequired = !!validation?.[ValidationKeys.REQUIRED];
@@ -154,6 +161,18 @@ export function DtoFor<M extends Model>(
   }
 
   return DynamicDTO;
+}
+
+function collectInheritance(model: Constructor<any>) {
+  const ancestors: Constructor<any>[] = [];
+  let current: any = Object.getPrototypeOf(model);
+
+  while (current && current !== Object && current !== Function) {
+    ancestors.push(current);
+    current = Object.getPrototypeOf(current);
+  }
+
+  return ancestors.reverse();
 }
 
 function collectRelations(model: Constructor<any>) {
