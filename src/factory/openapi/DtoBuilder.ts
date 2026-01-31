@@ -59,7 +59,7 @@ export function DtoFor<M extends Model>(
   }
 
   const parentModel = ancestors.at(-1);
-  const parentDto =
+  const parentDto: any =
     parentModel && Model.isModel(parentModel)
       ? cache.get(parentModel) || DtoFor(op, parentModel)
       : Model;
@@ -71,7 +71,6 @@ export function DtoFor<M extends Model>(
     value: `${toPascalCase(model.name)}${toPascalCase(op)}DTO`,
   });
 
-  const metadata = Metadata.get(model);
   const schemaProps = Metadata.properties(model) || [];
   const createdByMetadata = Metadata.get(model, PersistenceKeys.CREATED_BY);
   const updatedByMetadata = Metadata.get(model, PersistenceKeys.UPDATED_BY);
@@ -79,8 +78,8 @@ export function DtoFor<M extends Model>(
     ...Object.keys(createdByMetadata || {}),
     ...Object.keys(updatedByMetadata || {}),
   ];
-  const manualOwnershipProps = ["createdBy", "updatedBy"].filter(
-    (prop) => schemaProps.includes(prop)
+  const manualOwnershipProps = ["createdBy", "updatedBy"].filter((prop) =>
+    schemaProps.includes(prop)
   );
   const ownershipProps = Array.from(
     new Set([...metadataOwnershipProps, ...manualOwnershipProps])
@@ -108,7 +107,6 @@ export function DtoFor<M extends Model>(
     return true;
   });
 
-
   for (const prop of allowedProps) {
     const validation = Metadata.validationFor(model, prop as any);
     const isRequired = !!validation?.[ValidationKeys.REQUIRED];
@@ -123,7 +121,12 @@ export function DtoFor<M extends Model>(
     const designType =
       Reflect.getMetadata("design:type", model.prototype, prop) ?? typeHint;
     if (typeof designType !== "undefined") {
-      Reflect.defineMetadata("design:type", designType, DynamicDTO.prototype, prop);
+      Reflect.defineMetadata(
+        "design:type",
+        designType,
+        DynamicDTO.prototype,
+        prop
+      );
     }
     Object.defineProperty(DynamicDTO.prototype, prop, {
       value: undefined,
