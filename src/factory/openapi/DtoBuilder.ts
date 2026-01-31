@@ -1,4 +1,8 @@
-import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
+import {
+  BulkCrudOperationKeys,
+  InternalError,
+  OperationKeys,
+} from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { ApiProperty } from "../../overrides/decoration";
 import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
@@ -98,7 +102,9 @@ export function DtoFor<M extends Model>(
       return undefined;
     }
   })();
-  const isUpdateOp = op === OperationKeys.UPDATE;
+  const isUpdateOp = [OperationKeys.UPDATE, BulkCrudOperationKeys.UPDATE_ALL].includes(
+    op as any
+  );
   const allowedProps = props.filter((prop) => {
     if (relationProps.has(prop)) return false;
     if (exceptions.has(prop)) {
