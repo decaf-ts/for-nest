@@ -1,5 +1,12 @@
 import { uses } from "@decaf-ts/decoration";
-import { Cascade, column, oneToMany, pk, table } from "@decaf-ts/core";
+import {
+  Cascade,
+  column,
+  defaultQueryAttr,
+  oneToMany,
+  pk,
+  table,
+} from "@decaf-ts/core";
 // @ts-expect-error ram
 import { RamFlavour } from "@decaf-ts/core/ram";
 import {
@@ -21,17 +28,20 @@ export class Product extends Model {
   @composed(["productCode", "batchNumber"], ":")
   id!: string;
 
+  @defaultQueryAttr()
   @column()
   @minlength(14)
   @maxlength(14)
   @readonly()
   productCode!: string;
 
+  @defaultQueryAttr()
   @column()
   @readonly()
   @pattern(/^[a-zA-Z0-9/-]{1,20}$/)
   batchNumber!: string;
 
+  @defaultQueryAttr()
   @column()
   name!: string;
 

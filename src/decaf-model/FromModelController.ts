@@ -49,6 +49,7 @@ import {
   createRouteHandler,
   defineRouteMethod,
   getApiDecorators,
+  resolvePersistenceMethod,
 } from "./utils";
 import { Auth } from "./decorators/decorators";
 import { ControllerConstructor } from "./types";
@@ -316,6 +317,100 @@ export class FromModelController {
         );
       }
 
+      @ApiOperationFromModel(ModelConstr, "GET", "find/:value")
+      @ApiOperation({
+        summary: `Find ${modelClazzName} records using the default query attributes.`,
+      })
+      @ApiParam({
+        name: "value",
+        description: "The string to match against the default query attributes",
+      })
+      @ApiQuery({
+        name: "direction",
+        required: false,
+        enum: OrderDirection,
+        description: "the sort order for the matching results",
+      })
+      @ApiOkResponse({
+        description: `${modelClazzName} records matching the provided prefix.`,
+      })
+      async find(
+        @Param("value") value: string,
+        @DecafQuery() details: DirectionLimitOffset
+      ) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.FIND, true)
+        ).for(this.find);
+        const direction = (details.direction ?? OrderDirection.ASC) as OrderDirection;
+        return resolvePersistenceMethod(
+          this.persistence(ctx),
+          this.find.name,
+          value,
+          direction,
+          ctx
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "page/:value")
+      @ApiOperation({
+        summary: `Page ${modelClazzName} records using the default query attributes.`,
+      })
+      @ApiParam({
+        name: "value",
+        description: "The string to match against the default query attributes",
+      })
+      @ApiQuery({
+        name: "direction",
+        required: false,
+        enum: OrderDirection,
+        description: "the sort order for the paged results",
+      })
+      @ApiQuery({
+        name: "limit",
+        required: false,
+        description: "page size",
+      })
+      @ApiQuery({
+        name: "offset",
+        required: false,
+        description: "page number",
+      })
+      @ApiQuery({
+        name: "bookmark",
+        required: false,
+        description: "bookmark for cursor pagination",
+      })
+      @ApiOkResponse({
+        description: `${modelClazzName} records paged by the provided prefix.`,
+      })
+      async page(
+        @Param("value") value: string,
+        @DecafQuery() details: DirectionLimitOffset
+      ) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.PAGE, true)
+        ).for(this.page);
+        const {
+          direction = OrderDirection.ASC,
+          limit,
+          offset,
+          bookmark,
+        } = details;
+        const ref: Omit<DirectionLimitOffset, "direction"> = {
+          offset: offset ?? 1,
+          limit: limit ?? 10,
+          bookmark,
+        };
+        return resolvePersistenceMethod(
+          this.persistence(ctx),
+          this.page.name,
+          value,
+          direction as OrderDirection,
+          ref,
+          ctx
+        );
+      }
+
       @ApiOperationFromModel(ModelConstr, "GET", "findOneBy/:key")
       @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
       @ApiParam({ name: "key", description: "the model key to sort by" })
@@ -409,16 +504,21 @@ export class FromModelController {
         args = args.map(
           (a) => (typeof a === "string" ? parseInt(a) : a) || a
         ) as any[];
+        const pathDirection = args.length > 1 ? args[1] : undefined;
+        const resolvedDirection = (direction ?? pathDirection) as string | undefined;
+        if (resolvedDirection && args.length > 1) args[1] = resolvedDirection;
         switch (name) {
+          case PreparedStatementKeys.FIND:
           case PreparedStatementKeys.FIND_BY:
             break;
           case PreparedStatementKeys.LIST_BY:
             args.push(direction as string);
             break;
+          case PreparedStatementKeys.PAGE:
           case PreparedStatementKeys.PAGE_BY:
             args = [
               args[0],
-              direction as any,
+              resolvedDirection as any,
               {
                 limit: limit,
                 offset: offset,

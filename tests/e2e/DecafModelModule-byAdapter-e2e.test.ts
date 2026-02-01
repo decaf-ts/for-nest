@@ -229,6 +229,24 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
     expect(list.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("runs the default find statement via HTTP", async () => {
+    const list = await repo.find("name", OrderDirection.ASC);
+    expect(list).toBeDefined();
+    expect(list.length).toBeGreaterThanOrEqual(1);
+    expect(list.every((entry) => entry.name.startsWith("name"))).toBe(true);
+  });
+
+  it("runs the default page statement via HTTP", async () => {
+    const page = await repo.page("name", OrderDirection.ASC, {
+      offset: 1,
+      limit: 2,
+    });
+    expect(page).toBeDefined();
+    expect(page.data).toBeDefined();
+    expect(page.data.length).toBeGreaterThanOrEqual(1);
+    expect(page.data.every((entry) => entry.name.startsWith("name"))).toBe(true);
+  });
+
   it("fails to run non prepared statements", async () => {
     await expect(
       repo.select(["id"]).where(repo.attr("name").eq("new name")).execute()
