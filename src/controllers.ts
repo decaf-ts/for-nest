@@ -95,7 +95,12 @@ export abstract class DecafModelController<
         ) as ModelService<M>;
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: unknown) {
-        this._persistence = Repository.forModel(this.class) as Repo<M>;
+         try {
+          this._persistence = Service.get(this.class.name) as ModelService<M>;
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (e: unknown) {
+            this._persistence = Repository.forModel(this.class) as Repo<M>;
+          }
       }
 
     return ctx
