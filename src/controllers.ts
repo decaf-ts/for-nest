@@ -16,6 +16,7 @@ import { DecafServerCtx } from "./constants";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { DecafRequestContext } from "./request/DecafRequestContext";
 import { Contextual } from "@decaf-ts/db-decorators";
+import { Constructor } from "@decaf-ts/decoration";
 
 export abstract class DecafController<
   CONTEXT extends DecafServerCtx,
@@ -96,7 +97,7 @@ export abstract class DecafModelController<
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: unknown) {
          try {
-          this._persistence = Service.get(this.class.name) as ModelService<M>;
+          this._persistence = Service.get(this.class as Constructor) as ModelService<M>;
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           } catch (e: unknown) {
             this._persistence = Repository.forModel(this.class) as Repo<M>;
