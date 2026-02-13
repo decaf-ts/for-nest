@@ -12,7 +12,7 @@ import {
   Repository,
   Service,
 } from "@decaf-ts/core";
-import { DecafServerCtx } from "./constants";
+import { DECAF_ADAPTER_OPTIONS, DecafServerCtx } from "./constants";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { DecafRequestContext } from "./request/DecafRequestContext";
 import { Contextual } from "@decaf-ts/db-decorators";
@@ -96,18 +96,25 @@ export abstract class DecafModelController<
         ) as ModelService<M>;
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: unknown) {
-         try {
-          this._persistence = Service.get(this.class as Constructor) as ModelService<M>;
+        try {
+          this._persistence = Service.get(
+            this.class as Constructor
+          ) as ModelService<M>;
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          } catch (e: unknown) {
-            this._persistence = Repository.forModel(this.class) as Repo<M>;
-          }
+        } catch (e: unknown) {
+          this._persistence = Repository.forModel(this.class) as Repo<M>;
+        }
       }
+
+    const certs = this.clientContext.request[DECAF_ADAPTER_OPTIONS] || {};
+    if (ctx) {
+      this.clientContext.put(certs);
+    }
 
     return ctx
       ? this._persistence instanceof Repository
-        ? this._persistence.override(ctx.toOverrides())
-        : this._persistence.for(ctx.toOverrides())
+        ? this._persistence.override(certs)
+        : this._persistence.for(certs)
       : this._persistence;
   }
 
