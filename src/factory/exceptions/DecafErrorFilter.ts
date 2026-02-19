@@ -16,14 +16,15 @@ export class DecafExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest();
 
     const isProduction = LoggedEnvironment.env === "production";
-
-    if (exception instanceof NotFoundException)
+    let statusCode;
+    if (exception instanceof NotFoundException) {
       exception = new NotAcceptableException(exception.message);
-    else if (!(exception instanceof BaseError))
+      statusCode = (exception as NotAcceptableException).getStatus();
+    } else if (!(exception instanceof BaseError))
       exception = new InternalError(exception.message);
 
-    response.status((exception as BaseError).code).json({
-      status: (exception as BaseError).code,
+    response.status((exception as BaseError).code || statusCode).json({
+      status: (exception as BaseError).code || statusCode,
       error: isProduction ? exception.name : exception.message,
       timestamp: new Date().toISOString(),
       path: request.url,
