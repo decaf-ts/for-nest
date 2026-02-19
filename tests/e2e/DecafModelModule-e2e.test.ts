@@ -162,7 +162,7 @@ describe("DecafModelModule CRUD", () => {
 
     it("should FAIL to READ with missing parameters", async () => {
       const res = await request(app.getHttpServer()).get(`/product/`);
-      expect(res.status).toEqual(500);
+      expect(res.status).toEqual(406);
     });
   });
 
