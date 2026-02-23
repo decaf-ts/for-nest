@@ -54,7 +54,7 @@ describe("DecafModule RequestHandlerInterceptor", () => {
     );
 
     responses.forEach((res) => expect(res.status).toBe(201));
-    expect(spy).toBeCalledTimes(payloads.length);
+    expect(spy).toHaveBeenCalledTimes(payloads.length);
 
     responses.forEach((res, idx) => {
       const expected = `fake-cert-${payloads[idx].id}`;
