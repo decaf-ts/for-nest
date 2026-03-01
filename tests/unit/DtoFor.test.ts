@@ -1,28 +1,20 @@
 import "../../src/decoration";
 import "../../src/overrides";
 
-import { OperationKeys, version } from "@decaf-ts/db-decorators";
+import { OperationKeys } from "@decaf-ts/db-decorators";
 import { DtoFor } from "../../src/factory/openapi/DtoBuilder";
 import { TestDtoModel } from "../e2e/fakes/models/TestDtoModel";
 import { Product } from "./Product";
 import { ProductStrength } from "./ProductStrength";
 import { ProductMarket } from "./ProductMarket";
 import { ProductImage } from "./ProductImage";
-import {
-  column,
-  createdAt,
-  createdBy,
-  updatedAt,
-  updatedBy,
-  pk,
-} from "@decaf-ts/core";
-import { Model, model } from "@decaf-ts/decorator-validation";
 import { Adapter } from "@decaf-ts/core";
 import {
   RamAdapter,
   RamFlavour,
   // @ts-expect-error import from ram
 } from "@decaf-ts/core/ram";
+import { MultiLevelGeneratedModel } from "./MultiLevelGeneratedModel";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
@@ -39,44 +31,6 @@ function protoProps(dto: any): string[] {
 /** Returns the Swagger API-property metadata stored on the DTO prototype. */
 function apiMeta(dto: any, prop: string): any {
   return Reflect.getMetadata("swagger/apiModelProperties", dto.prototype, prop);
-}
-
-@model()
-class DeepAuditRoot extends Model {
-  @column()
-  @version()
-  version!: number;
-
-  @column()
-  @createdAt()
-  createdAt!: Date;
-
-  @column()
-  @updatedAt()
-  updatedAt!: Date;
-}
-
-@model()
-class DeepOwnedModel extends DeepAuditRoot {
-  @column()
-  @createdBy()
-  createdBy!: string;
-
-  @column()
-  @updatedBy()
-  updatedBy!: string;
-}
-
-@model()
-class MultiLevelGeneratedModel extends DeepOwnedModel {
-  @pk()
-  multiId!: string;
-
-  @column()
-  multiName!: string;
-
-  @column()
-  multiFlag?: boolean;
 }
 
 // ─── TestDtoModel – generated PK (String, generated: true) ───────────────────

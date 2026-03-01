@@ -1,53 +1,18 @@
 import "../../src/decoration";
 import "../../src/overrides";
 
-import {
-  Body,
-  Controller,
-  INestApplication,
-  Module,
-  Post,
-  Put,
-} from "@nestjs/common";
-import { ApiBody, DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import fs from "fs";
+import path from "path";
+import { INestApplication } from "@nestjs/common";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { NestFactory } from "@nestjs/core";
-import { OperationKeys } from "@decaf-ts/db-decorators";
-import { Adapter } from "@decaf-ts/core";
 import {
-  RamAdapter,
-  RamFlavour,
-  // @ts-expect-error import from ram
-} from "@decaf-ts/core/ram";
-import { DtoFor } from "../../src/factory/openapi/DtoBuilder";
-import { Product } from "./Product";
-
-jest.setTimeout(30000);
-
-RamAdapter.decoration();
-Adapter.setCurrent(RamFlavour);
-
-const CreateDTO = DtoFor(OperationKeys.CREATE, Product);
-const UpdateDTO = DtoFor(OperationKeys.UPDATE, Product);
-
-@Controller("dto-for-test")
-class TestDtoController {
-  @Post("create")
-  @ApiBody({ type: CreateDTO })
-  create(@Body() body: InstanceType<typeof CreateDTO>) {
-    return body;
-  }
-
-  @Put("update")
-  @ApiBody({ type: UpdateDTO })
-  update(@Body() body: InstanceType<typeof UpdateDTO>) {
-    return body;
-  }
-}
-
-@Module({
-  controllers: [TestDtoController],
-})
-class DtoSwaggerModule {}
+  CreateDTO,
+  DtoSwaggerModule,
+  MultiLevelCreateDTO,
+  MultiLevelUpdateDTO,
+  UpdateDTO,
+} from "./dto-swagger-app";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -100,6 +65,12 @@ describe("DtoFor Swagger output", () => {
 
     await app.init();
     document = SwaggerModule.createDocument(app, config);
+    if (process.env.WRITE_MULTI_SWAGGER === "true") {
+      const outDir = path.resolve("workdocs/resources");
+      fs.mkdirSync(outDir, { recursive: true });
+      const filePath = path.join(outDir, "multi-level-swagger.json");
+      fs.writeFileSync(filePath, JSON.stringify(document, null, 2), "utf8");
+    }
   });
 
   afterAll(async () => {
@@ -315,6 +286,47 @@ describe("DtoFor Swagger output", () => {
       expect(imageSchema).toBeDefined();
       const imageProps = Object.keys(imageSchema?.properties || {});
       expect(imageProps).toContain("productCode");
+    });
+  });
+
+  describe("MultiLevelGeneratedModel schema", () => {
+    let schema: any;
+    let propertyNames: string[];
+    let updateSchema: any;
+
+    beforeAll(() => {
+      schema = document.components?.schemas?.[MultiLevelCreateDTO.name];
+      updateSchema = document.components?.schemas?.[MultiLevelUpdateDTO.name];
+      propertyNames = [
+        ...collectSchemaPropertyNames(schema, document),
+      ].sort();
+    });
+
+    it("defines the MultiLevel CREATE DTO schema", () => {
+      expect(schema).toBeDefined();
+    });
+
+    it("only exposes the multi-level scalars", () => {
+      expect(propertyNames).toEqual(["multiFlag", "multiId", "multiName"].sort());
+    });
+
+    it("does not expose inherited generated fields", () => {
+      expect(propertyNames).not.toContain("version");
+      expect(propertyNames).not.toContain("createdAt");
+      expect(propertyNames).not.toContain("updatedAt");
+      expect(propertyNames).not.toContain("createdBy");
+      expect(propertyNames).not.toContain("updatedBy");
+    });
+
+    it("UPDATE schema keeps generated fields excluded as well", () => {
+      const updateProperties = [
+        ...collectSchemaPropertyNames(updateSchema, document),
+      ];
+      expect(updateProperties).not.toContain("version");
+      expect(updateProperties).not.toContain("createdAt");
+      expect(updateProperties).not.toContain("updatedAt");
+      expect(updateProperties).not.toContain("createdBy");
+      expect(updateProperties).not.toContain("updatedBy");
     });
   });
 });
