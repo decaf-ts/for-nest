@@ -6,95 +6,60 @@ import {
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { ApiProperty } from "../../overrides/decoration";
 import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
-import { PersistenceKeys, TransactionOperationKeys } from "@decaf-ts/core";
+import { TransactionOperationKeys } from "@decaf-ts/core";
 import { toPascalCase } from "@decaf-ts/logging";
+import { DECORATORS } from "../../overrides/constants";
 
 const dtoCache = new Map<
   OperationKeys,
   WeakMap<Constructor<any>, Constructor<any>>
 >();
 
-// export function toCache(){
-//   const cacheableProps: Record<keyof M, any> = Metadata.get(
-//     model.constructor as Constructor,
-//     PTPKeys.CACHE
-//   );
-//   if (!cacheableProps)
-//     throw new InternalError("No cacheable properties defined for this model.");
-//   try {
-//     const cacheData: Record<keyof M, any> = {} as any;
-//     for (const key of Object.keys(cacheableProps) as (keyof M)[]) {
-//       if (
-//         (model[key] as any) instanceof Model &&
-//         (model[key] as ICacheable).toCache
-//       ) {
-//         cacheData[key] = (model[key] as ICacheable).toCache();
-//       } else if (
-//         Array.isArray(model[key]) &&
-//         model[key].length &&
-//         model[key].every(
-//           (m) => m instanceof Model && (m as unknown as ICacheable).toCache
-//         )
-//       ) {
-//         cacheData[key] = (model[key] as unknown as ICacheable[]).map((m) =>
-//           m.toCache()
-//         );
-//       } else cacheData[key] = model[key];
-//     }
-//     return (stringify ? JSON.stringify(cacheData) : cacheData) as any;
-// }
-
+/**
+ * Builds a Nest/Swagger DTO class for the given model and CRUD operation.
+ *
+ * Rules:
+ *  - Only CREATE and UPDATE (and their bulk variants) produce a DTO;
+ *    all other operations return the original model class unchanged.
+ *  - @generated() properties (createdAt, updatedAt, createdBy, updatedBy,
+ *    uuid, version, @composed pks, …) are **never** exposed in any DTO.
+ *  - The @pk() property:
+ *      • UPDATE – always included.
+ *      • CREATE  – included only when the pk is NOT auto-generated
+ *                  (checked via Model.pkProps().generated AND Model.generated()).
+ *  - Relation properties (@oneToOne, @oneToMany, …):
+ *      • CREATE  – nested as DtoFor(CREATE, RelatedModel).
+ *      • UPDATE  – union of DtoFor(UPDATE, RelatedModel) **or** the
+ *                  related model's primary-key type (string / integer),
+ *                  expressed as a Swagger oneOf.
+ *
+ * Metadata.properties() now returns ALL properties across the prototype chain,
+ * so DTO inheritance is no longer needed; every DTO is a flat class.
+ */
 export function DtoFor<M extends Model>(
   op: OperationKeys,
   model: Constructor<M>
-) {
+): Constructor<any> {
   if (!TransactionOperationKeys.includes(op)) {
     return model;
   }
+
   const cache = getDtoCache(op);
   const cached = cache.get(model);
   if (cached) return cached;
 
-  const ancestors = collectInheritance(model);
-  for (const ancestor of ancestors) {
-    if (Model.isModel(ancestor)) {
-      DtoFor(op, ancestor);
-    }
-  }
+  const isUpdateOp = [
+    OperationKeys.UPDATE,
+    BulkCrudOperationKeys.UPDATE_ALL,
+  ].includes(op as any);
 
-  const parentModel = ancestors.at(-1);
-  const parentDto: any =
-    parentModel && Model.isModel(parentModel)
-      ? cache.get(parentModel) || DtoFor(op, parentModel)
-      : Model;
-
-  class DynamicDTO extends (parentDto as Constructor<any>) {}
+  class DynamicDTO {}
   cache.set(model, DynamicDTO);
 
   Object.defineProperty(DynamicDTO, "name", {
     value: `${toPascalCase(model.name)}${toPascalCase(op)}DTO`,
   });
 
-  const schemaProps = Metadata.properties(model) || [];
-  const createdByMetadata = Metadata.get(model, PersistenceKeys.CREATED_BY);
-  const updatedByMetadata = Metadata.get(model, PersistenceKeys.UPDATED_BY);
-  const metadataOwnershipProps = [
-    ...Object.keys(createdByMetadata || {}),
-    ...Object.keys(updatedByMetadata || {}),
-  ];
-  const manualOwnershipProps = ["createdBy", "updatedBy"].filter((prop) =>
-    schemaProps.includes(prop)
-  );
-  const ownershipProps = Array.from(
-    new Set([...metadataOwnershipProps, ...manualOwnershipProps])
-  );
-  const props = Array.from(new Set([...schemaProps, ...ownershipProps]));
-  const relations = collectRelations(model);
-  const relationProps = new Set(relations);
-  const generatedProps = props.filter((prop) =>
-    isGeneratedAcrossInheritance(model, prop as any)
-  );
-  const exceptions = new Set([...generatedProps, ...ownershipProps]);
   const pkProp = (() => {
     try {
       return Model.pk(model);
@@ -102,28 +67,42 @@ export function DtoFor<M extends Model>(
       return undefined;
     }
   })();
-  const isUpdateOp = [OperationKeys.UPDATE, BulkCrudOperationKeys.UPDATE_ALL].includes(
-    op as any
-  );
-  const allowedProps = props.filter((prop) => {
-    if (relationProps.has(prop)) return false;
-    if (exceptions.has(prop)) {
-      return isUpdateOp && prop === pkProp;
+
+  const pkIsGenerated = pkProp
+    ? !!Model.pkProps(model as any)?.generated ||
+      isGeneratedAcrossInheritance(model, pkProp as string)
+    : false;
+
+  const allProps = Array.from(new Set(Metadata.properties(model) || []));
+  const relations = new Set<string>((Model.relations(model) as string[]) || []);
+  const scalarProps = allProps.filter((prop) => {
+    if (relations.has(prop)) return false;
+
+    if (prop === pkProp) {
+      return isUpdateOp || !pkIsGenerated;
     }
+
+    if (isGeneratedAcrossInheritance(model, prop)) return false;
+
     return true;
   });
 
-  for (const prop of allowedProps) {
-    const validation = Metadata.validationFor(model, prop as any);
+  for (const prop of scalarProps) {
+    const validation = getValidationAcrossInheritance(model, prop);
     const isRequired = !!validation?.[ValidationKeys.REQUIRED];
-    const typeHint = Metadata.type(model, prop as any);
+    const typeHint =
+      getTypeAcrossInheritance(model, prop) ??
+      Reflect.getMetadata("design:type", model.prototype, prop);
+
     const apiOptions: Parameters<typeof ApiProperty>[0] = {
       required: isRequired,
     };
     if (typeHint) {
       apiOptions.type = typeHint;
     }
+
     ApiProperty(apiOptions)(DynamicDTO.prototype, prop);
+
     const designType =
       Reflect.getMetadata("design:type", model.prototype, prop) ?? typeHint;
     if (typeof designType !== "undefined") {
@@ -134,6 +113,7 @@ export function DtoFor<M extends Model>(
         prop
       );
     }
+
     Object.defineProperty(DynamicDTO.prototype, prop, {
       value: undefined,
       writable: true,
@@ -142,38 +122,12 @@ export function DtoFor<M extends Model>(
     });
   }
 
-  function addRelation(
-    relation: string,
-    relationDto: any,
-    isArray: boolean,
-    isRequired: boolean
-  ) {
-    const apiOptions: Parameters<typeof ApiProperty>[0] = {
-      type: relationDto,
-      required: isRequired,
-      isArray,
-    };
-    ApiProperty(apiOptions)(DynamicDTO.prototype, relation);
-    Object.defineProperty(DynamicDTO.prototype, relation, {
-      value: undefined,
-      writable: true,
-      enumerable: true,
-      configurable: true,
-    });
-    Reflect.defineMetadata(
-      "design:type",
-      isArray ? Array : relationDto,
-      DynamicDTO.prototype,
-      relation
-    );
-  }
-
-  // Add processed relations back to the DTO
   for (const relation of relations) {
     const relationMeta = Metadata.relations(model, relation as any);
     if (!relationMeta) {
       throw new InternalError(`Metadata for relation ${relation} not found`);
     }
+
     let relationType: Constructor<any> | undefined =
       relationMeta.class as Constructor<any>;
     if (typeof relationType === "function" && !relationType.name) {
@@ -185,48 +139,146 @@ export function DtoFor<M extends Model>(
     if (!Model.get(relationType.name)) {
       continue;
     }
+
     const meta = Metadata.validationFor(model, relation as any);
+    const isArray = !!(meta as any)?.[ValidationKeys.LIST];
+    const isRequired = !!(meta as any)?.[ValidationKeys.REQUIRED];
     const relationDto = DtoFor(op, relationType);
-    const isArray = !!(meta as any)[ValidationKeys.LIST];
-    addRelation(
-      relation,
-      relationDto,
-      isArray,
-      !!(meta as any)[ValidationKeys.REQUIRED]
-    );
+
+    if (isUpdateOp) {
+      addRelationUpdate(
+        DynamicDTO,
+        relation,
+        relationType,
+        relationDto,
+        isArray,
+        isRequired
+      );
+    } else {
+      addRelation(DynamicDTO, relation, relationDto, isArray, isRequired);
+    }
   }
 
   return DynamicDTO;
 }
 
-function collectInheritance(model: Constructor<any>) {
-  const ancestors: Constructor<any>[] = [];
-  let current: any = Object.getPrototypeOf(model);
+function addRelation(
+  DtoClass: any,
+  relation: string,
+  relationDto: any,
+  isArray: boolean,
+  isRequired: boolean
+): void {
+  const apiOptions: Parameters<typeof ApiProperty>[0] = {
+    type: relationDto,
+    required: isRequired,
+    isArray,
+  };
+  ApiProperty(apiOptions)(DtoClass.prototype, relation);
+  Reflect.defineMetadata(
+    "design:type",
+    isArray ? Array : relationDto,
+    DtoClass.prototype,
+    relation
+  );
+  Object.defineProperty(DtoClass.prototype, relation, {
+    value: undefined,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
 
-  while (current && current !== Object && current !== Function) {
-    ancestors.push(current);
-    current = Object.getPrototypeOf(current);
+function addRelationUpdate(
+  DtoClass: any,
+  relation: string,
+  relationType: Constructor<any>,
+  relationDto: any,
+  isArray: boolean,
+  isRequired: boolean
+): void {
+  const extraModels =
+    Reflect.getMetadata(DECORATORS.API_EXTRA_MODELS, DtoClass) || [];
+  if (!extraModels.includes(relationDto)) {
+    Reflect.defineMetadata(
+      DECORATORS.API_EXTRA_MODELS,
+      [...extraModels, relationDto],
+      DtoClass
+    );
   }
 
-  return ancestors.reverse();
+  const dtoRef = `#/components/schemas/${relationDto.name}`;
+  const pkTypeName = getPkOpenApiType(relationType);
+  const oneOfItems = [{ $ref: dtoRef }, { type: pkTypeName }];
+
+  const apiOptions: Parameters<typeof ApiProperty>[0] = isArray
+    ? ({ type: "array", required: isRequired, oneOf: oneOfItems } as any)
+    : ({ type: Object, required: isRequired, oneOf: oneOfItems } as any);
+
+  ApiProperty(apiOptions)(DtoClass.prototype, relation);
+  Reflect.defineMetadata(
+    "design:type",
+    isArray ? Array : Object,
+    DtoClass.prototype,
+    relation
+  );
+  Object.defineProperty(DtoClass.prototype, relation, {
+    value: undefined,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
 }
 
-function collectRelations(model: Constructor<any>) {
-  return Model.relations(model) || [];
+function getPkOpenApiType(relationType: Constructor<any>): string {
+  try {
+    const pkPropsMetadata = Model.pkProps(relationType as any);
+    const pkType = pkPropsMetadata?.type;
+    if (pkType === Number || pkType === BigInt) return "integer";
+    return "string";
+  } catch {
+    return "string";
+  }
 }
 
-function isGeneratedAcrossInheritance(model: Constructor<any>, prop: string) {
+function isGeneratedAcrossInheritance(
+  model: Constructor<any>,
+  prop: string
+): boolean {
   let current: any = model;
-
   while (current && current !== Object && current !== Function) {
     if (Model.generated(current, prop as any)) return true;
     current = Object.getPrototypeOf(current);
   }
-
   return false;
 }
 
-function getDtoCache(op: OperationKeys) {
+function getValidationAcrossInheritance(
+  model: Constructor<any>,
+  prop: string
+): Record<string, any> | undefined {
+  let current: any = model;
+  while (current && current !== Object && current !== Function) {
+    const validation = Metadata.validationFor(current, prop as any);
+    if (validation) return validation as any;
+    current = Object.getPrototypeOf(current);
+  }
+  return undefined;
+}
+
+function getTypeAcrossInheritance(model: Constructor<any>, prop: string): any {
+  let current: any = model;
+  while (current && current !== Object && current !== Function) {
+    const type = Metadata.type(current, prop);
+    if (type) return type;
+    current = Object.getPrototypeOf(current);
+  }
+  return undefined;
+}
+
+function getDtoCache(
+  op: OperationKeys
+): WeakMap<Constructor<any>, Constructor<any>> {
   if (!dtoCache.has(op)) {
     dtoCache.set(op, new WeakMap());
   }
