@@ -70,7 +70,6 @@ class DeepOwnedModel extends DeepAuditRoot {
 @model()
 class MultiLevelGeneratedModel extends DeepOwnedModel {
   @pk()
-  @column()
   multiId!: string;
 
   @column()
@@ -115,14 +114,22 @@ describe("DtoFor – TestDtoModel (generated String pk)", () => {
 
     it("marks @required() properties as required in Swagger metadata", () => {
       expect(apiMeta(CreateDTO, "simpleRequired")?.required).toBe(true);
-      expect(apiMeta(CreateDTO, "requiredWithValidationBefore")?.required).toBe(true);
-      expect(apiMeta(CreateDTO, "requiredWithValidationAfter")?.required).toBe(true);
-      expect(apiMeta(CreateDTO, "requiredWithValidationAround")?.required).toBe(true);
+      expect(apiMeta(CreateDTO, "requiredWithValidationBefore")?.required).toBe(
+        true
+      );
+      expect(apiMeta(CreateDTO, "requiredWithValidationAfter")?.required).toBe(
+        true
+      );
+      expect(apiMeta(CreateDTO, "requiredWithValidationAround")?.required).toBe(
+        true
+      );
     });
 
     it("marks optional properties as not required in Swagger metadata", () => {
       expect(apiMeta(CreateDTO, "optionalNoValidation")?.required).toBeFalsy();
-      expect(apiMeta(CreateDTO, "optionalWithValidation")?.required).toBeFalsy();
+      expect(
+        apiMeta(CreateDTO, "optionalWithValidation")?.required
+      ).toBeFalsy();
     });
   });
 
