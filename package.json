@@ -121,7 +121,8 @@
       "jsrsasign": "^11.1.0"
     },
     "minimatch": "^10.2.3",
-    "test-exclude": "7.0.1",
+    "test-exclude": "^7.0.1",
+    "serialize-javascript": "^7.0.3",
     "ajv": "^8.17.2"
   }
 }
