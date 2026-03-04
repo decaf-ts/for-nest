@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { BaseError, InternalError } from "@decaf-ts/db-decorators";
 import { LoggedEnvironment } from "@decaf-ts/logging";
+import { UnsupportedError } from "@decaf-ts/core";
 
 @Catch()
 export class DecafExceptionFilter implements ExceptionFilter {
@@ -17,7 +18,11 @@ export class DecafExceptionFilter implements ExceptionFilter {
 
     const isProduction = LoggedEnvironment.env === "production";
     let statusCode;
-    if (exception instanceof NotFoundException) {
+
+    if (
+      exception instanceof NotFoundException ||
+      exception instanceof UnsupportedError
+    ) {
       exception = new NotAcceptableException(exception.message);
       statusCode = (exception as NotAcceptableException).getStatus();
     } else if (!(exception instanceof BaseError))
