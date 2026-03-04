@@ -356,6 +356,11 @@ describe("DtoFor – MultiLevelGeneratedModel (inherited generated metadata)", (
     }
   });
 
+  it("omits the generated primary key for CREATE", () => {
+    const props = protoProps(CreateDTO);
+    expect(props).not.toContain("multiId");
+  });
+
   it("omits inherited generated properties for UPDATE", () => {
     const props = protoProps(UpdateDTO);
     for (const generated of generatedProps) {
@@ -365,7 +370,6 @@ describe("DtoFor – MultiLevelGeneratedModel (inherited generated metadata)", (
 
   it("includes its own non-generated scalars", () => {
     const props = protoProps(CreateDTO);
-    expect(props).toContain("multiId");
     expect(props).toContain("multiName");
     expect(props).toContain("multiFlag");
   });

@@ -49,11 +49,10 @@ export function buildOutputFilePath(params: {
     version,
   } = params;
   const baseDir = path.resolve(outputDir);
-  const defaultPkgName = pkgName?.includes("/") ? pkgName.split("/").pop() : pkgName;
-  const resolvedRaw = (fileName || name || defaultPkgName || "api").replace(
-    /[\\/]/g,
-    "_"
-  );
+  const defaultPkgName = pkgName;
+  const resolvedRawSource = fileName || name || defaultPkgName || "api";
+  const baseName = path.basename(resolvedRawSource);
+  const resolvedRaw = baseName.replace(/[\\/]/g, "_");
   const trimmed = resolvedRaw.replace(/^[._]+/, "");
   const resolvedName = trimmed || "api";
   const suffix = appendVersion && version ? `-${version}` : "";

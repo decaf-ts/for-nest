@@ -68,24 +68,34 @@ export function DtoFor<M extends Model>(
     }
   })();
 
-  const pkIsGenerated = pkProp
-    ? !!Model.pkProps(model as any)?.generated ||
-      isGeneratedAcrossInheritance(model, pkProp as string)
-    : false;
+  const pkPropsMetadata = pkProp ? Model.pkProps(model as any) : undefined;
+  const pkDesignType = pkProp
+    ? Reflect.getMetadata("design:type", model.prototype, pkProp as string)
+    : undefined;
+  const pkTypeIsNumeric =
+    pkDesignType === Number || pkDesignType === BigInt;
+  const pkIsGenerated =
+    !!pkPropsMetadata?.generated ||
+    (pkProp
+      ? Model.generatedBySequence(model as any, pkProp as any) ||
+        isPropertyGeneratedAcrossInheritance(model, pkProp as string) ||
+        pkTypeIsNumeric
+      : false);
 
   const allProps = Array.from(new Set(Metadata.properties(model) || []));
   const relations = new Set<string>((Model.relations(model) as string[]) || []);
-  const scalarProps = allProps.filter((prop) => {
-    if (relations.has(prop)) return false;
+  const scalarProps: string[] = [];
 
-    if (prop === pkProp) {
-      return isUpdateOp || !pkIsGenerated;
-    }
+  for (const prop of allProps) {
+    if (!prop) continue;
+    if (relations.has(prop)) continue;
 
-    if (isGeneratedAcrossInheritance(model, prop)) return false;
+    if (prop === pkProp && !isUpdateOp && pkIsGenerated) continue;
+    if (prop !== pkProp && isPropertyGeneratedAcrossInheritance(model, prop))
+      continue;
 
-    return true;
-  });
+    scalarProps.push(prop);
+  }
 
   for (const prop of scalarProps) {
     const validation = getValidationAcrossInheritance(model, prop);
@@ -97,9 +107,7 @@ export function DtoFor<M extends Model>(
     const apiOptions: Parameters<typeof ApiProperty>[0] = {
       required: isRequired,
     };
-    if (typeHint) {
-      apiOptions.type = typeHint;
-    }
+    if (typeHint) apiOptions.type = typeHint;
 
     ApiProperty(apiOptions)(DynamicDTO.prototype, prop);
 
@@ -241,7 +249,7 @@ function getPkOpenApiType(relationType: Constructor<any>): string {
   }
 }
 
-function isGeneratedAcrossInheritance(
+function isPropertyGeneratedAcrossInheritance(
   model: Constructor<any>,
   prop: string
 ): boolean {

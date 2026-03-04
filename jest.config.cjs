@@ -12,6 +12,7 @@ const config = {
   coverageDirectory: "./workdocs/reports/coverage",
   collectCoverageFrom: ["src/**/*.{js,jsx,ts,tsx}", "!src/bin/**/*"],
   reporters: ["default"],
+  watchman: false,
 };
 
 module.exports = config;

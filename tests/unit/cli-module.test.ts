@@ -42,7 +42,18 @@ describe("buildOutputFilePath", () => {
       pkgName: "@scope/package-name",
       name: "./nested/name",
     });
-    expect(result).toBe(path.join(path.resolve(outputDir), "nested_name.json"));
+    expect(result).toBe(path.join(path.resolve(outputDir), "name.json"));
+  });
+
+  it("sanitizes fileName slashes and ignores directories", () => {
+    const result = buildOutputFilePath({
+      outputDir,
+      pkgName: "@scope/package-name",
+      fileName: "./nested/forced-name",
+    });
+    expect(result).toBe(
+      path.join(path.resolve(outputDir), "forced-name.json")
+    );
   });
 
   it("uses --fileName over pkg or --name", () => {

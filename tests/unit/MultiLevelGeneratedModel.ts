@@ -7,7 +7,8 @@ import {
   updatedAt,
   updatedBy,
 } from "@decaf-ts/core";
-import { version } from "@decaf-ts/db-decorators";
+import { generated, version, DBKeys } from "@decaf-ts/db-decorators";
+import { Metadata } from "@decaf-ts/decoration";
 
 @model()
 export class DeepAuditRoot extends Model {
@@ -37,9 +38,10 @@ export class DeepOwnedModel extends DeepAuditRoot {
 
 @model()
 export class MultiLevelGeneratedModel extends DeepOwnedModel {
+  @generated()
   @pk()
   @column()
-  multiId!: string;
+  multiId!: number;
 
   @column()
   multiName!: string;
@@ -47,3 +49,13 @@ export class MultiLevelGeneratedModel extends DeepOwnedModel {
   @column()
   multiFlag?: boolean;
 }
+Metadata.set(
+  MultiLevelGeneratedModel,
+  Metadata.key(DBKeys.ID, "multiId"),
+  { generated: true, type: Number }
+);
+Metadata.set(
+  MultiLevelGeneratedModel,
+  Metadata.key(DBKeys.GENERATED, "multiId"),
+  true
+);

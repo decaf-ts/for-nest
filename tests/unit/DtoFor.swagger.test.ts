@@ -307,7 +307,7 @@ describe("DtoFor Swagger output", () => {
     });
 
     it("only exposes the multi-level scalars", () => {
-      expect(propertyNames).toEqual(["multiFlag", "multiId", "multiName"].sort());
+      expect(propertyNames).toEqual(["multiFlag", "multiName"].sort());
     });
 
     it("does not expose inherited generated fields", () => {

@@ -101,6 +101,7 @@
     "@types/lodash": "^4.17.20",
     "commander": "^13.1.0",
     "eventsource": "^4.1.0",
+    "jest-openapi": "^0.14.2",
     "supertest": "^7.1.4"
   },
   "dependencies": {
