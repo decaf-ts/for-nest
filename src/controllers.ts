@@ -192,9 +192,9 @@ export abstract class DecafModelController<
     const persistence = this.persistence(ctx);
     let contextual: Contextual | undefined = undefined;
     if (persistence instanceof ModelService)
-      contextual = persistence.repo["adapter"];
+      contextual = persistence.repo["_adapter"];
     else if (persistence instanceof Repository)
-      contextual = persistence["adapter"];
+      contextual = persistence["_adapter"];
     else if ((persistence as unknown as Contextual<any>).context) {
       contextual = persistence;
     }
