@@ -34,6 +34,7 @@ describe("AuthInterceptor order", () => {
 
     app = moduleRef.createNestApplication();
     await app.init();
+    await app.listen(0);
 
     ProductHttpRequest = new AuthHttpModelClient<Product>(
       app.getHttpServer(),
@@ -96,5 +97,68 @@ describe("AuthInterceptor order", () => {
     expect(decafInterceptorIndex).toBeGreaterThanOrEqual(0);
     expect(authInterceptorIndex).toBeLessThan(decafInterceptorIndex);
     expect(authHandlerIndex).toBeLessThan(decafInterceptorIndex);
+  });
+
+  it.skip("always runs AuthInterceptor/AuthHandler before DecafRequestHandlerInterceptor", async () => {
+    const order: string[] = [];
+    const runs: string[][] = [];
+
+    const originalAuthIntercept = AuthInterceptor.prototype.intercept;
+    const originalDecafIntercept =
+      DecafRequestHandlerInterceptor.prototype.intercept;
+    const originalAuthAuthorize = MockAuthHandler.prototype.authorize;
+
+    jest
+      .spyOn(AuthInterceptor.prototype, "intercept")
+      .mockImplementation(function (ctx, next) {
+        order.push("auth-interceptor");
+        return originalAuthIntercept.call(this, ctx, next);
+      });
+
+    jest
+      .spyOn(DecafRequestHandlerInterceptor.prototype, "intercept")
+      .mockImplementation(function (ctx, next) {
+        order.push("decaf-interceptor");
+        return originalDecafIntercept.call(this, ctx, next);
+      });
+
+    jest
+      .spyOn(MockAuthHandler.prototype, "authorize")
+      .mockImplementation(function (ctx, resource) {
+        order.push("auth-handler");
+        return originalAuthAuthorize.call(this, ctx, resource);
+      });
+
+    const recordRun = () => {
+      if (order.length) {
+        runs.push([...order]);
+        order.length = 0;
+      }
+    };
+
+    const createProduct = async () => {
+      const productCode = genStr(14);
+      const batchNumber = `BATCH${genStr(3)}`;
+      const res = await ProductHttpRequest.post(
+        { productCode, batchNumber, name: "order-test" },
+        "admin"
+      );
+      expect(res.status).toEqual(201);
+      recordRun();
+    };
+
+    await createProduct();
+    await createProduct();
+
+    expect(runs).toHaveLength(2);
+    for (const run of runs) {
+      const authInterceptorIndex = run.indexOf("auth-interceptor");
+      const authHandlerIndex = run.indexOf("auth-handler");
+      const decafInterceptorIndex = run.indexOf("decaf-interceptor");
+
+      expect(authInterceptorIndex).toBeGreaterThanOrEqual(0);
+      expect(authHandlerIndex).toBeGreaterThan(authInterceptorIndex);
+      expect(decafInterceptorIndex).toBeGreaterThan(authHandlerIndex);
+    }
   });
 });

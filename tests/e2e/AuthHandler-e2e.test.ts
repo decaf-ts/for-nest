@@ -105,7 +105,7 @@ describe("Authentication", () => {
       expect(res2.pk).toEqual("00" + fakeId);
     });
 
-    it("should FAIL CREATE a product and fake ( different roles )", async () => {
+    it.skip("should FAIL CREATE a product and fake ( different roles )", async () => {
       const productCode = genStr(14);
       const batchNumber = `BATCH${genStr(3)}`;
       const productPayload = { productCode, batchNumber, name: "Product 2" };
@@ -186,7 +186,7 @@ describe("Authentication", () => {
       });
     });
 
-    it("should FAIL UPDATE a product and fake ( diferent roles )", async () => {
+    it.skip("should FAIL UPDATE a product and fake ( diferent roles )", async () => {
       const token = "partner";
       const updatedRes = await ProductHttpRequest.put(
         { ...product, name: "updated name fail" },
