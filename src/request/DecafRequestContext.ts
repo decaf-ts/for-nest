@@ -2,10 +2,13 @@ import { Inject, Injectable, Scope } from "@nestjs/common";
 import { DecafServerCtx } from "../constants";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { REQUEST } from "@nestjs/core";
+import { UUID } from "@decaf-ts/core";
 
 @Injectable({ scope: Scope.REQUEST })
 export class DecafRequestContext<C extends DecafServerCtx = DecafServerCtx> {
   private _ctx?: C;
+
+  uuid = UUID.instance.generate();
 
   constructor(@Inject(REQUEST) private readonly req: Request) {}
 
@@ -28,6 +31,7 @@ export class DecafRequestContext<C extends DecafServerCtx = DecafServerCtx> {
   }
 
   applyCtx(ctx: C) {
+    if (this._ctx) throw new InternalError("Trying to overwrite context");
     this._ctx = ctx;
   }
 
