@@ -1,7 +1,6 @@
-import { applyDecorators, SetMetadata, UseInterceptors } from "@nestjs/common";
+import { applyDecorators, SetMetadata } from "@nestjs/common";
 import { Constructor } from "@decaf-ts/decoration";
 import { AUTH_META_KEY } from "../../constants";
-import { AuthInterceptor } from "../../interceptors/AuthInterceptor";
 import { ApiBearerAuth } from "@nestjs/swagger";
 
 /**
@@ -34,9 +33,5 @@ import { ApiBearerAuth } from "@nestjs/swagger";
 export function Auth(model: string | Constructor) {
   const resource = typeof model === "string" ? model : model.name;
 
-  return applyDecorators(
-    ApiBearerAuth(),
-    SetMetadata(AUTH_META_KEY, resource),
-    UseInterceptors(AuthInterceptor)
-  );
+  return applyDecorators(ApiBearerAuth(), SetMetadata(AUTH_META_KEY, resource));
 }

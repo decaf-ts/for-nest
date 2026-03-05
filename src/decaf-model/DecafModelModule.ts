@@ -2,7 +2,7 @@ import { DynamicModule, Module, Provider } from "@nestjs/common";
 import { Adapter, ModelService } from "@decaf-ts/core";
 import { Logging } from "@decaf-ts/logging";
 import { FromModelController } from "./FromModelController";
-import { DecafRequestHandlerInterceptor } from "../interceptors";
+import { AuthInterceptor, DecafRequestHandlerInterceptor } from "../interceptors";
 import { APP_INTERCEPTOR } from "@nestjs/core";
 import { DecafModuleOptions } from "../types";
 import { DecafHandlerExecutor, DecafRequestContext } from "../request";
@@ -58,6 +58,11 @@ export function getModuleFor(flavour: string) {
                 }) ?? []
               );
             },
+          },
+          AuthInterceptor,
+          {
+            provide: APP_INTERCEPTOR,
+            useExisting: AuthInterceptor,
           },
           DecafRequestContext,
           DecafHandlerExecutor,
