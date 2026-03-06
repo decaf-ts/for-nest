@@ -2,6 +2,7 @@ import { Inject, Injectable, Scope } from "@nestjs/common";
 import { DecafRequestContext } from "./DecafRequestContext";
 import { type DecafRequestHandler } from "../types";
 import { DECAF_HANDLERS } from "../constants";
+import { Logging } from "@decaf-ts/logging";
 
 /**
  * @description
@@ -55,6 +56,10 @@ export class DecafHandlerExecutor {
   ) {}
 
   async exec(req: Request, res: Response) {
+    const log = Logging.for(DecafHandlerExecutor.name).for(this.exec);
+    log.debug(
+      `CONTEXT ${this.context.uuid} running ${this.handlers.length} handlers for request ${req.method} ${req.url}`
+    );
     for (const handler of this.handlers) {
       await handler.handle(this.context, req, res);
     }

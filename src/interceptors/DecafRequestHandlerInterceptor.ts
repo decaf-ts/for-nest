@@ -103,9 +103,24 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
   async intercept(context: ExecutionContext, next: CallHandler) {
     const req = context.switchToHttp().getRequest();
     const res = context.switchToHttp().getResponse();
+    const log = Logging.for(DecafRequestHandlerInterceptor).for(this.intercept);
+    log.debug(
+      `CONTEXT ${this.requestContext.uuid} - request: ${req.method} ${req.url}`
+    );
     const ctx = await this.contextualize(req);
+    log.debug(
+      `CONTEXT ${this.requestContext.uuid} contextualized - request: ${req.method} ${req.url}`
+    );
+
     this.requestContext.applyCtx(ctx);
+    log.debug(
+      `CONTEXT ${this.requestContext.uuid} applied - request: ${req.method} ${req.url}`
+    );
+
     await this.executor.exec(req, res);
+    log.debug(
+      `CONTEXT ${this.requestContext.uuid} executors finished - request: ${req.method} ${req.url}`
+    );
     return next.handle();
   }
 }

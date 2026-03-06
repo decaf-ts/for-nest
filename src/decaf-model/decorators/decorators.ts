@@ -31,7 +31,7 @@ import { AuthInterceptor } from "../../interceptors/AuthInterceptor";
  * }
  * ```
  */
-export function Auth(model: string | Constructor) {
+export function Auth(model?: string | Constructor) {
   const resource = model
     ? typeof model === "string"
       ? model
