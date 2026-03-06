@@ -13,7 +13,7 @@ export class DecafModule {
   static async forRootAsync(
     options: DecafModuleOptions
   ): Promise<DynamicModule> {
-    const { autoControllers, autoServices, handlers } = options;
+    const { autoControllers, autoServices } = options;
 
     const adapters: Adapter<any, any, any, any>[] =
       await DecafCoreModule.bootPersistence(options);
@@ -33,7 +33,6 @@ export class DecafModule {
         imports.push(
           getModuleFor(flavour).forRoot(flavour, {
             autoServices,
-            handlers,
           })
         );
       });

@@ -2,11 +2,7 @@ import { DynamicModule, Module, Provider } from "@nestjs/common";
 import { Adapter, ModelService } from "@decaf-ts/core";
 import { Logging } from "@decaf-ts/logging";
 import { FromModelController } from "./FromModelController";
-import { AuthInterceptor, DecafRequestHandlerInterceptor } from "../interceptors";
-import { APP_INTERCEPTOR } from "@nestjs/core";
 import { DecafModuleOptions } from "../types";
-import { DecafHandlerExecutor, DecafRequestContext } from "../request";
-import { DECAF_HANDLERS } from "../constants";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 
 export function getModuleFor(flavour: string) {
@@ -48,28 +44,6 @@ export function getModuleFor(flavour: string) {
         module: DecafModelModule,
         controllers,
         providers: [
-          {
-            provide: DECAF_HANDLERS,
-            useFactory: () => {
-              return (
-                options.handlers?.map((H) => {
-                  log.info(`Registered request handler: ${H.name}`);
-                  return new H();
-                }) ?? []
-              );
-            },
-          },
-          AuthInterceptor,
-          {
-            provide: APP_INTERCEPTOR,
-            useExisting: AuthInterceptor,
-          },
-          DecafRequestContext,
-          DecafHandlerExecutor,
-          {
-            provide: APP_INTERCEPTOR,
-            useClass: DecafRequestHandlerInterceptor,
-          },
           ...modelServices,
         ],
       };

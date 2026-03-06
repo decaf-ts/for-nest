@@ -6,17 +6,20 @@ import {
   OnApplicationShutdown,
   Scope,
 } from "@nestjs/common";
-import { ModuleRef } from "@nestjs/core";
+import { APP_INTERCEPTOR, ModuleRef } from "@nestjs/core";
 import type { DecafModuleOptions } from "./types";
-import { DECAF_ADAPTER_ID, DECAF_MODULE_OPTIONS } from "./constants";
+import { DECAF_ADAPTER_ID, DECAF_HANDLERS, DECAF_MODULE_OPTIONS } from "./constants";
 import { FactoryProvider } from "@nestjs/common/interfaces/modules/provider.interface";
 import { Adapter, PersistenceService } from "@decaf-ts/core";
 import { Logger, Logging } from "@decaf-ts/logging";
 import { InternalError } from "@decaf-ts/db-decorators";
 import {
+  AuthInterceptor,
+  DecafRequestHandlerInterceptor,
   RequestToContextTransformer,
   requestToContextTransformer,
-} from "./interceptors/context";
+} from "./interceptors";
+import { DecafHandlerExecutor, DecafRequestContext } from "./request";
 
 @Global()
 @Module({})
@@ -43,6 +46,43 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
     private readonly options: DecafModuleOptions<CONF, ADAPTER>,
     private readonly moduleRef: ModuleRef
   ) {}
+
+  static forRoot(options: DecafModuleOptions): DynamicModule {
+    const log = this.log.for(this.forRoot);
+    return {
+      module: DecafCoreModule,
+      providers: [
+        { provide: DECAF_MODULE_OPTIONS, useValue: options },
+        { provide: DECAF_ADAPTER_ID, useValue: this.persistence.client },
+        {
+          provide: DECAF_HANDLERS,
+          useFactory: () =>
+            options.handlers?.map((H) => {
+              log.info(`Registered request handler: ${H.name}`);
+              return new H();
+            }) ?? [],
+        },
+        AuthInterceptor,
+        {
+          provide: APP_INTERCEPTOR,
+          useExisting: AuthInterceptor,
+        },
+        DecafRequestContext,
+        DecafHandlerExecutor,
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: DecafRequestHandlerInterceptor,
+        },
+      ],
+      exports: [
+        DECAF_MODULE_OPTIONS,
+        DECAF_ADAPTER_ID,
+        DECAF_HANDLERS,
+        DecafRequestContext,
+        DecafHandlerExecutor,
+      ],
+    };
+  }
 
   static async bootPersistence(
     options: DecafModuleOptions
@@ -90,32 +130,6 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
     //   log.info("Adapter instance created successfully!");
     // }
     // return this.persistence;
-  }
-
-  static forRoot(options: DecafModuleOptions): DynamicModule {
-    const typeOrmModuleOptions = {
-      provide: DECAF_MODULE_OPTIONS,
-      useValue: options,
-    };
-
-    const adapter: FactoryProvider<any> = {
-      useFactory: async (opts: DecafModuleOptions) => {
-        return DecafCoreModule.bootPersistence(opts);
-      },
-      provide: DECAF_ADAPTER_ID,
-      durable: true,
-      scope: Scope.DEFAULT,
-      inject: [DECAF_MODULE_OPTIONS],
-    };
-
-    const providers = [adapter, typeOrmModuleOptions];
-    const exports = [adapter];
-
-    return {
-      module: DecafCoreModule,
-      providers,
-      exports,
-    };
   }
 
   async onApplicationShutdown(): Promise<void> {
