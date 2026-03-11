@@ -3,11 +3,8 @@ import "../src/overrides";
 
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { NestFactory } from "@nestjs/core";
-import {
-  DecafExceptionFilter,
-  DecafModule,
-  // RamTransformer,
-} from "../src/index";
+import { DecafExceptionFilter, DecafModule } from "../src/index";
+import { RamTransformer } from "../src/ram";
 // @ts-expect-error path
 import { RamAdapter } from "@decaf-ts/core/ram";
 
@@ -20,18 +17,11 @@ export async function getApp() {
     .build();
   const app = await NestFactory.create(
     DecafModule.forRootAsync({
-      conf: [[RamAdapter, {}]],
+      conf: [[RamAdapter, {}, new RamTransformer()]],
       autoControllers: true,
       autoServices: false,
     })
   );
-  // const app = await NestFactory.create(
-  //   DecafModule.forRootAsync({
-  //     conf: [[RamAdapter, {}, new RamTransformer()]],
-  //     autoControllers: true,
-  //     autoServices: false,
-  //   })
-  // );
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("api", app, documentFactory);
 

@@ -32,6 +32,7 @@ export * from "./request";
 export * from "./constants";
 export * from "./controllers";
 export * from "./module";
+export * from "./core-module";
 export * from "./types";
 export * from "./utils";
 export * from "./events-module";
@@ -45,4 +46,6 @@ export * from "./events-module";
 export const VERSION = "##VERSION##";
 export const PACKAGE_NAME = "##PACKAGE##";
 
+Metadata.allowReregistration(true);
 Metadata.registerLibrary(PACKAGE_NAME, VERSION);
+Metadata.allowReregistration(false);

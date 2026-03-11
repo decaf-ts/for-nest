@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
-import { DecafExceptionFilter, DecafModule } from "../../src";
+import { DecafExceptionFilter, DecafModule, DecafCoreModule } from "../../src";
 import { Adapter, ModelService, query, service } from "@decaf-ts/core";
 import {
   RamAdapter,
@@ -14,19 +14,7 @@ import { TestDtoModel } from "./fakes/models/TestDtoModel";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { OpenAPIObject } from "@nestjs/swagger/dist/interfaces/index";
 import { Constructor } from "@decaf-ts/decoration";
-import {
-  requestToContextTransformer,
-  RequestToContextTransformer,
-} from "../../src/interceptors/context";
-
-@requestToContextTransformer(RamFlavour)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-class RamTransformer implements RequestToContextTransformer<RamContext> {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async from(req: any, args: any): Promise<RamFlags> {
-    return { user: "here" }; // should be populating from req
-  }
-}
+import { RamTransformer } from "../../src/ram/index";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
@@ -45,11 +33,12 @@ describe("DecafModelModule OpenAPI", () => {
     beforeAll(async () => {
       // Injectables.setRegistry(new InjectablesRegistry());
       Adapter._cache = {};
+      (DecafCoreModule as any)._persistence = undefined;
 
       const moduleRef = await Test.createTestingModule({
         imports: [
           DecafModule.forRootAsync({
-            conf: [[RamAdapter, {}]],
+            conf: [[RamAdapter, {}, new RamTransformer()]],
             autoControllers: true,
             autoServices: false,
           }),
@@ -160,13 +149,12 @@ describe("DecafModelModule OpenAPI", () => {
 
     beforeAll(async () => {
       Adapter._cache = {};
-      new ProductService();
-      expect(ModelService.forModel(Product as Constructor)).toBeDefined();
+      (DecafCoreModule as any)._persistence = undefined;
 
       const moduleRef = await Test.createTestingModule({
         imports: [
           DecafModule.forRootAsync({
-            conf: [[RamAdapter, {}]],
+            conf: [[RamAdapter, {}, new RamTransformer()]],
             autoControllers: true,
             autoServices: true,
           }),
@@ -182,6 +170,9 @@ describe("DecafModelModule OpenAPI", () => {
         .setDescription("API de testes")
         .setVersion("1.0")
         .build();
+
+      new ProductService();
+      expect(ModelService.forModel(Product as Constructor)).toBeDefined();
 
       openApi = SwaggerModule.createDocument(app, swaggerConfig);
       await app.init();
@@ -259,6 +250,7 @@ describe("DecafModelModule OpenAPI", () => {
 
     beforeAll(async () => {
       Adapter._cache = {};
+      (DecafCoreModule as any)._persistence = undefined;
 
       // Ensure TestDtoModel is registered
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -267,7 +259,7 @@ describe("DecafModelModule OpenAPI", () => {
       const moduleRef = await Test.createTestingModule({
         imports: [
           DecafModule.forRootAsync({
-            conf: [[RamAdapter, {}]],
+            conf: [[RamAdapter, {}, new RamTransformer()]],
             autoControllers: true,
             autoServices: false,
           }),
@@ -367,7 +359,10 @@ describe("DecafModelModule OpenAPI", () => {
 
       if (!updateDtoName) {
         // Skip if no DTO is created
-        console.log("No UPDATE DTO found, available schemas:", Object.keys(schemas));
+        console.log(
+          "No UPDATE DTO found, available schemas:",
+          Object.keys(schemas)
+        );
         return;
       }
 
