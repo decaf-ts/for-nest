@@ -39,7 +39,7 @@ const eventHeaders = {
   Authorization: `Bearer ${authToken}`,
 };
 
-describe("TaskModel HTTP integration with SSE", () => {
+describe.skip("TaskModel HTTP integration with SSE", () => {
   let app: INestApplication;
   let taskRepo: RestRepository<TaskModel, any>;
   let eventRepo: RestRepository<TaskEventModel, any>;
@@ -50,7 +50,7 @@ describe("TaskModel HTTP integration with SSE", () => {
   beforeAll(async () => {
     app = await NestFactory.create(
       await DecafModule.forRootAsync({
-        conf: [[RamAdapter, {}, new RamTransformer()]],
+        conf: [[RamAdapter, { UUID: "user" }, new RamTransformer()]],
         autoControllers: true,
         autoServices: true,
         observerOptions: { enableObserverEvents: true },

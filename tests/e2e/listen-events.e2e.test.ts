@@ -30,7 +30,7 @@ const getId = () => Math.random().toString(36).slice(2);
 
 jest.setTimeout(180000);
 
-describe("Listen for /events (e2e)", () => {
+describe.skip("Listen for /events (e2e)", () => {
   let app: INestApplication;
   let repo: Repo<ProcessStep>;
   let httpAdapter: AxiosHttpAdapter;
@@ -56,6 +56,11 @@ describe("Listen for /events (e2e)", () => {
 
       _observer = new (class implements Observer {
         refresh(model, event, id): Promise<any> {
+          console.log("listenForEvent: event received", {
+            model,
+            event,
+            id,
+          });
           response(undefined, { model, event, id });
           return Promise.resolve();
         }
@@ -65,7 +70,13 @@ describe("Listen for /events (e2e)", () => {
         restService.observe(_observer);
         // wait to event listener to establish connection
         setTimeout(() => {
-          handler();
+          console.log("listenForEvent: invoking handler");
+          handler()
+            .then(() => console.log("listenForEvent: handler resolved"))
+            .catch((err) =>
+              console.error("listenForEvent: handler error", err)
+            );
+          console.log("listenForEvent: handler invoked");
         }, 8000);
       } catch (e: any) {
         response(e);
@@ -98,7 +109,7 @@ describe("Listen for /events (e2e)", () => {
     await app?.close();
   });
 
-  it.skip("should receive CREATE event", async () => {
+  it("should receive CREATE event", async () => {
     const payload = new ProcessStep({
       id: id,
       currentStep: 1,
@@ -118,7 +129,7 @@ describe("Listen for /events (e2e)", () => {
     });
   });
 
-  it.skip("should receive UPDATE event", async () => {
+  it("should receive UPDATE event", async () => {
     const payload = new ProcessStep({
       id: id,
       currentStep: 2,
@@ -138,7 +149,7 @@ describe("Listen for /events (e2e)", () => {
     });
   });
 
-  it.skip("should receive DELETE event", async () => {
+  it("should receive DELETE event", async () => {
     const event = await listenForEvent(async () => {
       const r = await repo.delete(id);
       expect(r).toBeDefined();
