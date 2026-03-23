@@ -8,7 +8,11 @@ import {
 } from "@nestjs/common";
 import { APP_INTERCEPTOR, ModuleRef } from "@nestjs/core";
 import type { DecafModuleOptions } from "./types";
-import { DECAF_ADAPTER_ID, DECAF_HANDLERS, DECAF_MODULE_OPTIONS } from "./constants";
+import {
+  DECAF_ADAPTER_ID,
+  DECAF_HANDLERS,
+  DECAF_MODULE_OPTIONS,
+} from "./constants";
 import { FactoryProvider } from "@nestjs/common/interfaces/modules/provider.interface";
 import { Adapter, PersistenceService } from "@decaf-ts/core";
 import { Logger, Logging } from "@decaf-ts/logging";
@@ -20,6 +24,7 @@ import {
   requestToContextTransformer,
 } from "./interceptors";
 import { DecafHandlerExecutor, DecafRequestContext } from "./request";
+import { Constructor } from "@decaf-ts/decoration";
 
 @Global()
 @Module({})
@@ -100,15 +105,26 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
       const clients = this._persistence.client;
       for (let i = 0; i < clients.length; i++) {
         const c = options.conf[i];
-        let [, , transformer] = c;
-        if (!transformer) {
+        const possibleTransf = c.slice(2, c.length);
+        let transformer = possibleTransf.pop();
+        if (
+          !transformer ||
+          !(transformer as RequestToContextTransformer<any>).from
+        ) {
           const contr = Adapter.transformerFor(clients[i].flavour);
           if (!contr)
             throw new InternalError(
               `No transformer found for flavour ${clients[i].flavour}. you should either @requestToContextTransformer or provide a transformer in the config`
             );
-          transformer =
-            contr instanceof RequestToContextTransformer ? contr : new contr();
+          try {
+            transformer = (contr as RequestToContextTransformer<any>).from
+              ? contr
+              : new (contr as Constructor<RequestToContextTransformer<any>>)();
+          } catch (e: unknown) {
+            throw new InternalError(
+              `Failed to boot transformer for ${clients[i].flavour}`
+            );
+          }
         }
         requestToContextTransformer(clients[i].flavour)(transformer);
       }

@@ -89,7 +89,8 @@
   },
   "homepage": "https://github.com/decaf-ts/for-nest#readme",
   "devDependencies": {
-    "@decaf-ts/for-fabric": "^0.3.44",
+    "@decaf-ts/cli": "latest",
+    "@decaf-ts/for-fabric": "latest",
     "@decaf-ts/for-http": "latest",
     "@decaf-ts/utils": "latest",
     "@eslint/js": "^9.25.1",
@@ -123,9 +124,6 @@
     "fabric-ca-client": {
       "jsrsasign": "^11.1.0"
     },
-    "minimatch": "^10.2.3",
-    "test-exclude": "^7.0.1",
-    "serialize-javascript": "^7.0.3",
     "ajv": "^8.17.2"
   }
 }

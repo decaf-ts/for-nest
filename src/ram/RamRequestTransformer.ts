@@ -5,8 +5,10 @@ import {
   RequestToContextTransformer,
 } from "../interceptors/context";
 
-@requestToContextTransformer("ram")
+// @requestToContextTransformer("ram")
 export class RamTransformer implements RequestToContextTransformer<RamContext> {
+  constructor() {}
+
   async from(req: any): Promise<RamFlags> {
     const user = req.headers.authorization
       ? req.headers.authorization.split(" ")[1]
