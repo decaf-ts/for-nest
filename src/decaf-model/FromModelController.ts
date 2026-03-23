@@ -21,6 +21,7 @@ import {
   PreparedStatementKeys,
   type Repo,
   Repository,
+  Service,
 } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Logging, toKebabCase } from "@decaf-ts/logging";
@@ -113,10 +114,14 @@ export class FromModelController {
     ModelClazz: ModelConstructor<T>
   ): Repo<T> | ModelService<T> {
     try {
-      return ModelService.getService(ModelClazz) as ModelService<T>;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      return Service.get(ModelClazz as any) as ModelService<T>;
     } catch (e: unknown) {
-      return Repository.forModel(ModelClazz) as Repo<T>;
+      try {
+        return ModelService.getService(ModelClazz) as ModelService<T>;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e: unknown) {
+        return Repository.forModel(ModelClazz) as Repo<T>;
+      }
     }
   }
 
@@ -341,7 +346,8 @@ export class FromModelController {
         const { ctx } = (
           await this.logCtx([], PreparedStatementKeys.FIND, true)
         ).for(this.find);
-        const direction = (details.direction ?? OrderDirection.ASC) as OrderDirection;
+        const direction = (details.direction ??
+          OrderDirection.ASC) as OrderDirection;
         return resolvePersistenceMethod(
           this.persistence(ctx),
           this.find.name,
@@ -505,7 +511,9 @@ export class FromModelController {
           (a) => (typeof a === "string" ? parseInt(a) : a) || a
         ) as any[];
         const pathDirection = args.length > 1 ? args[1] : undefined;
-        const resolvedDirection = (direction ?? pathDirection) as string | undefined;
+        const resolvedDirection = (direction ?? pathDirection) as
+          | string
+          | undefined;
         if (resolvedDirection && args.length > 1) args[1] = resolvedDirection;
         switch (name) {
           case PreparedStatementKeys.FIND:

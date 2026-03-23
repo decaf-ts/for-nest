@@ -129,14 +129,14 @@ export abstract class DecafModelController<
   persistence(ctx?: Context<any>): Repo<M> | ModelService<M> {
     if (!this._persistence)
       try {
-        this._persistence = ModelService.getService(
-          this.class
+        this._persistence = Service.get(
+          this.class as Constructor
         ) as ModelService<M>;
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: unknown) {
         try {
-          this._persistence = Service.get(
-            this.class as Constructor
+          this._persistence = ModelService.getService(
+            this.class
           ) as ModelService<M>;
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (e: unknown) {
