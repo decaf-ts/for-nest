@@ -55,6 +55,7 @@ export type DecafModuleOptions<
   observerOptions?: ObserverEventsOptions;
   aggregations?: boolean;
   handlers?: Type<DecafRequestHandler>[];
+  initialization?: () => Promise<void>;
 };
 
 /**

@@ -122,13 +122,21 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
               : new (contr as Constructor<RequestToContextTransformer<any>>)();
           } catch (e: unknown) {
             throw new InternalError(
-              `Failed to boot transformer for ${clients[i].flavour}`
+              `Failed to boot transformer for ${clients[i].flavour}: ${e}`
             );
           }
         }
         requestToContextTransformer(clients[i].flavour)(transformer);
       }
       log.info("persistence layer created successfully!");
+
+      if (options.initialization) {
+        try {
+          await options.initialization();
+        } catch (e: unknown) {
+          throw new InternalError(`Failed to initialize application: ${e}`);
+        }
+      }
     }
 
     return this.persistence.client;
