@@ -9,7 +9,7 @@ import { DecafStreamModule } from "../../src/events-module";
 import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
 import { RamTransformer } from "../../src/ram";
 
-const PORT = 3000;
+const PORT = 3101;
 const serverUrl = `127.0.0.1:${PORT}`;
 
 @Module({
