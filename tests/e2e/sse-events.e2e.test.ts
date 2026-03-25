@@ -241,4 +241,42 @@ describe("SSE /events (e2e)", () => {
       expect(tableName).toEqual(payload.constructor.name);
     }
   });
+
+  it("should listen for parallel events", async () => {
+    const payload = new ProcessStep({
+      id: `Parallel_PS001`,
+      currentStep: 1,
+      totalSteps: 1,
+      label: `Step ${1}`,
+    });
+
+    const [res1, res2] = await Promise.allSettled<Array<any>>([
+      listenForEvent(async () => {
+        console.log("Waiting for event...");
+      }),
+      listenForEvent(async () => {
+        console.log("Creating record...");
+        // Wait until the first event listener is connected.
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        await repo.create(payload);
+        console.log("Record created...");
+      }),
+    ]);
+
+    const event: Array<any> = res1.status !== "rejected" ? res1.value : [];
+    const anotherEvent: Array<any> =
+      res2.status !== "rejected" ? res2.value : [];
+
+    expect(Array.isArray(event)).toEqual(true);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [tableName, operationKey, id, model, _] = event;
+    expect(operationKey).toBe(OperationKeys.CREATE);
+    expect(id).toBe(payload.id);
+    expect(Serialization.deserialize(model)).toMatchObject(payload);
+    expect(tableName).toEqual(payload.constructor.name);
+
+    expect(event.length).toEqual(anotherEvent.length);
+    expect(event).toEqual(anotherEvent);
+  });
 });
