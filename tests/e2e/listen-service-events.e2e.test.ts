@@ -35,7 +35,7 @@ const getId = () => Math.random().toString(36).slice(2);
 
 jest.setTimeout(180000);
 
-describe.skip("Listen Rest Service Events (e2e)", () => {
+describe("Listen Rest Service Events (e2e)", () => {
   let app: INestApplication;
   let repo: Repo<ProcessStep>;
   let httpAdapter: AxiosHttpAdapter;
