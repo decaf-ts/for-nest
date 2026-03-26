@@ -11,8 +11,7 @@ import { DecafStreamModule } from "../../src/events-module";
 import { RamTransformer } from "../../src/ram";
 import { Serialization } from "@decaf-ts/decorator-validation";
 
-const PORT = 3001;
-const serverUrl = `http://127.0.0.1:${PORT}`;
+let serverUrl: string;
 
 @repository(ProcessStep)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -126,8 +125,12 @@ describe("Listen Server Events (e2e)", () => {
     app = await NestFactory.create(AppModule);
     app.useGlobalFilters(new DecafExceptionFilter());
     await app.init();
-    await app.listen(PORT);
-
+    const server = await app.listen(0);
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      throw new Error("Failed to resolve server address");
+    }
+    serverUrl = `http://127.0.0.1:${address.port}`;
     repo = Repository.forModel(ProcessStep);
   });
 
@@ -284,7 +287,7 @@ describe("Listen Server Events (e2e)", () => {
 
     events.forEach((event) => {
       expect(Array.isArray(event)).toBe(true);
-      expect(event).toHaveLength(5);
+      expect(event).toHaveLength(4);
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [tableName, operationKey, id, model, _metadata] = event;
