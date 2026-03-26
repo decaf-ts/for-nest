@@ -26,6 +26,7 @@ export class EventsController extends DecafController<DecafServerCtx> {
 
     return new Observable<MessageEvent>((observer) => {
       const cb = new (class implements Observer {
+        id = `backend-${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
         refresh(...args: any[]): Promise<void> {
           return Promise.resolve().then(() => {
             const data = normalizeEventResponse(args);
