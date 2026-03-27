@@ -39,7 +39,11 @@ export class DecafModule {
     }
 
     if (options.observerOptions?.enableObserverEvents) {
-      imports.push(DecafStreamModule.forFlavours(flavours));
+      imports.push(
+        DecafStreamModule.forFlavours(
+          options.observerOptions.observerFlavours || flavours
+        )
+      );
     }
 
     return {

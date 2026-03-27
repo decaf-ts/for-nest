@@ -25,36 +25,62 @@ export class EventsController extends DecafController<DecafServerCtx> {
     const logger = Logging.for(EventsController.name);
 
     return new Observable<MessageEvent>((observer) => {
+      const observerId =
+        `B-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
+
+      logger.info(
+        `Creating SSE observer: ${observerId} for client ${this.clientContext.uuid}`
+      );
       const cb = new (class implements Observer {
-        id = `backend-${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+        observerId = observerId;
         refresh(...args: any[]): Promise<void> {
+          logger.debug(
+            `SSE observer ${this.observerId} received refresh event`
+          );
           return Promise.resolve().then(() => {
             const data = normalizeEventResponse(args);
             observer.next({ data } as any);
+            logger.debug(
+              `SSE observer ${this.observerId} event pushed to client`
+            );
           });
         }
       })();
 
-      // if (!events || events.length === 0)
-      //   return observer.error({
-      //     message: `${NotFoundError.name} - No events available to listen for role: ${type}.`,
-      //   });
-
-      try {
-        for (const adapter of this.adapters) {
+      logger.verbose(
+        `Registering observer ${observerId} across ${this.adapters.length} adapter(s)`
+      );
+      for (const adapter of this.adapters) {
+        const adapterName = adapter?.constructor?.name ?? "UnknownAdapter";
+        try {
+          logger.debug(
+            `Registering observer ${observerId} in adapter ${adapterName}`
+          );
           adapter.observe(cb);
+        } catch (e: any) {
+          logger.debug(
+            `Failed to register observer ${observerId} in adapter ${adapterName}: ${e?.message || e}`
+          );
+          logger.error(e);
         }
-      } catch (e: any) {
-        observer.error(`Failed to observe event: ${e.message || e}`);
       }
 
       return () => {
-        try {
-          for (const adapter of this.adapters) {
+        logger.debug(`Cleaning up SSE observer ${observerId}`);
+
+        for (const adapter of this.adapters) {
+          const adapterName = adapter?.constructor?.name ?? "UnknownAdapter";
+          try {
+            logger.debug(
+              `Unregistering observer ${observerId} from adapter ${adapterName}`
+            );
             adapter.unObserve(cb);
+          } catch (e: any) {
+            logger.debug(
+              `Failed during cleanup of observer ${observerId} in adapter ${adapterName}: ${e?.message || e}`
+            );
+            logger.error(e);
           }
-        } catch (e: any) {
-          logger.error(e);
         }
       };
     });
