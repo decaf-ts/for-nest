@@ -25,16 +25,18 @@ export class EventsController extends DecafController<DecafServerCtx> {
     const logger = Logging.for(EventsController.name);
 
     return new Observable<MessageEvent>((observer) => {
-      const observerId = `B-${this.clientContext.uuid}`;
+      const observerId =
+        `B-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
 
-      logger.debug(`Creating SSE observer: ${observerId}`);
+      logger.info(
+        `Creating SSE observer: ${observerId} for client ${this.clientContext.uuid}`
+      );
       const cb = new (class implements Observer {
         observerId = observerId;
         refresh(...args: any[]): Promise<void> {
           logger.debug(
-            `SSE observer ${this.observerId} received refresh with ${args.length} arg(s)`
+            `SSE observer ${this.observerId} received refresh event`
           );
-
           return Promise.resolve().then(() => {
             const data = normalizeEventResponse(args);
             observer.next({ data } as any);
@@ -45,36 +47,40 @@ export class EventsController extends DecafController<DecafServerCtx> {
         }
       })();
 
-      try {
-        logger.debug(`Registering observer ${observerId} in adapters`);
-        for (const adapter of this.adapters) {
+      logger.verbose(
+        `Registering observer ${observerId} across ${this.adapters.length} adapter(s)`
+      );
+      for (const adapter of this.adapters) {
+        const adapterName = adapter?.constructor?.name ?? "UnknownAdapter";
+        try {
           logger.debug(
-            `Registering observer ${observerId} in adapter ${adapter?.constructor?.name ?? "UnknownAdapter"}`
+            `Registering observer ${observerId} in adapter ${adapterName}`
           );
           adapter.observe(cb);
+        } catch (e: any) {
+          logger.debug(
+            `Failed to register observer ${observerId} in adapter ${adapterName}: ${e?.message || e}`
+          );
+          logger.error(e);
         }
-      } catch (e: any) {
-        logger.debug(
-          `Failed to register observer ${observerId}: ${e?.message || e}`
-        );
-        observer.error(`Failed to observe event: ${e.message || e}`);
       }
 
       return () => {
         logger.debug(`Cleaning up SSE observer ${observerId}`);
 
-        try {
-          for (const adapter of this.adapters) {
+        for (const adapter of this.adapters) {
+          const adapterName = adapter?.constructor?.name ?? "UnknownAdapter";
+          try {
             logger.debug(
-              `Unregistering observer ${observerId} from adapter ${adapter?.constructor?.name ?? "UnknownAdapter"}`
+              `Unregistering observer ${observerId} from adapter ${adapterName}`
             );
             adapter.unObserve(cb);
+          } catch (e: any) {
+            logger.debug(
+              `Failed during cleanup of observer ${observerId} in adapter ${adapterName}: ${e?.message || e}`
+            );
+            logger.error(e);
           }
-        } catch (e: any) {
-          logger.debug(
-            `Failed during cleanup of observer ${observerId}: ${e?.message || e}`
-          );
-          logger.error(e);
         }
       };
     });
