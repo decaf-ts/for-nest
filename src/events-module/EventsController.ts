@@ -25,35 +25,55 @@ export class EventsController extends DecafController<DecafServerCtx> {
     const logger = Logging.for(EventsController.name);
 
     return new Observable<MessageEvent>((observer) => {
+      const observerId = `B-${this.clientContext.uuid}`;
+
+      logger.debug(`Creating SSE observer: ${observerId}`);
       const cb = new (class implements Observer {
-        id = `backend-${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+        observerId = observerId;
         refresh(...args: any[]): Promise<void> {
+          logger.debug(
+            `SSE observer ${this.observerId} received refresh with ${args.length} arg(s)`
+          );
+
           return Promise.resolve().then(() => {
             const data = normalizeEventResponse(args);
             observer.next({ data } as any);
+            logger.debug(
+              `SSE observer ${this.observerId} event pushed to client`
+            );
           });
         }
       })();
 
-      // if (!events || events.length === 0)
-      //   return observer.error({
-      //     message: `${NotFoundError.name} - No events available to listen for role: ${type}.`,
-      //   });
-
       try {
+        logger.debug(`Registering observer ${observerId} in adapters`);
         for (const adapter of this.adapters) {
+          logger.debug(
+            `Registering observer ${observerId} in adapter ${adapter?.constructor?.name ?? "UnknownAdapter"}`
+          );
           adapter.observe(cb);
         }
       } catch (e: any) {
+        logger.debug(
+          `Failed to register observer ${observerId}: ${e?.message || e}`
+        );
         observer.error(`Failed to observe event: ${e.message || e}`);
       }
 
       return () => {
+        logger.debug(`Cleaning up SSE observer ${observerId}`);
+
         try {
           for (const adapter of this.adapters) {
+            logger.debug(
+              `Unregistering observer ${observerId} from adapter ${adapter?.constructor?.name ?? "UnknownAdapter"}`
+            );
             adapter.unObserve(cb);
           }
         } catch (e: any) {
+          logger.debug(
+            `Failed during cleanup of observer ${observerId}: ${e?.message || e}`
+          );
           logger.error(e);
         }
       };
