@@ -117,7 +117,7 @@ const getId = () => Math.random().toString(36).slice(2);
 
 jest.setTimeout(50000);
 
-describe.skip("Listen Server Events (e2e)", () => {
+describe("Listen Server Events (e2e)", () => {
   let app: INestApplication;
   let repo: Repo<ProcessStep>;
 
