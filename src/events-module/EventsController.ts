@@ -1,12 +1,13 @@
 import { DecafController } from "../controllers";
 import { DecafRequestContext } from "../request";
 import { Adapter, Observer } from "@decaf-ts/core";
-import { Controller, Inject, Query, Sse } from "@nestjs/common";
-import { Observable } from "rxjs";
+import { Controller, Inject, MessageEvent, Query, Sse } from "@nestjs/common";
+import { interval, merge, Observable } from "rxjs";
 import { Logging } from "@decaf-ts/logging";
 import { LISTENING_ADAPTERS_FLAVOURS } from "./constant";
 import { DecafServerCtx } from "../constants";
 import { normalizeEventResponse } from "./utils";
+import { map, tap } from "rxjs/operators";
 
 @Controller()
 export class EventsController extends DecafController<DecafServerCtx> {
@@ -24,7 +25,7 @@ export class EventsController extends DecafController<DecafServerCtx> {
   listen(): Observable<MessageEvent> {
     const logger = Logging.for(EventsController.name);
 
-    return new Observable<MessageEvent>((observer) => {
+    const events$ = new Observable<MessageEvent>((observer) => {
       const observerId =
         `B-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
 
@@ -39,7 +40,7 @@ export class EventsController extends DecafController<DecafServerCtx> {
           );
           return Promise.resolve().then(() => {
             const data = normalizeEventResponse(args);
-            observer.next({ data } as any);
+            observer.next({ type: "message", data });
             logger.debug(
               `SSE observer ${this.observerId} event pushed to client`
             );
@@ -84,6 +85,23 @@ export class EventsController extends DecafController<DecafServerCtx> {
         }
       };
     });
+
+    const HEARTBEAT_INTERVAL_MS = 15000;
+    const heartbeat$ = interval(HEARTBEAT_INTERVAL_MS).pipe(
+      tap(() => {
+        logger.debug("Sending heartbeat");
+      }),
+      map(
+        (): MessageEvent => ({
+          type: "heartbeat",
+          data: {
+            ts: new Date().toISOString(),
+          },
+        })
+      )
+    );
+
+    return merge(events$, heartbeat$);
   }
 
   @Sse("/:model")
