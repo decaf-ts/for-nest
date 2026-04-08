@@ -8,6 +8,7 @@ import {
 import { BaseError, InternalError } from "@decaf-ts/db-decorators";
 import { LoggedEnvironment } from "@decaf-ts/logging";
 import { UnsupportedError } from "@decaf-ts/core";
+import { ToManyRequestsError } from "../errors/throttling";
 
 @Catch()
 export class DecafExceptionFilter implements ExceptionFilter {
@@ -25,8 +26,13 @@ export class DecafExceptionFilter implements ExceptionFilter {
     ) {
       exception = new NotAcceptableException(exception.message);
       statusCode = (exception as NotAcceptableException).getStatus();
-    } else if (!(exception instanceof BaseError))
-      exception = new InternalError(exception.message);
+    } else if (!(exception instanceof BaseError)) {
+      if((exception as BaseError).code === 429){
+        exception = new ToManyRequestsError(exception.message);
+      }else{
+        exception = new InternalError(exception.message);
+      }
+    }
 
     response.status((exception as BaseError).code || statusCode).json({
       status: (exception as BaseError).code || statusCode,
