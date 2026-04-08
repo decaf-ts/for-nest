@@ -27,7 +27,7 @@ export class DecafExceptionFilter implements ExceptionFilter {
       exception = new NotAcceptableException(exception.message);
       statusCode = (exception as NotAcceptableException).getStatus();
     } else if (!(exception instanceof BaseError)) {
-      if((exception as BaseError).code === 429){
+      if((exception as any).status === 429){
         exception = new ToManyRequestsError(exception.message);
       }else{
         exception = new InternalError(exception.message);
