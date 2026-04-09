@@ -5,7 +5,13 @@ import {
   NestInterceptor,
   Scope,
 } from "@nestjs/common";
-import { DecafHandlerExecutor } from "../request";
+import { DecafHandlerExecutor, DecafRequestContext } from "../request";
+import { Adapter, Context, DefaultAdapterFlags } from "@decaf-ts/core";
+import { DecafServerCtx, DecafServerFlags } from "../constants";
+import "../overrides";
+import { Logging } from "@decaf-ts/logging";
+import { InternalError } from "@decaf-ts/db-decorators";
+import { RequestToContextTransformer } from "./context";
 
 /**
  * @description
@@ -55,12 +61,66 @@ import { DecafHandlerExecutor } from "../request";
  */
 @Injectable({ scope: Scope.REQUEST })
 export class DecafRequestHandlerInterceptor implements NestInterceptor {
-  constructor(private readonly executor: DecafHandlerExecutor) {}
+  constructor(
+    protected readonly requestContext: DecafRequestContext,
+    protected readonly executor: DecafHandlerExecutor
+  ) {}
 
-  async intercept(ctx: ExecutionContext, next: CallHandler) {
-    const req = ctx.switchToHttp().getRequest();
-    const res = ctx.switchToHttp().getResponse();
+  protected async contextualize(req: any): Promise<DecafServerCtx> {
+    const headers = req.headers;
+    const flags: DecafServerFlags = {
+      headers: headers,
+      overrides: {},
+    } as any;
+
+    const flavours = Adapter.flavoursToTransform();
+    if (flavours)
+      for (const flavour of flavours) {
+        try {
+          const transformer = Adapter.transformerFor(
+            flavour
+          ) as RequestToContextTransformer<any>;
+          const from = await transformer.from(req);
+          Object.assign(flags.overrides, from);
+        } catch (e: unknown) {
+          throw new InternalError(`Failed to contextualize request: ${e}`);
+        }
+      }
+    const ctx = new Context().accumulate(
+      Object.assign(
+        {},
+        DefaultAdapterFlags,
+        {
+          logger: Logging.get(),
+          timestamp: new Date(),
+        },
+        flags
+      )
+    );
+    return ctx as any;
+  }
+
+  async intercept(context: ExecutionContext, next: CallHandler) {
+    const req = context.switchToHttp().getRequest();
+    const res = context.switchToHttp().getResponse();
+    const log = Logging.for(DecafRequestHandlerInterceptor).for(this.intercept);
+    log.debug(
+      `CONTEXT ${this.requestContext.uuid} - request: ${req.method} ${req.url}`
+    );
+    const ctx = await this.contextualize(req);
+    log.debug(
+      `CONTEXT ${this.requestContext.uuid} contextualized - request: ${req.method} ${req.url}`
+    );
+
+    this.requestContext.applyCtx(ctx);
+    log.debug(
+      `CONTEXT ${this.requestContext.uuid} applied - request: ${req.method} ${req.url}`
+    );
+
     await this.executor.exec(req, res);
+    log.debug(
+      `CONTEXT ${this.requestContext.uuid} executors finished - request: ${req.method} ${req.url}`
+    );
     return next.handle();
   }
 }

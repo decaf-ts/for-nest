@@ -3,9 +3,12 @@ import request from "supertest";
 import { INestApplication } from "@nestjs/common";
 import { FakeHandler } from "./fakes/fake.handler";
 import { DecafModule } from "../../src";
-import { Adapter, RamAdapter, RamFlavour } from "@decaf-ts/core";
+import { Adapter } from "@decaf-ts/core";
+// @ts-expect-error ram
+import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { Fake } from "./fakes/models/Fake";
 import { Model } from "@decaf-ts/decorator-validation";
+import { RamTransformer } from "../../src/ram/index";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
@@ -20,8 +23,7 @@ describe("DecafModule RequestHandlerInterceptor", () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         DecafModule.forRootAsync({
-          adapter: RamAdapter,
-          conf: undefined,
+          conf: [[RamAdapter, {}, new RamTransformer()]],
           autoControllers: true,
           handlers: [FakeHandler],
         }),
@@ -52,7 +54,7 @@ describe("DecafModule RequestHandlerInterceptor", () => {
     );
 
     responses.forEach((res) => expect(res.status).toBe(201));
-    expect(spy).toBeCalledTimes(payloads.length);
+    expect(spy).toHaveBeenCalledTimes(payloads.length);
 
     responses.forEach((res, idx) => {
       const expected = `fake-cert-${payloads[idx].id}`;

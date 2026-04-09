@@ -1,6 +1,14 @@
-import { ArgumentsHost, Catch, ExceptionFilter } from "@nestjs/common";
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  NotAcceptableException,
+  NotFoundException,
+} from "@nestjs/common";
 import { BaseError, InternalError } from "@decaf-ts/db-decorators";
 import { LoggedEnvironment } from "@decaf-ts/logging";
+import { UnsupportedError } from "@decaf-ts/core";
+import { ToManyRequestsError } from "../errors/throttling";
 
 @Catch()
 export class DecafExceptionFilter implements ExceptionFilter {
@@ -10,12 +18,24 @@ export class DecafExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest();
 
     const isProduction = LoggedEnvironment.env === "production";
-    if (!(exception instanceof BaseError)) {
-      exception = new InternalError(exception.message);
+    let statusCode;
+
+    if (
+      exception instanceof NotFoundException ||
+      exception instanceof UnsupportedError
+    ) {
+      exception = new NotAcceptableException(exception.message);
+      statusCode = (exception as NotAcceptableException).getStatus();
+    } else if (!(exception instanceof BaseError)) {
+      if((exception as any).status === 429){
+        exception = new ToManyRequestsError(exception.message);
+      }else{
+        exception = new InternalError(exception.message);
+      }
     }
 
-    response.status((exception as BaseError).code).json({
-      status: (exception as BaseError).code,
+    response.status((exception as BaseError).code || statusCode).json({
+      status: (exception as BaseError).code || statusCode,
       error: isProduction ? exception.name : exception.message,
       timestamp: new Date().toISOString(),
       path: request.url,

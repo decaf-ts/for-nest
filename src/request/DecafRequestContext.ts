@@ -1,35 +1,43 @@
-import { Injectable, Scope } from "@nestjs/common";
+import { Inject, Injectable, Scope } from "@nestjs/common";
+import { DecafServerCtx } from "../constants";
+import { InternalError } from "@decaf-ts/db-decorators";
+import { REQUEST } from "@nestjs/core";
+import { UUID } from "@decaf-ts/core";
 
-/**
- * @description
- * Request-scoped context used to store arbitrary values for the duration of a single request.
- *
- * @summary
- * The {@link DecafRequestContext} class provides an isolated per-request key-value cache,
- * enabling services and controllers to share state or metadata without relying on global
- * or static variables. Keys may be strings or symbols, and cached values may hold any
- * serializable or non-serializable object.
- *
- * @class DecafRequestContext
- *
- * @example
- * ```ts
- * // Saving a value in the request context:
- * context.set("tenantId", "abc123");
- *
- * // Retrieving it later in the request lifecycle:
- * const tenantId = context.get<string>("tenantId");
- * ```
- */
 @Injectable({ scope: Scope.REQUEST })
-export class DecafRequestContext {
-  private cache = new Map<string | symbol, any>();
+export class DecafRequestContext<C extends DecafServerCtx = DecafServerCtx> {
+  private _ctx?: C;
 
-  set(key: string | symbol, value: any) {
-    this.cache.set(key, value);
+  uuid = UUID.instance.generate();
+
+  constructor(@Inject(REQUEST) private readonly req: Request) {}
+
+  get request(): Record<string | symbol, any> {
+    return this.req;
   }
 
-  get<T = any>(key: string | symbol): T | undefined {
-    return this.cache.get(key);
+  put(record: Record<any, any>) {
+    let overrides: any;
+    try {
+      overrides = this.ctx.get("overrides");
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e: unknown) {
+      overrides = {};
+    }
+
+    this._ctx = this.ctx.accumulate({
+      overrides: Object.assign(overrides, record),
+    }) as any;
+  }
+
+  applyCtx(ctx: C) {
+    if (this._ctx) throw new InternalError("Trying to overwrite context");
+    this._ctx = ctx;
+  }
+
+  get ctx(): C {
+    if (!this._ctx)
+      throw new InternalError(`Context not initialized for request`);
+    return this._ctx;
   }
 }

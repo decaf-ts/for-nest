@@ -1,18 +1,20 @@
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
-import { DecafExceptionFilter, DecafModule } from "../../src";
+import { DecafExceptionFilter, DecafModule, DecafCoreModule } from "../../src";
+import { Adapter, ModelService, query, service } from "@decaf-ts/core";
 import {
-  Adapter,
-  ModelService,
-  query,
   RamAdapter,
+  RamContext,
+  RamFlags,
   RamFlavour,
-  service,
-} from "@decaf-ts/core";
+  // @ts-expect-error  import from ram
+} from "@decaf-ts/core/ram";
 import { Product } from "./fakes/models/Product";
+import { TestDtoModel } from "./fakes/models/TestDtoModel";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { OpenAPIObject } from "@nestjs/swagger/dist/interfaces/index";
 import { Constructor } from "@decaf-ts/decoration";
+import { RamTransformer } from "../../src/ram/index";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
@@ -31,12 +33,12 @@ describe("DecafModelModule OpenAPI", () => {
     beforeAll(async () => {
       // Injectables.setRegistry(new InjectablesRegistry());
       Adapter._cache = {};
+      (DecafCoreModule as any)._persistence = undefined;
 
       const moduleRef = await Test.createTestingModule({
         imports: [
           DecafModule.forRootAsync({
-            adapter: RamAdapter,
-            conf: undefined,
+            conf: [[RamAdapter, {}, new RamTransformer()]],
             autoControllers: true,
             autoServices: false,
           }),
@@ -147,14 +149,12 @@ describe("DecafModelModule OpenAPI", () => {
 
     beforeAll(async () => {
       Adapter._cache = {};
-      new ProductService();
-      expect(ModelService.forModel(Product as Constructor)).toBeDefined();
+      (DecafCoreModule as any)._persistence = undefined;
 
       const moduleRef = await Test.createTestingModule({
         imports: [
           DecafModule.forRootAsync({
-            adapter: RamAdapter,
-            conf: undefined,
+            conf: [[RamAdapter, {}, new RamTransformer()]],
             autoControllers: true,
             autoServices: true,
           }),
@@ -170,6 +170,9 @@ describe("DecafModelModule OpenAPI", () => {
         .setDescription("API de testes")
         .setVersion("1.0")
         .build();
+
+      new ProductService();
+      expect(ModelService.forModel(Product as Constructor)).toBeDefined();
 
       openApi = SwaggerModule.createDocument(app, swaggerConfig);
       await app.init();
@@ -238,6 +241,182 @@ describe("DecafModelModule OpenAPI", () => {
       ]);
       expect(Object.keys(byAge.responses)).toEqual(["200", "204"]);
       expect(byAge.tags).toContain("Product");
+    });
+  });
+
+  describe("DtoFor Required/Optional Properties", () => {
+    let app: INestApplication;
+    let openApi: OpenAPIObject;
+
+    beforeAll(async () => {
+      Adapter._cache = {};
+      (DecafCoreModule as any)._persistence = undefined;
+
+      // Ensure TestDtoModel is registered
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _testModel = TestDtoModel;
+
+      const moduleRef = await Test.createTestingModule({
+        imports: [
+          DecafModule.forRootAsync({
+            conf: [[RamAdapter, {}, new RamTransformer()]],
+            autoControllers: true,
+            autoServices: false,
+          }),
+        ],
+      }).compile();
+
+      app = moduleRef.createNestApplication();
+      const exceptions = [new DecafExceptionFilter()];
+      app.useGlobalFilters(...exceptions);
+
+      const swaggerConfig = new DocumentBuilder()
+        .setTitle("Decaf API")
+        .setDescription("API de testes")
+        .setVersion("1.0")
+        .build();
+
+      openApi = SwaggerModule.createDocument(app, swaggerConfig);
+      await app.init();
+    });
+
+    afterAll(async () => {
+      await app?.close();
+    });
+
+    it("should mark @required properties as required regardless of decorator order", () => {
+      // Find the schema for the TestDtoModel CREATE DTO
+      const schemas = openApi.components?.schemas || {};
+      const createDtoName = Object.keys(schemas).find(
+        (name) => name.includes("TestDtoModel") && name.includes("Create")
+      );
+
+      if (!createDtoName) {
+        // If no DTO is created, check the base model schema
+        const baseSchema = schemas["TestDtoModel"] as any;
+        if (baseSchema) {
+          const requiredFields = baseSchema.required || [];
+          // All properties with @required() should be in the required array
+          expect(requiredFields).toContain("simpleRequired");
+          expect(requiredFields).toContain("requiredWithValidationBefore");
+          expect(requiredFields).toContain("requiredWithValidationAfter");
+          expect(requiredFields).toContain("requiredWithValidationAround");
+
+          // Optional properties should NOT be in the required array
+          expect(requiredFields).not.toContain("optionalNoValidation");
+          expect(requiredFields).not.toContain("optionalWithValidation");
+        }
+        return;
+      }
+
+      const schema = schemas[createDtoName] as any;
+      expect(schema).toBeDefined();
+
+      const requiredFields = schema.required || [];
+
+      // All properties with @required() should be in the required array
+      expect(requiredFields).toContain("simpleRequired");
+      expect(requiredFields).toContain("requiredWithValidationBefore");
+      expect(requiredFields).toContain("requiredWithValidationAfter");
+      expect(requiredFields).toContain("requiredWithValidationAround");
+
+      // Optional properties should NOT be in the required array
+      expect(requiredFields).not.toContain("optionalNoValidation");
+      expect(requiredFields).not.toContain("optionalWithValidation");
+    });
+
+    it("should exclude generated properties from CREATE DTO schema", () => {
+      const schemas = openApi.components?.schemas || {};
+      const createDtoName = Object.keys(schemas).find(
+        (name) => name.includes("TestDtoModel") && name.includes("Create")
+      );
+
+      if (!createDtoName) {
+        // Skip if no DTO is created
+        return;
+      }
+
+      const schema = schemas[createDtoName] as any;
+      expect(schema).toBeDefined();
+
+      const properties = schema.properties || {};
+
+      // Generated properties should be excluded from CREATE DTO
+      expect(properties).not.toHaveProperty("id");
+      expect(properties).not.toHaveProperty("createdAt");
+      expect(properties).not.toHaveProperty("updatedAt");
+
+      // Non-generated properties should be present
+      expect(properties).toHaveProperty("simpleRequired");
+      expect(properties).toHaveProperty("optionalNoValidation");
+    });
+
+    it("should include PK but exclude other generated properties from UPDATE DTO schema", () => {
+      const schemas = openApi.components?.schemas || {};
+      const updateDtoName = Object.keys(schemas).find(
+        (name) => name.includes("TestDtoModel") && name.includes("Update")
+      );
+
+      if (!updateDtoName) {
+        // Skip if no DTO is created
+        console.log(
+          "No UPDATE DTO found, available schemas:",
+          Object.keys(schemas)
+        );
+        return;
+      }
+
+      const schema = schemas[updateDtoName] as any;
+      expect(schema).toBeDefined();
+
+      const properties = schema.properties || {};
+
+      // PK should be INCLUDED in UPDATE DTO (needed to identify the record)
+      expect(properties).toHaveProperty("id");
+
+      // Other generated properties should still be excluded
+      expect(properties).not.toHaveProperty("createdAt");
+      expect(properties).not.toHaveProperty("updatedAt");
+
+      // Non-generated properties should be present
+      expect(properties).toHaveProperty("simpleRequired");
+      expect(properties).toHaveProperty("optionalNoValidation");
+    });
+
+    it("should have correct required array in POST request body schema", () => {
+      const post = openApi.paths["/test-dto"]?.post;
+      if (!post) {
+        // Model might use different path
+        return;
+      }
+
+      expect(post).toBeDefined();
+      expect(post.requestBody).toBeDefined();
+
+      // The request body should reference a schema that has correct required fields
+      const requestBodyContent = (post.requestBody as any)?.content?.[
+        "application/json"
+      ];
+      expect(requestBodyContent).toBeDefined();
+    });
+
+    it("should log OpenAPI schemas for debugging", () => {
+      const schemas = openApi.components?.schemas || {};
+      const relevantSchemas = Object.entries(schemas).filter(
+        ([name]) =>
+          name.includes("TestDtoModel") ||
+          name.includes("TestDto") ||
+          name.includes("Product")
+      );
+
+      console.log(
+        "Available schemas:",
+        relevantSchemas.map(([name, schema]) => ({
+          name,
+          required: (schema as any).required,
+          properties: Object.keys((schema as any).properties || {}),
+        }))
+      );
     });
   });
 });

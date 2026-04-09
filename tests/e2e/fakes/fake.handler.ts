@@ -7,10 +7,14 @@ export class FakeHandler implements DecafRequestHandler {
     res: Response
   ): Promise<void> {
     const r = "fake-cert-" + req.body["id"];
-    context.set("context-works", {
-      privateKey: "fake-private-key",
-      publicKey: r,
+
+    context.put({
+      "context-works": {
+        privateKey: "fake-private-key",
+        publicKey: r,
+      },
     });
+
     (res as any).setHeader("x-decaf-cert", r);
   }
 }

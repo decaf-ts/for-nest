@@ -8,7 +8,8 @@ import { Inject, Injectable, Scope } from "@nestjs/common";
 import { Constructor, Decoration, DecorationKeys } from "@decaf-ts/decoration";
 import { ValidationKeys } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "@decaf-ts/core";
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty } from "./overrides/decoration";
+import { Auth } from "./decaf-model";
 
 Decoration.for(InjectablesKeys.INJECTABLE)
   .extend({
@@ -65,7 +66,7 @@ Decoration.for(ValidationKeys.REQUIRED)
 Decoration.for(ValidationKeys.MAX)
   .extend({
     decorator: function maxDec(max: number) {
-      return ApiProperty({ maximum: max });
+      return ApiProperty({ maximum: max, required: false });
     },
   })
   .apply();
@@ -73,7 +74,7 @@ Decoration.for(ValidationKeys.MAX)
 Decoration.for(ValidationKeys.MIN)
   .extend({
     decorator: function minDec(min: number) {
-      return ApiProperty({ minimum: min });
+      return ApiProperty({ minimum: min, required: false });
     },
   })
   .apply();
@@ -81,7 +82,7 @@ Decoration.for(ValidationKeys.MIN)
 Decoration.for(ValidationKeys.MAX_LENGTH)
   .extend({
     decorator: function maxLengthDec(max: number) {
-      return ApiProperty({ maxLength: max });
+      return ApiProperty({ maxLength: max, required: false });
     },
   })
   .apply();
@@ -89,56 +90,84 @@ Decoration.for(ValidationKeys.MAX_LENGTH)
 Decoration.for(ValidationKeys.MIN_LENGTH)
   .extend({
     decorator: function minLengthDec(min: number) {
-      return ApiProperty({ minLength: min });
+      return ApiProperty({ minLength: min, required: false });
     },
   })
   .apply();
-//
-// Decoration.for(ValidationKeys.TYPE)
-//   .extend({
-//     decorator: function typeDec(type: (string | (() => string))[] | string | (() => string)) {
-//       return ApiProperty({ type: type as any });
-//     },
-//   })
-//   .apply();
-//
-// Decoration.for(ValidationKeys.DATE)
-//   .extend({
-//     decorator: function dateDec() {
-//       return ApiProperty({ type: Date });
-//     },
-//   })
-//   .apply();
 
-Decoration.for(ValidationKeys.LIST)
+Decoration.for(ValidationKeys.TYPE)
   .extend({
-    decorator: function listDec(
-      clazz:
-        | Constructor<any>
-        | (() => Constructor<any>)
-        | (Constructor<any> | (() => Constructor<any>))[]
+    decorator: function typeDec(
+      type:
+        | (Constructor | (() => Constructor))[]
+        | Constructor
+        | (() => Constructor)
     ) {
-      const c = Array.isArray(clazz) ? clazz[0] : clazz;
-      return ApiProperty({ type: [c] });
+      return (target: object, prop: any) => {
+        type = Array.isArray(type) ? type[0] : type;
+        if (typeof type === "function" && !type.name)
+          type = (type as () => Constructor)();
+        return ApiProperty({
+          type: type as any,
+          required: false,
+        })(target, prop);
+      };
+    },
+  })
+  .apply();
+//
+// Decoration.for(ValidationKeys.LIST)
+//   .extend({
+//     decorator: function listDec(
+//       clazz:
+//         | Constructor
+//         | (() => Constructor)
+//         | (Constructor | (() => Constructor))[],
+//       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+//       collection: "Array" | "Set" = "Array"
+//     ) {
+//       return (target: object, prop: any) => {
+//         clazz = Array.isArray(clazz) ? clazz[0] : clazz;
+//         if (typeof clazz === "function" && !clazz.name)
+//           clazz = (clazz as () => Constructor)();
+//         return ApiProperty({ type: [clazz as any] })(target, prop);
+//       };
+//     },
+//   })
+//   .apply();
+// //
+Decoration.for(ValidationKeys.DATE)
+  .extend({
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    decorator: function dateDec(format: string) {
+      return ApiProperty({
+        type: String,
+        format: "date-time",
+        required: false,
+        // example: parseDate(format, new Date()),
+      });
     },
   })
   .apply();
 
-//
-// Decoration.for(ValidationKeys.OPTION)
-//   .extend({
-//     decorator: function optionDec(options: string[] | Record<string, any>) {
-//       const opts = Array.isArray(options) ? options : Object.values(options);
-//       return ApiProperty({ enum: opts });
-//     },
-//   })
-//   .apply();
+Decoration.for(ValidationKeys.ENUM)
+  .extend({
+    decorator: function optionDec(options: string[] | Record<string, any>) {
+      const opts = Array.isArray(options) ? options : Object.values(options);
+      return ApiProperty({
+        enum: opts,
+        required: false,
+      });
+    },
+  })
+  .apply();
 
 Decoration.for(ValidationKeys.PATTERN)
   .extend({
     decorator: function patternDec(pat: RegExp | string) {
       return ApiProperty({
         pattern: typeof pat === "string" ? pat : pat.source,
+        required: false,
       });
     },
   })
@@ -149,6 +178,7 @@ Decoration.for(PersistenceKeys.COLUMN)
     decorator: function columnDec(name: string) {
       return ApiProperty({
         name: name,
+        required: false,
       });
     },
   })
@@ -159,7 +189,10 @@ Decoration.for(DecorationKeys.DESCRIPTION)
     decorator: function descriptionDec(description: string) {
       return ApiProperty({
         description: description,
+        required: false,
       });
     },
   })
   .apply();
+
+Decoration.for(PersistenceKeys.AUTH).extend({ decorator: Auth }).apply();

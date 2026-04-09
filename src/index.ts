@@ -23,15 +23,19 @@
 import { Metadata } from "@decaf-ts/decoration";
 import "./decoration";
 
+export * from "./decoration"; // on top on purpose
+export * from "./decaf-model";
+export * from "./factory";
+export * from "./interceptors";
+export * from "./overrides";
+export * from "./request";
 export * from "./constants";
-export * from "./decoration";
+export * from "./controllers";
 export * from "./module";
+export * from "./core-module";
 export * from "./types";
 export * from "./utils";
-export * from "./factory";
-export * from "./decaf-model";
-export * from "./interceptors";
-export * from "./request";
+export * from "./events-module";
 
 /**
  * Represents the current version of the ts-workspace module.
@@ -42,4 +46,6 @@ export * from "./request";
 export const VERSION = "##VERSION##";
 export const PACKAGE_NAME = "##PACKAGE##";
 
+Metadata.allowReregistration(true);
 Metadata.registerLibrary(PACKAGE_NAME, VERSION);
+Metadata.allowReregistration(false);

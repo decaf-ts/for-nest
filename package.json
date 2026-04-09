@@ -1,11 +1,19 @@
 {
   "name": "@decaf-ts/for-nest",
-  "version": "0.1.22",
+  "version": "0.3.11",
   "description": "NestJS decaf integration",
   "type": "module",
   "exports": {
-    "require": "./lib/index.cjs",
-    "import": "./lib/esm/index.js"
+    ".": {
+      "require": "./lib/index.cjs",
+      "import": "./lib/esm/index.js",
+      "types": "./lib/index.d.ts"
+    },
+    "./ram": {
+      "require": "./lib/ram/index.cjs",
+      "import": "./lib/esm/ram/index.js",
+      "types": "./lib/ram/index.d.ts"
+    }
   },
   "bin": {
     "for-nest": "lib/bin/cli.cjs"
@@ -19,23 +27,24 @@
     "set-git-auth": "git config url.\"https://api:$(cat .token)@github.com/\".insteadOf \"https://github.com/\" && git config url.\"https://ssh:$(cat .token)@github.com/\".insteadOf \"ssh://git@github.com/\" && git config url.\"https://git:$(cat .token)@github.com/\".insteadOf \"git@github.com:\"",
     "flash-forward": "npx npm-check-updates -u && npm run do-install",
     "reset": "rm -rf * && git checkout . && git pull && npm run do-install",
-    "build": "npx build-scripts --dev",
-    "build:prod": "npx build-scripts --prod",
+    "extract:api": "node ./lib/bin/cli.cjs export-api --input ./lib/app.module.js  --output ./ --fileName example-api --title \"Example Swagger API\" --description \"Includes the full Api definition\"",
+    "build": "npx decaf build --dev",
+    "build:prod": "npx decaf build --prod",
     "test": "jest --runInBand --coverage --detectOpenHandles",
-    "test:unit": "jest --testPathPattern=\"/tests/unit\" --passWithNoTests --detectOpenHandles",
-    "test:integration": "jest --testPathPattern=\"/tests/(integration)\" --passWithNoTests --detectOpenHandles",
-    "test:all": "jest --testPathPattern=\"/tests\" --passWithNoTests --detectOpenHandles",
+    "test:unit": "jest --testPathPatterns=\"/tests/unit\" --passWithNoTests --detectOpenHandles",
+    "test:integration": "jest --testPathPatterns=\"/tests/(integration)\" --passWithNoTests --detectOpenHandles",
+    "test:all": "jest --testPathPatterns=\"/tests\" --passWithNoTests --detectOpenHandles",
     "test:circular": "dpdm -T --no-warning --no-tree ./src/index.ts",
-    "coverage": "rimraf ./workdocs/reports/data/*.json && npm run test:all -- --coverage --config=./workdocs/reports/jest.coverage.config.ts",
+    "coverage": "rimraf ./workdocs/reports/data/*.json && npm run test:all -- --coverage --config=./workdocs/reports/jest.coverage.config.cjs",
     "lint": "eslint .",
     "lint-fix": "eslint --fix .",
-    "prepare-pr": "npm run lint-fix && npm run build:prod && npm run coverage && npm run docs",
-    "prepare-release": "npm run lint-fix && npm run build:prod && npm run coverage && npm run docs",
+    "prepare-pr": "npm run build:prod && npm run coverage && npm run docs",
+    "prepare-release": "npm run build:prod && npm run coverage && npm run docs",
     "release": "./bin/tag-release.sh",
     "clean-publish": "npx clean-publish",
     "drawings": "for FILE in workdocs/drawings/*.drawio; do echo \"converting $FILE to image...\" && docker run --rm -v $(pwd):/data rlespinasse/drawio-export --format png $FILE; done && cp -rf workdocs/drawings/export/* workdocs/resources/",
     "uml": "cd workdocs/uml && for FILE in ./*.puml; do docker run --rm -v $(pwd):/work -w /work miy4/plantuml -DPLANTUML_LIMIT_SIZE=8192 -tpng $FILE; done && cd ../.. && cp -fr workdocs/uml/*.png workdocs/resources/",
-    "docs": "npx rimraf ./docs && mkdir docs && npx build-scripts --docs",
+    "docs": "npx rimraf ./docs && mkdir docs && npx decaf build --docs",
     "publish-docs": "docker run -it --rm --user $(id -u):$(id -g) -v \"$(pwd)/workdocs/confluence:/content\" -e ATLASSIAN_API_TOKEN=$(cat .confluence-token) ghcr.io/markdown-confluence/publish:latest",
     "docker:login": "docker login ghcr.io -u $(cat .dockeruser) -p $(cat .dockertoken)",
     "docker:build": "npm run docker:build-base",
@@ -80,17 +89,22 @@
   },
   "homepage": "https://github.com/decaf-ts/for-nest#readme",
   "devDependencies": {
+    "@decaf-ts/cli": "latest",
     "@decaf-ts/for-fabric": "latest",
     "@decaf-ts/for-http": "latest",
     "@decaf-ts/utils": "latest",
     "@eslint/js": "^9.25.1",
-    "@nestjs/cli": "^11.0.0",
-    "@nestjs/platform-express": "^11.1.9",
+    "@nestjs/cli": "^11.0.16",
+    "@nestjs/platform-express": "^11.1.14",
     "@nestjs/schematics": "^11.0.9",
-    "@nestjs/swagger": "^11.2.0",
-    "@nestjs/testing": "^11.0.1",
+    "@nestjs/swagger": "^11.2.6",
+    "@nestjs/testing": "^11.1.14",
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "@types/lodash": "^4.17.20",
     "commander": "^13.1.0",
+    "eventsource": "^4.1.0",
+    "jest-openapi": "^0.14.2",
     "supertest": "^7.1.4"
   },
   "dependencies": {
@@ -101,6 +115,15 @@
     "@decaf-ts/injectable-decorators": "latest",
     "@decaf-ts/logging": "latest",
     "@decaf-ts/transactional-decorators": "latest",
-    "@nestjs/common": "^11.0.1"
+    "@nestjs/common": "^11.1.14"
+  },
+  "overrides": {
+    "fabric-common": {
+      "jsrsasign": "^11.1.0"
+    },
+    "fabric-ca-client": {
+      "jsrsasign": "^11.1.0"
+    },
+    "ajv": "^8.17.2"
   }
 }

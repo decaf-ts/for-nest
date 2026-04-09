@@ -34,11 +34,31 @@ export function DecafParams(
   const order = props.map((p) => p.name);
   return OrderedParams(order);
 }
-//
-// export function Ctx(){
-//   return createParamDecorator((data: unknown, ctx: ExecutionContext) => {
-//     const req = ctx.switchToHttp().getRequest();
-//
-//     const Context.args
-//   })
-// }
+
+export const DecafQuery = createParamDecorator(
+  (_: unknown, ctx: ExecutionContext) => {
+    const req = ctx.switchToHttp().getRequest();
+    const query = req.query ?? {};
+
+    const parsed: any = { ...query };
+
+    // Parse limit & offset
+    if (parsed.limit !== undefined) {
+      const n = Number(parsed.limit);
+      if (!Number.isNaN(n)) parsed.limit = n;
+    }
+
+    if (parsed.offset !== undefined) {
+      const n = Number(parsed.offset);
+      if (!Number.isNaN(n)) parsed.offset = n;
+    }
+
+    // Parse bookmark only if numeric
+    if (parsed.bookmark !== undefined) {
+      const n = Number(parsed.bookmark);
+      parsed.bookmark = Number.isNaN(n) ? parsed.bookmark : n;
+    }
+
+    return parsed;
+  }
+);

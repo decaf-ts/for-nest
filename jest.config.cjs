@@ -1,9 +1,10 @@
-import { Config } from "@jest/types";
+const path = require("path");
+// import { Config } from "@jest/types";
 
-const config: Config.InitialOptions = {
+const config = {
   verbose: true,
   rootDir: __dirname,
-  transform: { "^.+\\.ts?$": "ts-jest" },
+  transform: { "^.+\\.ts$": "ts-jest" },
   testEnvironment: "node",
   testRegex: "/tests/.*\\.(test|spec)\\.(ts|tsx)$",
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
@@ -11,6 +12,7 @@ const config: Config.InitialOptions = {
   coverageDirectory: "./workdocs/reports/coverage",
   collectCoverageFrom: ["src/**/*.{js,jsx,ts,tsx}", "!src/bin/**/*"],
   reporters: ["default"],
+  watchman: false,
 };
 
-export default config;
+module.exports = config;

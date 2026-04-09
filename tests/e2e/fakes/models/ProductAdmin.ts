@@ -1,5 +1,15 @@
 import { uses } from "@decaf-ts/decoration";
-import { BaseModel, column, pk, RamFlavour, table } from "@decaf-ts/core";
+import {
+  BaseModel,
+  column,
+  createdBy,
+  pk,
+  table,
+  updatedBy,
+  roles
+} from "@decaf-ts/core";
+// @ts-expect-error ram
+import { RamFlavour } from "@decaf-ts/core/ram";
 import {
   maxlength,
   minlength,
@@ -7,13 +17,13 @@ import {
   ModelArg,
   pattern,
 } from "@decaf-ts/decorator-validation";
-import { Roles } from "../../../../src";
+
 import { composed, readonly } from "@decaf-ts/db-decorators";
 
 @uses(RamFlavour)
 @table("product")
 @model()
-@Roles(["admin"])
+@roles(["admin"])
 export class Product extends BaseModel {
   @pk({ type: "String", generated: false })
   @composed(["productCode", "batchNumber"], ":", true)
@@ -32,8 +42,14 @@ export class Product extends BaseModel {
 
   @column()
   name!: string;
+  @column()
+  @createdBy()
+  createdBy!: string;
+  @column()
+  @updatedBy()
+  updatedBy!: string;
 
-  constructor(model?: ModelArg<Product>) {
-    super(model);
+  constructor(args?: ModelArg<Product>) {
+    super(args);
   }
 }

@@ -5,12 +5,59 @@ const logger = Logging.for("for-nest");
 import { Command } from "commander";
 import fs from "fs";
 import path from "path";
-import { normalizeImport } from "@decaf-ts/for-fabric/shared";
+import { normalizeImport } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Logger } from "@decaf-ts/logging";
 import { NestFactory } from "@nestjs/core";
 import { INestApplication } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+
+const defaultInputCandidates = [
+  "./lib/app.module.cjs",
+  "./lib/app.module.js",
+  "./src/app.module.ts",
+];
+
+function defaultCandidateExists(candidate: string): boolean {
+  return fs.existsSync(path.join(process.cwd(), candidate));
+}
+
+export function resolveInputPath(
+  input?: string,
+  exists: (candidate: string) => boolean = defaultCandidateExists,
+  candidates = defaultInputCandidates
+): string {
+  if (input) return input;
+  const found = candidates.find((candidate) => exists(candidate));
+  return found || "./src/app.module.ts";
+}
+
+export function buildOutputFilePath(params: {
+  outputDir: string;
+  pkgName?: string;
+  name?: string;
+  fileName?: string;
+  appendVersion?: boolean;
+  version?: string;
+}): string {
+  const {
+    outputDir,
+    pkgName,
+    name,
+    fileName,
+    appendVersion = false,
+    version,
+  } = params;
+  const baseDir = path.resolve(outputDir);
+  const defaultPkgName = pkgName;
+  const resolvedRawSource = fileName || name || defaultPkgName || "api";
+  const baseName = path.basename(resolvedRawSource);
+  const resolvedRaw = baseName.replace(/[\\/]/g, "_");
+  const trimmed = resolvedRaw.replace(/^[._]+/, "");
+  const resolvedName = trimmed || "api";
+  const suffix = appendVersion && version ? `-${version}` : "";
+  return path.join(baseDir, `${resolvedName}${suffix}.json`);
+}
 
 async function bootApp(log: Logger, p: string) {
   log = log.for(bootApp);
@@ -68,7 +115,7 @@ async function createSwagger(
 const compileCommand = new Command()
   .name("export-api")
   .description("exports the api in json format")
-  .option("--input <String>", "path to app module", "./src/app.module.ts")
+  .option("--input <String>", "path to app module (ts or compiled)")
   .option("--output <String>", "output folder for api definition file", "./")
   .option(
     "--appendVersion <Boolean>",
@@ -84,8 +131,8 @@ const compileCommand = new Command()
     "description of the OpenApi spec. defaults to description in package"
   )
   .option(
-    "--name [String]",
-    "file name (without json). defaults to name on package.json"
+    "--fileName [String]",
+    "file name (without json). defaults to name on package.json (last segment after slash)"
   )
   .action(async (options: any) => {
     const pkg = JSON.parse(
@@ -95,29 +142,36 @@ const compileCommand = new Command()
     const version = pkg.version;
 
     // eslint-disable-next-line prefer-const
-    let { title, name, description, output, input, appendVersion } = options;
+    let { title, name, fileName, description, output, input, appendVersion } =
+      options;
     const log = logger.for("export-api");
     log.debug(
       `running with options: ${JSON.stringify(options)} for ${pkg.name} version ${version}`
     );
 
-    description = description = description || pkg.description;
+    description = description || pkg.description;
     title = title || pkg.name;
 
-    output = path.resolve(output);
+    input = resolveInputPath(input);
+
+    const baseOutputDir = path.resolve(output);
     try {
-      fs.statfsSync(output);
+      fs.statfsSync(baseOutputDir);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {
-      fs.mkdirSync(output, { recursive: true });
+      fs.mkdirSync(baseOutputDir, { recursive: true });
     }
 
-    output = path.resolve(
-      path.join(
-        output,
-        (name || pkg.name) + (appendVersion ? `-${version}` : "") + ".json"
-      )
-    );
+    const outputPath = buildOutputFilePath({
+      outputDir: baseOutputDir,
+      pkgName: pkg.name,
+      name,
+      fileName,
+      appendVersion,
+      version,
+    });
+
+    log.debug(`writing spec to file: ${outputPath}`);
 
     const app = await bootApp(log, input);
     const document = await createSwagger(log, app, {
@@ -127,7 +181,7 @@ const compileCommand = new Command()
     });
 
     try {
-      fs.writeFileSync(output, JSON.stringify(document, null, 2), "utf8");
+      fs.writeFileSync(outputPath, JSON.stringify(document, null, 2), "utf8");
     } catch (e: unknown) {
       throw new InternalError(e as Error);
     } finally {

@@ -1,18 +1,32 @@
-import { Adapter } from "@decaf-ts/core";
+import { Adapter, ConfigOf, ContextOf } from "@decaf-ts/core";
 import { Constructor } from "@decaf-ts/decoration";
 import { ExecutionContext, Type } from "@nestjs/common";
+import { RequestToContextTransformer } from "./interceptors/context";
+import { DecafRequestContext } from "./request/index";
 
-export interface RequestContextAccessor {
-  set(key: string | symbol, value: any): void;
-  get<T = any>(key: string | symbol): T | undefined;
+export interface DecafRequestHandler<
+  C extends DecafRequestContext = DecafRequestContext,
+> {
+  handle(context: C, req: Request, res: Response): Promise<void>;
 }
 
-export interface DecafRequestHandler {
-  handle(
-    context: RequestContextAccessor,
-    req: Request,
-    res: Response
-  ): Promise<void>;
+export interface ObserverEventsOptions {
+  /**
+   * Enables or disables SSE stream events globally
+   */
+  enableObserverEvents?: boolean;
+
+  /**
+   * List of adapter flavours that will emit stream events
+   * If omitted, all registered flavours may be used
+   */
+  observerFlavours?: any[];
+
+  /**
+   * SSE endpoint path
+   * @default "/events"
+   */
+  observerApiPath?: string;
 }
 
 /**
@@ -22,12 +36,26 @@ export type DecafModuleOptions<
   CONF = any,
   A extends Adapter<CONF, any, any, any> = Adapter<CONF, any, any, any>,
 > = {
-  adapter: Constructor<A>;
-  conf: CONF;
+  conf: [
+    Constructor<A>,
+    ConfigOf<A>,
+    ...args:
+      | any[]
+      | [
+          ...any[],
+          (
+            | RequestToContextTransformer<ContextOf<A>>
+            | Constructor<RequestToContextTransformer<ContextOf<A>>>
+          ),
+        ],
+  ][];
   alias?: string;
   autoControllers: boolean;
   autoServices?: boolean;
+  observerOptions?: ObserverEventsOptions;
+  aggregations?: boolean;
   handlers?: Type<DecafRequestHandler>[];
+  initialization?: () => Promise<void>;
 };
 
 /**

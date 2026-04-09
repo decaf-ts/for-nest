@@ -1,18 +1,16 @@
 import { INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DecafExceptionFilter, DecafModule } from "../../src";
-import {
-  Adapter,
-  OrderDirection,
-  Paginator,
-  RamAdapter,
-  RamFlavour,
-} from "@decaf-ts/core";
+import { Adapter, OrderDirection, Paginator } from "@decaf-ts/core";
+
+// @ts-expect-error  import from ram
+import { RamFlavour, RamAdapter } from "@decaf-ts/core/ram";
 import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { genStr } from "./fakes/utils";
 import { Product } from "./fakes/models/Product";
 import request from "supertest";
+import { RamTransformer } from "../../src/ram/index";
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
 
@@ -28,8 +26,7 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
   beforeAll(async () => {
     app = await NestFactory.create(
       DecafModule.forRootAsync({
-        adapter: RamAdapter,
-        conf: undefined,
+        conf: [[RamAdapter, {}, new RamTransformer()]],
         autoControllers: true,
         autoServices: false,
       })
@@ -75,18 +72,19 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
           return result;
         }
         case "POST": {
-          const result = await app
-            .getHttpServer()
+          const result = await server
             .post(trimUrl(req.url))
-            .send(req.body);
+            .send(JSON.parse(req.data));
           return result;
         }
         case "PUT": {
-          const result = await server.put(trimUrl(req.url)).send(req.body);
+          const result = await server
+            .put(trimUrl(req.url))
+            .send(JSON.parse(req.data));
           return result;
         }
         case "DELETE": {
-          const result = await server.delete(req.url).send();
+          const result = await server.delete(trimUrl(req.url)).send();
           return result;
         }
         default:
@@ -231,6 +229,24 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
     expect(list.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("runs the default find statement via HTTP", async () => {
+    const list = await repo.find("name", OrderDirection.ASC);
+    expect(list).toBeDefined();
+    expect(list.length).toBeGreaterThanOrEqual(1);
+    expect(list.every((entry) => entry.name.startsWith("name"))).toBe(true);
+  });
+
+  it("runs the default page statement via HTTP", async () => {
+    const page = await repo.page("name", OrderDirection.ASC, {
+      offset: 1,
+      limit: 2,
+    });
+    expect(page).toBeDefined();
+    expect(page.data).toBeDefined();
+    expect(page.data.length).toBeGreaterThanOrEqual(1);
+    expect(page.data.every((entry) => entry.name.startsWith("name"))).toBe(true);
+  });
+
   it("fails to run non prepared statements", async () => {
     await expect(
       repo.select(["id"]).where(repo.attr("name").eq("new name")).execute()
@@ -247,7 +263,7 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
   });
 
   it("paginates simple queries", async () => {
-    const paginator = await repo.select().paginate(1);
+    const paginator = await repo.select().paginate(2);
     expect(paginator).toBeInstanceOf(Paginator);
     const firstPage = await paginator.page();
     expect(firstPage).toBeDefined();

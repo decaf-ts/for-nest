@@ -1,7 +1,9 @@
 import { DynamicModule, ForwardReference, Module, Type } from "@nestjs/common";
 import { DecafModuleOptions } from "./types";
 import { DecafCoreModule } from "./core-module";
-import { DecafModelModule } from "./decaf-model";
+import { Adapter } from "@decaf-ts/core";
+import { getModuleFor } from "./decaf-model/index";
+import { DecafStreamModule } from "./events-module";
 
 /**
  * @publicApi
@@ -11,10 +13,11 @@ export class DecafModule {
   static async forRootAsync(
     options: DecafModuleOptions
   ): Promise<DynamicModule> {
-    const { autoControllers, autoServices, handlers } = options;
+    const { autoControllers, autoServices } = options;
 
-    const adapter = await DecafCoreModule.createAdapter(options);
-    const flavour = adapter.flavour;
+    const adapters: Adapter<any, any, any, any>[] =
+      await DecafCoreModule.bootPersistence(options);
+    const flavours = adapters.map((adapter) => adapter.flavour);
 
     const imports:
       | (
@@ -26,11 +29,20 @@ export class DecafModule {
       | undefined = [DecafCoreModule.forRoot(options)];
 
     if (autoControllers) {
+      flavours.forEach((flavour) => {
+        imports.push(
+          getModuleFor(flavour).forRoot(flavour, {
+            autoServices,
+          })
+        );
+      });
+    }
+
+    if (options.observerOptions?.enableObserverEvents) {
       imports.push(
-        DecafModelModule.forRoot(flavour, {
-          autoServices,
-          handlers,
-        })
+        DecafStreamModule.forFlavours(
+          options.observerOptions.observerFlavours || flavours
+        )
       );
     }
 

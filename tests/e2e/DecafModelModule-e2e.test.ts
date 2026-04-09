@@ -1,22 +1,23 @@
 import request from "supertest";
 import { INestApplication } from "@nestjs/common";
-import { DecafExceptionFilter, DecafModule, route } from "../../src";
+import { DecafExceptionFilter, DecafModule } from "../../src";
 import {
   Adapter,
-  ModelService,
   OrderDirection,
   query,
-  RamAdapter,
-  RamFlavour,
   Repository,
   repository,
+  route,
 } from "@decaf-ts/core";
+
+// @ts-expect-error  import from ram
+import { RamFlavour, RamAdapter } from "@decaf-ts/core/ram";
 import { HttpModelClient, HttpModelResponse } from "./fakes/server";
 import { genStr } from "./fakes/utils";
 import { Product } from "./fakes/models/Product";
 import { NestFactory } from "@nestjs/core";
+import { RamTransformer } from "../../src/ram/index";
 
-RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
 
 jest.setTimeout(180000);
@@ -74,11 +75,10 @@ describe("DecafModelModule CRUD", () => {
   beforeAll(async () => {
     app = await NestFactory.create(
       DecafModule.forRootAsync({
-        adapter: RamAdapter,
-        conf: undefined,
+        conf: [[RamAdapter, {}, new RamTransformer()]],
         autoControllers: true,
         autoServices: false,
-      })
+      } as any)
     );
 
     app.useGlobalFilters(new DecafExceptionFilter());
@@ -155,14 +155,14 @@ describe("DecafModelModule CRUD", () => {
       const res = await productHttpClient.get("99999999999999", "NOPE");
       expect(res.raw.status).toBeGreaterThanOrEqual(404);
       expect(res.raw.error).toEqual(
-        "[NotFoundError] Record with id 99999999999999:NOPE not found in table product"
+        "[NotFoundError][404] Record with id 99999999999999:NOPE not found in table product"
       );
       expect(res.raw.path).toEqual("/product/99999999999999/NOPE");
     });
 
     it("should FAIL to READ with missing parameters", async () => {
       const res = await request(app.getHttpServer()).get(`/product/`);
-      expect(res.status).toEqual(500);
+      expect(res.status).toEqual(406);
     });
   });
 
@@ -207,7 +207,7 @@ describe("DecafModelModule CRUD", () => {
 
       // expect(res.status).toEqual(404);
       expect(res.raw.error).toContain(
-        `[NotFoundError] Record with id ${productCode}:${batchNumber} not found`
+        `[NotFoundError][404] Record with id ${productCode}:${batchNumber} not found`
       );
     });
 

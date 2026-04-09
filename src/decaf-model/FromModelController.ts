@@ -1,4 +1,4 @@
-import { Controller, Param, Query } from "@nestjs/common";
+import { Controller, Param, Query, Response } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -21,10 +21,16 @@ import {
   PreparedStatementKeys,
   type Repo,
   Repository,
+  Service,
 } from "@decaf-ts/core";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Logging, toKebabCase } from "@decaf-ts/logging";
-import { DBKeys, ValidationError } from "@decaf-ts/db-decorators";
+import {
+  BulkCrudOperationKeys,
+  DBKeys,
+  OperationKeys,
+  ValidationError,
+} from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import {
   ApiOperationFromModel,
@@ -34,18 +40,23 @@ import {
   type DecafModelRoute,
   type DecafParamProps,
   DecafParams,
+  DecafQuery,
   DecafRouteDecOptions,
 } from "./decorators";
 import { DecafRequestContext } from "../request";
-import { DECAF_ADAPTER_OPTIONS, DECAF_ROUTE } from "../constants";
+import { DECAF_ROUTE } from "../constants";
 import {
   applyApiDecorators,
   createRouteHandler,
   defineRouteMethod,
   getApiDecorators,
+  resolvePersistenceMethod,
 } from "./utils";
 import { Auth } from "./decorators/decorators";
-import { AbstractQueryController, ControllerConstructor } from "./types";
+import { ControllerConstructor } from "./types";
+import { DecafModelController } from "../controllers";
+import { DtoFor } from "../factory/openapi/DtoBuilder";
+import "../overrides";
 
 /**
  * @description
@@ -103,17 +114,21 @@ export class FromModelController {
     ModelClazz: ModelConstructor<T>
   ): Repo<T> | ModelService<T> {
     try {
-      return ModelService.getService(ModelClazz) as ModelService<T>;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      return Service.get(ModelClazz as any) as ModelService<T>;
     } catch (e: unknown) {
-      return Repository.forModel(ModelClazz) as Repo<T>;
+      try {
+        return ModelService.getService(ModelClazz) as ModelService<T>;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e: unknown) {
+        return Repository.forModel(ModelClazz) as Repo<T>;
+      }
     }
   }
 
   static createQueryRoutesFromRepository<T extends Model<boolean>>(
     persistence: Repo<T> | ModelService<T>,
     prefix: string = PersistenceKeys.QUERY
-  ): ControllerConstructor<AbstractQueryController> {
+  ): ControllerConstructor<T> {
     const log = FromModelController.log.for(
       FromModelController.createQueryRoutesFromRepository
     );
@@ -133,16 +148,12 @@ export class FromModelController {
       ) ?? {};
 
     // create base class
-    class QueryController extends AbstractQueryController {
-      constructor(clientContext: DecafRequestContext) {
-        super(clientContext);
-        this._persistence = FromModelController.getPersistence(ModelConstr);
+    class QueryController extends DecafModelController<T> {
+      override get class(): ModelConstructor<T> {
+        throw new Error("Method not implemented.");
       }
-
-      override get persistence() {
-        const adapterOptions = this.clientContext.get(DECAF_ADAPTER_OPTIONS);
-        if (adapterOptions) return this._persistence.for(adapterOptions) as any;
-        return this._persistence;
+      constructor(clientContext: DecafRequestContext, name: string) {
+        super(clientContext, name);
       }
     }
 
@@ -213,7 +224,7 @@ export class FromModelController {
 
     const BaseController = FromModelController.createQueryRoutesFromRepository(
       persistence // instanceof ModelService ? persistence.repo : persistence
-    ) as Constructor<AbstractQueryController>;
+    ) as Constructor<DecafModelController<T>>;
 
     @Controller(routePath)
     @ApiTags(modelClazzName)
@@ -222,12 +233,19 @@ export class FromModelController {
     class DynamicModelController extends BaseController {
       private readonly pk: string = Model.pk(ModelConstr) as string;
 
-      public static readonly clazz = ModelConstr;
+      protected static get class() {
+        return ModelConstr;
+      }
+
+      override get class(): ModelConstructor<T> {
+        return ModelConstr;
+        // return DynamicModelController.class;
+      }
 
       constructor(clientContext: DecafRequestContext) {
         super(clientContext);
         log.info(
-          `Registering dynamic controller for model: ${modelClazzName} route: /${routePath}`
+          `Registering dynamic controller for model: ${this.class.name} route: /${routePath}`
         );
       }
 
@@ -257,10 +275,17 @@ export class FromModelController {
       @ApiOkResponse({
         description: `${modelClazzName} listed successfully.`,
       })
-      async listBy(key: string, @Query() details: DirectionLimitOffset) {
-        return this.persistence.listBy(
+      async listBy(
+        @Param("key") key: string,
+        @DecafQuery() details: DirectionLimitOffset
+      ) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.LIST_BY, true)
+        ).for(this.listBy);
+        return this.persistence(ctx).listBy(
           key as keyof T,
-          details.direction as OrderDirection
+          details.direction as OrderDirection,
+          ctx
         );
       }
 
@@ -284,12 +309,111 @@ export class FromModelController {
       })
       async paginateBy(
         @Param("key") key: string,
-        @Query() details: DirectionLimitOffset
+        @DecafQuery() details: DirectionLimitOffset
       ) {
-        return this.persistence.paginateBy(
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.PAGE_BY, true)
+        ).for(this.paginateBy);
+        return this.persistence(ctx).paginateBy(
           key as keyof T,
           details.direction as OrderDirection,
-          details as Omit<DirectionLimitOffset, "direction">
+          details as Omit<DirectionLimitOffset, "direction">,
+          ctx
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "find/:value")
+      @ApiOperation({
+        summary: `Find ${modelClazzName} records using the default query attributes.`,
+      })
+      @ApiParam({
+        name: "value",
+        description: "The string to match against the default query attributes",
+      })
+      @ApiQuery({
+        name: "direction",
+        required: false,
+        enum: OrderDirection,
+        description: "the sort order for the matching results",
+      })
+      @ApiOkResponse({
+        description: `${modelClazzName} records matching the provided prefix.`,
+      })
+      async find(
+        @Param("value") value: string,
+        @DecafQuery() details: DirectionLimitOffset
+      ) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.FIND, true)
+        ).for(this.find);
+        const direction = (details.direction ??
+          OrderDirection.ASC) as OrderDirection;
+        return resolvePersistenceMethod(
+          this.persistence(ctx),
+          this.find.name,
+          value,
+          direction,
+          ctx
+        );
+      }
+
+      @ApiOperationFromModel(ModelConstr, "GET", "page/:value")
+      @ApiOperation({
+        summary: `Page ${modelClazzName} records using the default query attributes.`,
+      })
+      @ApiParam({
+        name: "value",
+        description: "The string to match against the default query attributes",
+      })
+      @ApiQuery({
+        name: "direction",
+        required: false,
+        enum: OrderDirection,
+        description: "the sort order for the paged results",
+      })
+      @ApiQuery({
+        name: "limit",
+        required: false,
+        description: "page size",
+      })
+      @ApiQuery({
+        name: "offset",
+        required: false,
+        description: "page number",
+      })
+      @ApiQuery({
+        name: "bookmark",
+        required: false,
+        description: "bookmark for cursor pagination",
+      })
+      @ApiOkResponse({
+        description: `${modelClazzName} records paged by the provided prefix.`,
+      })
+      async page(
+        @Param("value") value: string,
+        @DecafQuery() details: DirectionLimitOffset
+      ) {
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.PAGE, true)
+        ).for(this.page);
+        const {
+          direction = OrderDirection.ASC,
+          limit,
+          offset,
+          bookmark,
+        } = details;
+        const ref: Omit<DirectionLimitOffset, "direction"> = {
+          offset: offset ?? 1,
+          limit: limit ?? 10,
+          bookmark,
+        };
+        return resolvePersistenceMethod(
+          this.persistence(ctx),
+          this.page.name,
+          value,
+          direction as OrderDirection,
+          ref,
+          ctx
         );
       }
 
@@ -303,7 +427,10 @@ export class FromModelController {
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       async findOneBy(@Param("key") key: string, @Param("value") value: any) {
-        return this.persistence.findOneBy(key as keyof T, value);
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.FIND_ONE_BY, true)
+        ).for(this.findOneBy);
+        return this.persistence(ctx).findOneBy(key as keyof T, value, ctx);
       }
 
       @ApiOperationFromModel(ModelConstr, "GET", "findBy/:key/:value")
@@ -326,9 +453,14 @@ export class FromModelController {
         @Param("key") key: string,
         @Param("value") value: any,
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        @Query() details: DirectionLimitOffset
+        @DecafQuery() details: DirectionLimitOffset
       ) {
-        return this.persistence.findBy(key as keyof T, value);
+        const { ctx } = (
+          await this.logCtx([], PreparedStatementKeys.FIND_BY, true)
+        ).for(this.findBy);
+        return this.persistence(ctx)
+          .for(ctx.toOverrides())
+          .findBy(key as keyof T, value, ctx);
       }
 
       @ApiOperationFromModel(ModelConstr, "GET", "statement/:method/*args")
@@ -369,30 +501,210 @@ export class FromModelController {
       async statement(
         @Param("method") name: string,
         @Param("args") args: (string | number)[],
-        @Query() details: DirectionLimitOffset
+        @DecafQuery() details: DirectionLimitOffset
       ) {
+        const { ctx } = (
+          await this.logCtx([], PersistenceKeys.STATEMENT, true)
+        ).for(this.statement);
         const { direction, offset, limit, bookmark } = details;
         args = args.map(
           (a) => (typeof a === "string" ? parseInt(a) : a) || a
         ) as any[];
+        const pathDirection = args.length > 1 ? args[1] : undefined;
+        const resolvedDirection = (direction ?? pathDirection) as
+          | string
+          | undefined;
+        if (resolvedDirection && args.length > 1) args[1] = resolvedDirection;
         switch (name) {
+          case PreparedStatementKeys.FIND:
           case PreparedStatementKeys.FIND_BY:
             break;
           case PreparedStatementKeys.LIST_BY:
             args.push(direction as string);
             break;
+          case PreparedStatementKeys.PAGE:
           case PreparedStatementKeys.PAGE_BY:
             args = [
               args[0],
-              direction as any,
-              { limit: limit, offset: offset, bookmark: bookmark },
+              resolvedDirection as any,
+              {
+                limit: limit,
+                offset: offset,
+                bookmark: bookmark,
+              },
             ];
             break;
           case PreparedStatementKeys.FIND_ONE_BY:
             break;
+          case PreparedStatementKeys.COUNT_OF:
+          case PreparedStatementKeys.MAX_OF:
+          case PreparedStatementKeys.MIN_OF:
+          case PreparedStatementKeys.AVG_OF:
+          case PreparedStatementKeys.SUM_OF:
+          case PreparedStatementKeys.DISTINCT_OF:
+          case PreparedStatementKeys.GROUP_OF:
+            // Aggregation methods - args[0] is the field name (if provided)
+            break;
         }
-        return this.persistence.statement(name, ...args);
+        return this.persistence(ctx).statement(name, ...args, ctx);
       }
+      //
+      // @ApiOperationFromModel(ModelConstr, "GET", "countOf")
+      // @ApiOperation({ summary: `Count all ${modelClazzName} records.` })
+      // @ApiOkResponse({
+      //   description: `Count of ${modelClazzName} records.`,
+      //   type: Number,
+      // })
+      // async countOf() {
+      //   const { ctx } = (
+      //     await this.logCtx([], PreparedStatementKeys.COUNT_OF, true)
+      //   ).for(this.countOf);
+      //   return this.persistence(ctx).statement(
+      //     PreparedStatementKeys.COUNT_OF,
+      //     ctx
+      //   );
+      // }
+      //
+      // @ApiOperationFromModel(ModelConstr, "GET", "countOf/:field")
+      // @ApiOperation({ summary: `Count ${modelClazzName} records by field.` })
+      // @ApiParam({ name: "field", description: "The field to count" })
+      // @ApiOkResponse({
+      //   description: `Count of ${modelClazzName} records.`,
+      //   type: Number,
+      // })
+      // async countOfField(@Param("field") field: string) {
+      //   const { ctx } = (
+      //     await this.logCtx([], PreparedStatementKeys.COUNT_OF, true)
+      //   ).for(this.countOfField);
+      //   return this.persistence(ctx).statement(
+      //     PreparedStatementKeys.COUNT_OF,
+      //     field,
+      //     ctx
+      //   );
+      // }
+      //
+      // @ApiOperationFromModel(ModelConstr, "GET", "maxOf/:field")
+      // @ApiOperation({
+      //   summary: `Find maximum value of a field in ${modelClazzName}.`,
+      // })
+      // @ApiParam({ name: "field", description: "The field to find max of" })
+      // @ApiOkResponse({
+      //   description: `Maximum value of the field in ${modelClazzName}.`,
+      // })
+      // async maxOf(@Param("field") field: string) {
+      //   const { ctx } = (
+      //     await this.logCtx([], PreparedStatementKeys.MAX_OF, true)
+      //   ).for(this.maxOf);
+      //   return this.persistence(ctx).statement(
+      //     PreparedStatementKeys.MAX_OF,
+      //     field,
+      //     ctx
+      //   );
+      // }
+      //
+      // @ApiOperationFromModel(ModelConstr, "GET", "minOf/:field")
+      // @ApiOperation({
+      //   summary: `Find minimum value of a field in ${modelClazzName}.`,
+      // })
+      // @ApiParam({ name: "field", description: "The field to find min of" })
+      // @ApiOkResponse({
+      //   description: `Minimum value of the field in ${modelClazzName}.`,
+      // })
+      // async minOf(@Param("field") field: string) {
+      //   const { ctx } = (
+      //     await this.logCtx([], PreparedStatementKeys.MIN_OF, true)
+      //   ).for(this.minOf);
+      //   return this.persistence(ctx).statement(
+      //     PreparedStatementKeys.MIN_OF,
+      //     field,
+      //     ctx
+      //   );
+      // }
+      //
+      // @ApiOperationFromModel(ModelConstr, "GET", "avgOf/:field")
+      // @ApiOperation({
+      //   summary: `Calculate average of a field in ${modelClazzName}.`,
+      // })
+      // @ApiParam({
+      //   name: "field",
+      //   description: "The field to calculate average of",
+      // })
+      // @ApiOkResponse({
+      //   description: `Average value of the field in ${modelClazzName}.`,
+      //   type: Number,
+      // })
+      // async avgOf(@Param("field") field: string) {
+      //   const { ctx } = (
+      //     await this.logCtx([], PreparedStatementKeys.AVG_OF, true)
+      //   ).for(this.avgOf);
+      //   return this.persistence(ctx).statement(
+      //     PreparedStatementKeys.AVG_OF,
+      //     field,
+      //     ctx
+      //   );
+      // }
+      //
+      // @ApiOperationFromModel(ModelConstr, "GET", "sumOf/:field")
+      // @ApiOperation({
+      //   summary: `Calculate sum of a field in ${modelClazzName}.`,
+      // })
+      // @ApiParam({ name: "field", description: "The field to calculate sum of" })
+      // @ApiOkResponse({
+      //   description: `Sum of the field in ${modelClazzName}.`,
+      //   type: Number,
+      // })
+      // async sumOf(@Param("field") field: string) {
+      //   const { ctx } = (
+      //     await this.logCtx([], PreparedStatementKeys.SUM_OF, true)
+      //   ).for(this.sumOf);
+      //   return this.persistence(ctx).statement(
+      //     PreparedStatementKeys.SUM_OF,
+      //     field,
+      //     ctx
+      //   );
+      // }
+      //
+      // @ApiOperationFromModel(ModelConstr, "GET", "distinctOf/:field")
+      // @ApiOperation({
+      //   summary: `Find distinct values of a field in ${modelClazzName}.`,
+      // })
+      // @ApiParam({
+      //   name: "field",
+      //   description: "The field to find distinct values of",
+      // })
+      // @ApiOkResponse({
+      //   description: `Distinct values of the field in ${modelClazzName}.`,
+      //   type: [String],
+      // })
+      // async distinctOf(@Param("field") field: string) {
+      //   const { ctx } = (
+      //     await this.logCtx([], PreparedStatementKeys.DISTINCT_OF, true)
+      //   ).for(this.distinctOf);
+      //   return this.persistence(ctx).statement(
+      //     PreparedStatementKeys.DISTINCT_OF,
+      //     field,
+      //     ctx
+      //   );
+      // }
+      //
+      // @ApiOperationFromModel(ModelConstr, "GET", "groupOf/:field")
+      // @ApiOperation({
+      //   summary: `Group ${modelClazzName} records by a field.`,
+      // })
+      // @ApiParam({ name: "field", description: "The field to group by" })
+      // @ApiOkResponse({
+      //   description: `${modelClazzName} records grouped by the field.`,
+      // })
+      // async groupOf(@Param("field") field: string) {
+      //   const { ctx } = (
+      //     await this.logCtx([], PreparedStatementKeys.GROUP_OF, true)
+      //   ).for(this.groupOf);
+      //   return this.persistence(ctx).statement(
+      //     PreparedStatementKeys.GROUP_OF,
+      //     field,
+      //     ctx
+      //   );
+      // }
 
       @ApiOperationFromModel(ModelConstr, "POST", "bulk")
       @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
@@ -400,23 +712,38 @@ export class FromModelController {
         description: `Payload for ${modelClazzName}`,
         schema: {
           type: "array",
-          items: { $ref: getSchemaPath(ModelConstr) },
+          items: {
+            $ref: getSchemaPath(ModelConstr),
+            // $ref: getSchemaPath(DtoFor(OperationKeys.CREATE, ModelConstr)),
+          },
         },
       })
       @ApiCreatedResponse({
-        description: `x ${modelClazzName} created successfully.`,
+        description: `${modelClazzName} created successfully.`,
+        schema: {
+          type: "array",
+          items: {
+            $ref: getSchemaPath(ModelConstr),
+          },
+        },
       })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
       @ApiUnprocessableEntityResponse({
         description: "Repository rejected the provided payload.",
       })
-      async createAll(@DecafBody() data: T[]): Promise<Model[]> {
-        const log = this.log.for(this.createAll);
+      async createAll(
+        @DecafBody() data: T[],
+        @Response({ passthrough: true }) resp: any
+      ): Promise<Model[]> {
+        const { ctx, log } = (
+          await this.logCtx([], BulkCrudOperationKeys.CREATE_ALL, true)
+        ).for(this.createAll);
         log.verbose(`creating new ${modelClazzName}`);
         let created: T[];
         try {
-          created = await this.persistence.createAll(
-            data.map((d) => new ModelConstr(d))
+          created = await this.persistence(ctx).createAll(
+            data.map((d) => new ModelConstr(d)),
+            ctx
           );
         } catch (e: unknown) {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
@@ -425,6 +752,8 @@ export class FromModelController {
         log.info(
           `created new ${modelClazzName} with id ${(created as any)[this.pk]}`
         );
+
+        ctx.toResponse(resp);
         return created;
       }
 
@@ -432,21 +761,30 @@ export class FromModelController {
       @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
       @ApiBody({
         description: `Payload for ${modelClazzName}`,
-        schema: { $ref: getSchemaPath(ModelConstr) },
+        type: DtoFor(OperationKeys.CREATE, ModelConstr),
       })
       @ApiCreatedResponse({
         description: `${modelClazzName} created successfully.`,
+        schema: {
+          $ref: getSchemaPath(ModelConstr),
+        },
       })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
       @ApiUnprocessableEntityResponse({
         description: "Repository rejected the provided payload.",
       })
-      async create(@DecafBody() data: T): Promise<Model<any>> {
-        const log = this.log.for(this.create);
+      async create(
+        @DecafBody() data: T,
+        @Response({ passthrough: true }) resp: any
+      ): Promise<Model<any>> {
+        const { ctx, log } = (
+          await this.logCtx([], OperationKeys.CREATE, true)
+        ).for(this.create);
         log.verbose(`creating new ${modelClazzName}`);
         let created: Model;
         try {
-          created = await this.persistence.create(data);
+          const persistence = this.persistence(ctx);
+          created = await persistence.create(data, ctx);
         } catch (e: unknown) {
           log.error(`Failed to create new ${modelClazzName}`, e as Error);
           throw e;
@@ -454,6 +792,7 @@ export class FromModelController {
         log.info(
           `created new ${modelClazzName} with id ${(created as any)[this.pk]}`
         );
+        ctx.toResponse(resp);
         return created;
       }
 
@@ -462,16 +801,25 @@ export class FromModelController {
       @ApiQuery({ name: "ids", required: true, type: "array" })
       @ApiOkResponse({
         description: `${modelClazzName} retrieved successfully.`,
+        schema: {
+          type: "array",
+          items: {
+            $ref: getSchemaPath(ModelConstr),
+          },
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       async readAll(@Query("ids") ids: string[]) {
-        const log = this.log.for(this.readAll);
+        const { ctx, log } = (
+          await this.logCtx([], BulkCrudOperationKeys.READ_ALL, true)
+        ).for(this.readAll);
         let read: Model[];
         try {
           log.debug(`reading ${ids.length} ${modelClazzName}: ${ids}`);
-          read = await this.persistence.readAll(ids as any);
+          const persistence = this.persistence(ctx);
+          read = await persistence.readAll(ids as any, ctx);
         } catch (e: unknown) {
           log.error(`Failed to ${modelClazzName} with id ${ids}`, e as Error);
           throw e;
@@ -486,20 +834,26 @@ export class FromModelController {
       @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
       @ApiOkResponse({
         description: `${modelClazzName} retrieved successfully.`,
+        schema: {
+          $ref: getSchemaPath(ModelConstr),
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       async read(@DecafParams(apiProperties) routeParams: DecafParamProps) {
+        const { ctx, log } = (
+          await this.logCtx([], OperationKeys.READ, true)
+        ).for(this.read);
         const id = getPK(...routeParams.valuesInOrder);
         if (typeof id === "undefined")
           throw new ValidationError(`No ${this.pk} provided`);
 
-        const log = this.log.for(this.read);
         let read: Model;
         try {
           log.debug(`reading ${modelClazzName} with ${this.pk} ${id}`);
-          read = await this.persistence.read(id);
+          const persistence = this.persistence(ctx);
+          read = await persistence.read(id, ctx);
         } catch (e: unknown) {
           log.error(
             `Failed to read ${modelClazzName} with id ${id}`,
@@ -521,27 +875,39 @@ export class FromModelController {
         description: `Payload for replace a existing record of ${modelClazzName}`,
         schema: {
           type: "array",
-          items: { $ref: getSchemaPath(ModelConstr) },
+          $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
         },
       })
       @ApiOkResponse({
-        description: `${ModelConstr} record replaced successfully.`,
+        description: `${modelClazzName} updated successfully.`,
+        schema: {
+          type: "array",
+          items: {
+            $ref: getSchemaPath(ModelConstr),
+          },
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
       @ApiBadRequestResponse({ description: "Payload validation failed." })
-      async updateAll(@DecafBody() body: T[]) {
-        const log = this.log.for(this.updateAll);
+      async updateAll(
+        @DecafBody() body: T[],
+        @Response({ passthrough: true }) resp: any
+      ) {
+        const { ctx, log } = (
+          await this.logCtx([], BulkCrudOperationKeys.UPDATE_ALL, true)
+        ).for(this.updateAll);
 
         let updated: T[];
         try {
           log.info(`updating ${body.length} ${modelClazzName}`);
-          updated = await this.persistence.updateAll(body);
+          updated = await this.persistence(ctx).updateAll(body, ctx);
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
         }
+        ctx.toResponse(resp);
         return updated;
       }
 
@@ -552,10 +918,13 @@ export class FromModelController {
       })
       @ApiBody({
         description: `Payload for replace a existing record of ${modelClazzName}`,
-        schema: { $ref: getSchemaPath(ModelConstr) },
+        type: DtoFor(OperationKeys.UPDATE, ModelConstr),
       })
       @ApiOkResponse({
-        description: `${ModelConstr} record replaced successfully.`,
+        description: `${modelClazzName} updated successfully.`,
+        schema: {
+          $ref: getSchemaPath(ModelConstr),
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
@@ -563,9 +932,13 @@ export class FromModelController {
       @ApiBadRequestResponse({ description: "Payload validation failed." })
       async update(
         @DecafParams(apiProperties) routeParams: DecafParamProps,
-        @DecafBody() body: T
+        @DecafBody() body: T,
+        @Response({ passthrough: true }) resp: any
       ) {
-        const log = this.log.for(this.update);
+        const { ctx, log } = (
+          await this.logCtx([], OperationKeys.UPDATE, true)
+        ).for(this.update);
+
         const id = getPK(...routeParams.valuesInOrder);
         if (typeof id === "undefined")
           throw new ValidationError(`No ${this.pk} provided`);
@@ -573,16 +946,20 @@ export class FromModelController {
         let updated: T;
         try {
           log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
-          updated = await this.persistence.update(
+          const payload = JSON.parse(JSON.stringify(body));
+          const persistence = this.persistence(ctx);
+          updated = await persistence.update(
             new ModelConstr({
-              ...body,
+              ...payload,
               [this.pk]: id,
-            })
+            }),
+            ctx
           );
         } catch (e: unknown) {
           log.error(e as Error);
           throw e;
         }
+        ctx.toResponse(resp);
         return updated;
       }
 
@@ -591,17 +968,28 @@ export class FromModelController {
       @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
       @ApiQuery({ name: "ids", required: true, type: "array" })
       @ApiOkResponse({
-        description: `${modelClazzName} retrieved successfully.`,
+        description: `${modelClazzName} deleted successfully.`,
+        schema: {
+          type: "array",
+          items: {
+            $ref: getSchemaPath(ModelConstr),
+          },
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
-      async deleteAll(@Query("ids") ids: string[]) {
-        const log = this.log.for(this.deleteAll);
+      async deleteAll(
+        @Query("ids") ids: string[],
+        @Response({ passthrough: true }) resp: any
+      ) {
+        const { ctx, log } = (
+          await this.logCtx([], BulkCrudOperationKeys.DELETE_ALL, true)
+        ).for(this.deleteAll);
         let read: Model[];
         try {
           log.debug(`deleting ${ids.length} ${modelClazzName}: ${ids}`);
-          read = await this.persistence.deleteAll(ids);
+          read = await this.persistence(ctx).deleteAll(ids, ctx);
         } catch (e: unknown) {
           log.error(
             `Failed to delete ${modelClazzName} with id ${ids}`,
@@ -611,6 +999,7 @@ export class FromModelController {
         }
 
         log.info(`deleted ${read.length} ${modelClazzName}`);
+        ctx.toResponse(resp);
         return read;
       }
 
@@ -618,13 +1007,22 @@ export class FromModelController {
       @ApiParamsFromModel(apiProperties)
       @ApiOperation({ summary: `Delete a ${modelClazzName} record by id.` })
       @ApiOkResponse({
-        description: `${modelClazzName} record deleted successfully.`,
+        description: `${modelClazzName} deleted successfully.`,
+        schema: {
+          $ref: getSchemaPath(ModelConstr),
+        },
       })
       @ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
       })
-      async delete(@DecafParams(apiProperties) routeParams: DecafParamProps) {
-        const log = this.log.for(this.delete);
+      async delete(
+        @DecafParams(apiProperties) routeParams: DecafParamProps,
+        @Response({ passthrough: true }) resp: any
+      ) {
+        const { ctx, log } = (
+          await this.logCtx([], OperationKeys.DELETE, true)
+        ).for(this.delete);
+
         const id = getPK(...routeParams.valuesInOrder);
         if (typeof id === "undefined")
           throw new ValidationError(`No ${this.pk} provided`);
@@ -634,7 +1032,7 @@ export class FromModelController {
           log.debug(
             `deleting ${modelClazzName} with ${this.pk as string} ${id}`
           );
-          del = await this.persistence.delete(id);
+          del = await this.persistence(ctx).delete(id, ctx);
         } catch (e: unknown) {
           log.error(
             `Failed to delete ${modelClazzName} with id ${id}`,
@@ -643,6 +1041,7 @@ export class FromModelController {
           throw e;
         }
         log.info(`deleted ${modelClazzName} with id ${id}`);
+        ctx.toResponse(resp);
         return del;
       }
     }
