@@ -8,18 +8,27 @@ export function normalizeEventResponse(args: any[]): unknown[] {
   const serializedPayload = Array.isArray(payload)
     ? payload.map((e) => {
         try {
-          if (e instanceof Model) return e.serialize();
+          if (typeof e.serialize === "function") return e.serialize();
+
+          console.warn(
+            `Payload item for ${modelName} does not have serialize method and is an ${typeof e}, attempting to stringify directly. Item: ${e}`
+          );
           return typeof e === "string" ? e : JSON.stringify(e);
         } catch (err: unknown) {
           console.warn(`Failed to serialize payload for ${modelName}: ${err}`);
           return undefined;
         }
       })
-    : payload && payload instanceof Model
+    : payload && typeof payload.serialize === "function"
       ? payload.serialize()
-      : payload
-        ? JSON.stringify(payload)
-        : undefined;
+      : typeof payload === "string"
+        ? payload
+        : JSON.stringify(payload);
+
+  console.debug(
+    `Normalized event response for model ${modelName}, operation ${operation}, id ${id}:`,
+    serializedPayload
+  );
 
   return [modelName, operation, id, serializedPayload];
 }
