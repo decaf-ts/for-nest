@@ -37,9 +37,9 @@ export class SwaggerBuilder {
   ): void {
     if (!path) return;
 
-    const httpAdapter = this.app.getHttpAdapter();
+    const httpAdapter = this.app.getHttpAdapter() as any;
     path = path.startsWith("/") ? path : `/${path}`;
-    httpAdapter.get(path, (_req, res) => {
+    httpAdapter.get(path, (_req: any, res: any) => {
       httpAdapter.reply(res, bodyFactory(), 200, {
         "Content-Type": contentType,
       });
