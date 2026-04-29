@@ -2,6 +2,7 @@ import { INestApplication } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { SwaggerCustomUI } from "./SwaggerCustomUI";
 import { SWAGGER_UI_CONSTANTS, SwaggerOptions } from "./constants";
+import YAML from "yaml";
 
 export class SwaggerBuilder {
   constructor(
@@ -13,8 +14,8 @@ export class SwaggerBuilder {
     const description = this.options.path
       ? this.options.description +
         "" +
-        `<br><br><a href="${this.options.path}/spec.json">OpenAPI JSON Spec</a> | ` +
-        `<a href="${this.options.path}/spec.yaml">OpenAPI YAML Spec</a>`
+        `<br><br><a href="${this.options.openApiJsonPath}">OpenAPI JSON Spec</a> | ` +
+        `<a href="${this.options.openApiYamlPath}">OpenAPI YAML Spec</a>`
       : this.options.description;
 
     const config = new DocumentBuilder()
@@ -26,6 +27,22 @@ export class SwaggerBuilder {
 
     return SwaggerModule.createDocument(this.app, config, {
       extraModels: this.options.extraModels || [],
+    });
+  }
+
+  private registerOpenApiRoute(
+    path: string | undefined,
+    contentType: "application/json" | "application/x-yaml",
+    bodyFactory: () => void
+  ): void {
+    if (!path) return;
+
+    const httpAdapter = this.app.getHttpAdapter();
+    path = path.startsWith("/") ? path : `/${path}`;
+    httpAdapter.get(path, (_req, res) => {
+      httpAdapter.reply(res, bodyFactory(), 200, {
+        "Content-Type": contentType,
+      });
     });
   }
 
@@ -46,7 +63,25 @@ export class SwaggerBuilder {
       document,
       {
         ...swaggerUI.getCustomOptions(),
+        jsonDocumentUrl: this.options.openApiJsonPath
+          ? `${this.options.openApiJsonPath}`
+          : undefined,
+        yamlDocumentUrl: this.options.openApiYamlPath
+          ? `${this.options.openApiYamlPath}`
+          : undefined,
       }
+    );
+
+    this.registerOpenApiRoute(
+      this.options.openApiJsonPath,
+      "application/json",
+      () => document
+    );
+
+    this.registerOpenApiRoute(
+      this.options.openApiYamlPath,
+      "application/x-yaml",
+      () => YAML.stringify(document)
     );
   }
 

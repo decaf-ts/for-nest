@@ -38,6 +38,17 @@ export interface SwaggerSetupOptions {
   topbarBgColor?: string;
   topbarIconPath?: string;
   faviconPath?: string;
+  /**
+   * Path to expose the OpenAPI specification in JSON format.
+   * Example: /api/openapi.json
+   */
+  openApiJsonPath?: string;
+  /**
+   * Path to expose the OpenAPI specification in YAML format.
+   * Requires 'yaml' package as peer dependency.
+   * Example: /api/openapi.yaml
+   */
+  openApiYamlPath?: string;
 }
 
 /**
@@ -237,6 +248,8 @@ export class NestBootstraper {
       faviconFilePath: options.faviconPath,
       topbarIconFilePath: options.topbarIconPath,
       topbarBgColor: options.topbarBgColor,
+      openApiJsonPath: options.openApiJsonPath,
+      openApiYamlPath: options.openApiYamlPath,
     });
     swagger.setupSwagger();
     return this;
