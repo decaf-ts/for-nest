@@ -115,7 +115,8 @@
     "@decaf-ts/injectable-decorators": "latest",
     "@decaf-ts/logging": "latest",
     "@decaf-ts/transactional-decorators": "latest",
-    "@nestjs/common": "^11.1.14"
+    "@nestjs/common": "^11.1.14",
+    "yaml": "^2.8.3"
   },
   "overrides": {
     "fabric-common": {

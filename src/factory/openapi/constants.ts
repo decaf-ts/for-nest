@@ -13,6 +13,19 @@ export interface SwaggerOptions {
   auth?: SecuritySchemeObject;
   topbarBgColor?: string;
   extraModels?: Constructor[];
+
+  /**
+   * Path to expose the OpenAPI specification in JSON format.
+   * Example: /api/openapi.json
+   */
+  openApiJsonPath?: string;
+
+  /**
+   * Path to expose the OpenAPI specification in YAML format.
+   * Requires 'yaml' package as peer dependency.
+   * Example: /api/openapi.yaml
+   */
+  openApiYamlPath?: string;
 }
 
 export const SWAGGER_UI_CONSTANTS: SwaggerOptions = {

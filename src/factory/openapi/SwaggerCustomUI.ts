@@ -56,12 +56,6 @@ export class SwaggerCustomUI {
       swaggerOptions: {
         persistAuthorization: this.options.persistAuthorization,
       },
-      jsonDocumentUrl: this.options.path
-        ? `${this.options.path}/spec.json`
-        : undefined,
-      yamlDocumentUrl: this.options.path
-        ? `${this.options.path}/spec.yaml`
-        : undefined,
     };
   }
 
