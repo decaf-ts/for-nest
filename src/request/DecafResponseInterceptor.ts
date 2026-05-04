@@ -5,7 +5,7 @@ import {
   CallHandler,
 } from "@nestjs/common";
 import { Observable, tap } from "rxjs";
-import { DecafRequestContext } from "./index";
+import { DecafRequestContext } from "./DecafRequestContext";
 
 @Injectable()
 export class DecafResponseInterceptor implements NestInterceptor {

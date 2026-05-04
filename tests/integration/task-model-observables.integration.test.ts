@@ -12,7 +12,7 @@ import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { EventSourceController, EventSourcePlus } from "event-source-plus";
 import { AxiosHttpAdapter } from "@decaf-ts/for-http";
 import { RestRepository } from "@decaf-ts/for-http";
-import { RamTransformer } from "@decaf-ts/for-nest/ram";
+import { RamTransformer } from "../../src/ram";
 import { uses } from "@decaf-ts/decoration";
 import { DecafExceptionFilter, DecafModule } from "../../src/index";
 
