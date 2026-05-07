@@ -1,23 +1,26 @@
-// @ts-expect-error only types. shouldnt matter
-import { type RamContext, type RamFlags } from "@decaf-ts/core/ram";
 import {
   requestToContextTransformer,
   RequestToContextTransformer,
 } from "../interceptors/context";
 
 // @requestToContextTransformer("ram")
-export class RamTransformer implements RequestToContextTransformer<RamContext> {
+export class RamTransformer implements RequestToContextTransformer<any> {
   constructor() {}
 
-  async from(req: any): Promise<RamFlags> {
+  async from(req: any, ..._args: any[]): Promise<any> {
     const user = req.headers.authorization
       ? req.headers.authorization.split(" ")[1]
       : undefined;
     if (!user) {
-      return {};
+      return {
+        headers: req?.headers || {},
+        overrides: {},
+      };
     }
     return {
       UUID: user,
+      headers: req?.headers || {},
+      overrides: {},
     };
   }
 }
