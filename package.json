@@ -23,7 +23,12 @@
   "types": "./lib/types/index.d.ts",
   "main": "./lib/cjs/index.cjs",
   "module": "./lib/esm/index.js",
-  "sideEffects": false,
+  "sideEffects": [
+    "./lib/esm/decoration.js",
+    "./lib/esm/overrides/overrides.js",
+    "./lib/cjs/decoration.cjs",
+    "./lib/cjs/overrides/overrides.cjs"
+  ],
   "scripts": {
     "do-install": "NPM_TOKEN=$(cat .npmtoken) npm install",
     "update-dependencies": "PREFIX=\"decaf-ts\"; npm ls | grep \"$PREFIX\" | awk -F/ '{print $NF}' | sed 's/@.*//' | xargs -I package npm update @\"$PREFIX\"/package",
