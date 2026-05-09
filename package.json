@@ -5,22 +5,32 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./lib/types/index.d.ts",
-      "import": "./lib/esm/index.js",
-      "require": "./lib/cjs/index.cjs",
+      "import": {
+        "types": "./lib/types/index.d.mts",
+        "default": "./lib/esm/index.js"
+      },
+      "require": {
+        "types": "./lib/types/index.d.cts",
+        "default": "./lib/cjs/index.cjs"
+      },
       "default": "./lib/esm/index.js"
     },
     "./ram": {
-      "types": "./lib/types/ram/index.d.ts",
-      "import": "./lib/esm/ram/index.js",
-      "require": "./lib/cjs/ram/index.cjs",
+      "import": {
+        "types": "./lib/types/ram/index.d.mts",
+        "default": "./lib/esm/ram/index.js"
+      },
+      "require": {
+        "types": "./lib/types/ram/index.d.cts",
+        "default": "./lib/cjs/ram/index.cjs"
+      },
       "default": "./lib/esm/ram/index.js"
     }
   },
   "bin": {
     "for-nest": "lib/cjs/bin/cli.cjs"
   },
-  "types": "./lib/types/index.d.ts",
+  "types": "./lib/types/index.d.mts",
   "main": "./lib/cjs/index.cjs",
   "module": "./lib/esm/index.js",
   "sideEffects": [
