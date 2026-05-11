@@ -11,6 +11,9 @@ import { Logger } from "@decaf-ts/logging";
 import { NestFactory } from "@nestjs/core";
 import { INestApplication } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { DECAF_ADAPTER_ID } from "./constants";
+import { DecafCoreModule } from "./core-module";
+import { DecafMigrationModule } from "./migrations";
 
 const defaultInputCandidates = [
   "./lib/app.module.cjs",
@@ -59,133 +62,84 @@ export function buildOutputFilePath(params: {
   return path.join(baseDir, `${resolvedName}${suffix}.json`);
 }
 
-async function bootApp(log: Logger, p: string) {
-  log = log.for(bootApp);
-
-  p = path.join(process.cwd(), p);
-  let module: any;
-  try {
-    module = await normalizeImport(import(p));
-  } catch (e: unknown) {
-    throw new InternalError(`Failed to load module under ${p}: ${e}`);
-  }
-
-  const { AppModule } = module;
-  log.verbose(`Booting app without opening a port`);
-
-  let app: INestApplication;
-
-  try {
-    app = await NestFactory.create(AppModule, {
-      logger: false,
-    });
-    await app.init();
-    log.info(`dev mode app booted`);
-  } catch (e: unknown) {
-    throw new InternalError(e as Error);
-  }
-
-  return app;
+function parseList(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value))
+    return value.flatMap((entry) => parseList(entry)).filter(Boolean);
+  return String(value)
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
-async function shutdownApp(log: Logger, app: INestApplication) {
-  log.for(shutdownApp).verbose(`Shutting down app`);
-  await app.close();
+function parseBooleanFlag(value: unknown): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === "boolean") return value;
+
+  const normalized = `${value}`.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  throw new InternalError(`Invalid boolean flag value: ${value}`);
 }
 
-async function createSwagger(
-  log: Logger,
-  app: INestApplication,
-  cfg: { title: string; description: string; version: string }
-) {
-  const { title, description, version } = cfg;
-  const config = new DocumentBuilder()
-    .setTitle(title)
-    .setDescription(description)
-    .setVersion(version)
-    .build();
-
-  log = log.for(createSwagger);
-  log.verbose(`Creating swgger`);
-  const document = SwaggerModule.createDocument(app, config);
-  log.info(`Swagger doc created`);
-  return document;
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
 }
 
-const compileCommand = new Command()
-  .name("export-api")
-  .description("exports the api in json format")
+const migrateCommand = new Command()
+  .name("migrate")
+  .description(
+    "boots the app context headlessly, executes decaf migrations, and exits"
+  )
   .option("--input <String>", "path to app module (ts or compiled)")
-  .option("--output <String>", "output folder for api definition file", "./")
+  .option("--to <String>", "target migration version")
+  .option("--flavour <String>", "target flavour(s), comma-separated")
   .option(
-    "--appendVersion <Boolean>",
-    "if the version if to be appended to the json file name",
-    false
+    "--adapter <String>",
+    "adapter flavour alias(es), comma-separated (same behavior as --flavour)"
   )
   .option(
-    "--title [String]",
-    "title of the OpenApi spec. defaults to name in package"
+    "--task-mode [Boolean]",
+    "runs migration via task mode (true/false). accepts bare flag as true"
   )
   .option(
-    "--description [String]",
-    "description of the OpenApi spec. defaults to description in package"
-  )
-  .option(
-    "--fileName [String]",
-    "file name (without json). defaults to name on package.json (last segment after slash)"
+    "--dry-run [Boolean]",
+    "runs migrations with dry-run context (true/false). accepts bare flag as true"
   )
   .action(async (options: any) => {
     const pkg = JSON.parse(
       fs.readFileSync(path.join(process.cwd(), "package.json"), "utf-8")
     );
-
-    const version = pkg.version;
-
-    // eslint-disable-next-line prefer-const
-    let { title, name, fileName, description, output, input, appendVersion } =
-      options;
-    const log = logger.for("export-api");
-    log.debug(
-      `running with options: ${JSON.stringify(options)} for ${pkg.name} version ${version}`
-    );
-
-    description = description || pkg.description;
-    title = title || pkg.name;
-
-    input = resolveInputPath(input);
-
-    const baseOutputDir = path.resolve(output);
+    const log = logger.for("migrate");
+    const input = options.input || "./src/app.module.ts";
+    let app: INestApplication | undefined;
     try {
-      fs.statfsSync(baseOutputDir);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (e: unknown) {
-      fs.mkdirSync(baseOutputDir, { recursive: true });
-    }
-
-    const outputPath = buildOutputFilePath({
-      outputDir: baseOutputDir,
-      pkgName: pkg.name,
-      name,
-      fileName,
-      appendVersion,
-      version,
-    });
-
-    log.debug(`writing spec to file: ${outputPath}`);
-
-    const app = await bootApp(log, input);
-    const document = await createSwagger(log, app, {
-      title,
-      description,
-      version,
-    });
-
-    try {
-      fs.writeFileSync(outputPath, JSON.stringify(document, null, 2), "utf8");
+      app = await NestFactory.create(
+        await normalizeImport(import(path.join(process.cwd(), input))),
+        {
+          logger: false,
+        }
+      );
+      await app.init();
+      log.info(`App booted`);
+      
+      const migrations = await DecafMigrationModule.migrate({
+        toVersion: options.to || pkg.version,
+        taskMode: parseBooleanFlag(options.taskMode),
+        dryRun: parseBooleanFlag(options.dryRun),
+      });
+      
+      for (const migrationService of migrations || []) {
+        await migrationService.track();
+      }
+      
+      log.info(
+        `Migration completed${(options.to || pkg.version) ? ` up to ${options.to || pkg.version}` : ""}`
+      );
     } catch (e: unknown) {
       throw new InternalError(e as Error);
     } finally {
-      await shutdownApp(log, app);
+      if (app) await app.close();
     }
   });
 
@@ -193,7 +147,7 @@ const nestCmd = new Command()
   .name("nest")
   .description("exposes several commands to help manage the nest integration");
 
-nestCmd.addCommand(compileCommand);
+nestCmd.addCommand(migrateCommand);
 
 export default function nest() {
   return nestCmd;

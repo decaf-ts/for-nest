@@ -52,3 +52,5 @@ export class DecafModule {
     };
   }
 }
+
+export async function runMigrations(): Promise<void> {}

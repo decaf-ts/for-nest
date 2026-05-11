@@ -4,7 +4,6 @@ import {
   Inject,
   Module,
   OnApplicationShutdown,
-  Scope,
 } from "@nestjs/common";
 import { APP_INTERCEPTOR, ModuleRef } from "@nestjs/core";
 import type { DecafModuleOptions } from "./types";
@@ -13,10 +12,6 @@ import {
   DECAF_HANDLERS,
   DECAF_MODULE_OPTIONS,
 } from "./constants";
-import { FactoryProvider } from "@nestjs/common/interfaces/modules/provider.interface";
-import { Adapter, PersistenceService } from "@decaf-ts/core";
-import { Logger, Logging } from "@decaf-ts/logging";
-import { InternalError } from "@decaf-ts/db-decorators";
 import {
   AuthInterceptor,
   DecafRequestHandlerInterceptor,
@@ -25,6 +20,10 @@ import {
 } from "./interceptors";
 import { DecafHandlerExecutor, DecafRequestContext } from "./request";
 import { Constructor } from "@decaf-ts/decoration";
+import { PersistenceService } from "@decaf-ts/core";
+import { InternalError } from "@decaf-ts/db-decorators";
+import { Adapter } from "@decaf-ts/core";
+import { Logger, Logging } from "@decaf-ts/logging";
 
 @Global()
 @Module({})
@@ -33,9 +32,9 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
 {
   private static _logger: Logger;
 
-  private static _persistence?: PersistenceService<any>;
+  private static _persistence?: PersistenceService<Adapter<any, any, any, any>>;
 
-  protected static get persistence(): PersistenceService<any> {
+  protected static get persistence(): PersistenceService<Adapter<any, any, any, any>> {
     if (!this._persistence)
       throw new InternalError("Persistence service not initialized");
     return this._persistence;
@@ -58,7 +57,7 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
       module: DecafCoreModule,
       providers: [
         { provide: DECAF_MODULE_OPTIONS, useValue: options },
-        { provide: DECAF_ADAPTER_ID, useValue: this.persistence.client },
+        { provide: DECAF_ADAPTER_ID, useValue: this.persistence?.client },
         {
           provide: DECAF_HANDLERS,
           useFactory: () =>
@@ -140,20 +139,6 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
     }
 
     return this.persistence.client;
-
-    //
-    // if (!this._adapterInstance) {
-    //   log.info("Creating adapter instance...");
-    //   this._adapterInstance = new options.adapter(options.conf, options.alias);
-    //   try {
-    //     await this._adapterInstance.initialize();
-    //   } catch (e: unknown) {
-    //     log.error(`Failed to initialized adapter`);
-    //     throw e;
-    //   }
-    //   log.info("Adapter instance created successfully!");
-    // }
-    // return this.persistence;
   }
 
   async onApplicationShutdown(): Promise<void> {
