@@ -1,5 +1,5 @@
-import { SecuritySchemeObject } from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
 import { Constructor } from "@decaf-ts/decoration";
+import { SecuritySchemeObject } from "../../swagger-types";
 
 export interface SwaggerOptions {
   title: string;

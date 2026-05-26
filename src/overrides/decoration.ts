@@ -1,13 +1,13 @@
 import { Type } from "@nestjs/common";
-import type { EnumSchemaAttributes } from "@nestjs/swagger/dist/interfaces/enum-schema-attributes.interface";
-import type {
-  EnumAllowedTypes,
-  SchemaObjectMetadata,
-} from "@nestjs/swagger/dist/interfaces/schema-object-metadata.interface";
 import { isString, negate, pickBy } from "lodash";
 import { DECORATORS } from "./constants";
 import { getTypeIsArrayTuple, METADATA_FACTORY_NAME } from "./helpers";
-import { type SwaggerEnumType } from "@nestjs/swagger/dist/types/swagger-enum.type";
+import type {
+  EnumAllowedTypes,
+  EnumSchemaAttributes,
+  SchemaObjectMetadata,
+  SwaggerEnumType,
+} from "../swagger-types";
 
 export const isUndefined = (obj: any): obj is undefined =>
   typeof obj === "undefined";

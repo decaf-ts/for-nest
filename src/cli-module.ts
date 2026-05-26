@@ -86,6 +86,45 @@ function unique(values: string[]): string[] {
   return [...new Set(values)];
 }
 
+export function resolveMigrateCommandConfig(
+  options: Record<string, unknown> = {},
+  pkg: any = {}
+): {
+  input: string;
+  config: {
+    toVersion: string;
+    taskMode: boolean | undefined;
+    dryRun: boolean | undefined;
+    flavours: string[];
+  };
+} {
+  const packageMigration = pkg?.decaf?.migration ?? {};
+  const input =
+    (options.input as string | undefined) ||
+    packageMigration.input ||
+    "./src/app.module.ts";
+  const toVersion =
+    (options.to as string | undefined) ||
+    packageMigration.toVersion ||
+    pkg?.version ||
+    "0.0.0";
+  const cliFlavours = parseList(options.flavour ?? options.adapter);
+  const packageFlavours = parseList(
+    packageMigration.flavour ?? packageMigration.flavours
+  );
+  const flavours = cliFlavours.length > 0 ? unique(cliFlavours) : unique(packageFlavours);
+
+  return {
+    input,
+    config: {
+      toVersion,
+      taskMode: parseBooleanFlag(options.taskMode ?? packageMigration.taskMode),
+      dryRun: parseBooleanFlag(options.dryRun ?? packageMigration.dryRun),
+      flavours,
+    },
+  };
+}
+
 const migrateCommand = new Command()
   .name("migrate")
   .description(
@@ -111,7 +150,7 @@ const migrateCommand = new Command()
       fs.readFileSync(path.join(process.cwd(), "package.json"), "utf-8")
     );
     const log = logger.for("migrate");
-    const input = options.input || "./src/app.module.ts";
+    const { input, config } = resolveMigrateCommandConfig(options, pkg);
     let app: INestApplication | undefined;
     try {
       app = await NestFactory.create(
@@ -124,9 +163,9 @@ const migrateCommand = new Command()
       log.info(`App booted`);
       
       const migrations = await DecafMigrationModule.migrate({
-        toVersion: options.to || pkg.version,
-        taskMode: parseBooleanFlag(options.taskMode),
-        dryRun: parseBooleanFlag(options.dryRun),
+        toVersion: config.toVersion,
+        taskMode: config.taskMode,
+        dryRun: config.dryRun,
       });
       
       for (const migrationService of migrations || []) {

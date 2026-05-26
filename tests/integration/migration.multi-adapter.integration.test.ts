@@ -1,9 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { NestFactory } from "@nestjs/core";
-import {
-  column,
-  pk,
-} from "@decaf-ts/core";
+import { column, pk } from "@decaf-ts/core";
 import { model, required } from "@decaf-ts/decorator-validation";
 import { uses } from "@decaf-ts/decoration";
 import {
@@ -170,7 +167,7 @@ async function cleanupTypeORMTestResources(resources: {
   }
 }
 
-@model({ name: NANO_TABLE_A })
+@model()
 @uses(NANO_FLAVOUR)
 class NanoProfileV1 {
   @pk()
@@ -180,7 +177,7 @@ class NanoProfileV1 {
   name: string;
 }
 
-@model({ name: NANO_TABLE_B })
+@model()
 @uses(NANO_FLAVOUR)
 class NanoCustomerV1 {
   @pk()
@@ -190,20 +187,20 @@ class NanoCustomerV1 {
   email: string;
 }
 
-@model({ name: TYPEORM_TABLE_A })
+@model()
 @uses(TYPEORM_FLAVOUR)
 class TypeormPromptV1 {
-  @pk({ type: String, generated: false })
+  @pk()
   id: string;
   @required()
   @column()
   body: string;
 }
 
-@model({ name: TYPEORM_TABLE_B })
+@model()
 @uses(TYPEORM_FLAVOUR)
 class TypeormConfigV1 {
-  @pk({ type: String, generated: false })
+  @pk()
   id: string;
   @required()
   @column()
@@ -313,7 +310,9 @@ class TypeormConfigMigration102 extends AbsMigration<any> {
 describe("for-nest live task migration across Nano + TypeORM", () => {
   it("boots nest with 4 models and runs task-mode migration hops with retry+track", async () => {
     failedOnce.clear();
-    const nanoResources = await createNanoTestResources("for_nest_live_migration");
+    const nanoResources = await createNanoTestResources(
+      "for_nest_live_migration"
+    );
     const typeormResources = await createTypeORMTestResources(
       "for_nest_live_migration"
     );
@@ -376,7 +375,9 @@ describe("for-nest live task migration across Nano + TypeORM", () => {
       const nano = adapters.find((a) => a.flavour === NANO_FLAVOUR);
       const typeorm = adapters.find((a) => a.flavour === TYPEORM_FLAVOUR);
       if (!nano || !typeorm) {
-        throw new Error("failed to resolve live nano/typeorm adapters from nest");
+        throw new Error(
+          "failed to resolve live nano/typeorm adapters from nest"
+        );
       }
 
       await nano.client.bulk({

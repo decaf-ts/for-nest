@@ -27,7 +27,7 @@ export abstract class DecafController<
     protected readonly clientContext: DecafRequestContext,
     name: string
   ) {
-    super(name);
+    super();
   }
   protected override logCtx<
     ARGS extends any[] = any[],
