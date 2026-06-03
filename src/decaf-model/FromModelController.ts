@@ -114,7 +114,7 @@ export class FromModelController {
     ModelClazz: ModelConstructor<T>
   ): Repo<T> | ModelService<T> {
     try {
-      return Service.get(ModelClazz as any) as ModelService<T>;
+      return Service.get<ModelService<T>>(ModelClazz);
     } catch (e: unknown) {
       try {
         return ModelService.getService(ModelClazz) as ModelService<T>;
