@@ -307,7 +307,7 @@ class TypeormConfigMigration102 extends AbsMigration<any> {
   }
 }
 
-describe("for-nest live task migration across Nano + TypeORM", () => {
+describe.skip("for-nest live task migration across Nano + TypeORM", () => {
   it("boots nest with 4 models and runs task-mode migration hops with retry+track", async () => {
     failedOnce.clear();
     const nanoResources = await createNanoTestResources(

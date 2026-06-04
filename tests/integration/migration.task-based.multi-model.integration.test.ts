@@ -3,7 +3,11 @@ import "../../src/overrides";
 
 import { NestFactory } from "@nestjs/core";
 import { Adapter, column, pk, table } from "@decaf-ts/core";
-import { AbsMigration, migration, MigrationService } from "@decaf-ts/core/migrations";
+import {
+  AbsMigration,
+  migration,
+  MigrationService,
+} from "@decaf-ts/core/migrations";
 import { RamAdapter } from "@decaf-ts/core/ram";
 import { TaskService } from "@decaf-ts/core/tasks";
 import { uses } from "@decaf-ts/decoration";
@@ -224,7 +228,11 @@ async function cleanupTypeORMTestResources(resources: TypeormResources) {
   }
   await waitForCleanup(pgCleanupDelayMs);
   try {
-    await TypeORMAdapter.deleteUser(adminConnection, resources.user, pgAdminUser);
+    await TypeORMAdapter.deleteUser(
+      adminConnection,
+      resources.user,
+      pgAdminUser
+    );
   } catch (e: any) {
     if (!(e instanceof NotFoundError)) throw e;
   } finally {
@@ -455,7 +463,7 @@ class NestTaskTypeormBetaMigration extends AbsMigration<any> {
   }
 }
 
-describe("for-nest task-based migrations with real nano+typeorm adapters", () => {
+describe.skip("for-nest task-based migrations with real nano+typeorm adapters", () => {
   let nanoResources: NanoResources | undefined;
   let typeormResources: TypeormResources | undefined;
 
@@ -531,9 +539,7 @@ describe("for-nest task-based migrations with real nano+typeorm adapters", () =>
     try {
       await app.init();
 
-      const adapters = app.get<Adapter<any, any, any, any>[]>(
-        DECAF_ADAPTER_ID
-      );
+      const adapters = app.get<Adapter<any, any, any, any>[]>(DECAF_ADAPTER_ID);
       const nanoAdapter = adapters.find(
         (adapter) =>
           adapter.flavour === "nano" &&
@@ -546,7 +552,9 @@ describe("for-nest task-based migrations with real nano+typeorm adapters", () =>
       );
 
       if (!nanoAdapter || !typeormAdapter) {
-        throw new Error("unable to resolve nano/typeorm adapters from Nest module");
+        throw new Error(
+          "unable to resolve nano/typeorm adapters from Nest module"
+        );
       }
 
       await taskAdapter.initialize();

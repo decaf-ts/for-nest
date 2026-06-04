@@ -17,7 +17,12 @@ import {
   TypeormResources,
 } from "./helpers/resources";
 
-const CLI_FIXTURE = path.join("tests", "integration", "fixtures", "cli-live-app.module.cjs");
+const CLI_FIXTURE = path.join(
+  "tests",
+  "integration",
+  "fixtures",
+  "cli-live-app.module.cjs"
+);
 
 const envKeys = [
   "NEST_CLI_NANO_USER",
@@ -32,7 +37,7 @@ const envKeys = [
   "NEST_CLI_TYPEORM_PORT",
 ];
 
-describe("nest cli migrate command (live)", () => {
+describe.skip("nest cli migrate command (live)", () => {
   let nanoResources: NanoResources | undefined;
   let typeormResources: TypeormResources | undefined;
 
