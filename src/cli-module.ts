@@ -5,14 +5,11 @@ const logger = Logging.for("for-nest");
 import { Command } from "commander";
 import fs from "fs";
 import path from "path";
-import { normalizeImport } from "@decaf-ts/core";
+import { Adapter, normalizeImport, Service, TaskModel } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
-import { Logger } from "@decaf-ts/logging";
 import { NestFactory } from "@nestjs/core";
 import { INestApplication } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import { DECAF_ADAPTER_ID } from "./constants";
-import { DecafCoreModule } from "./core-module";
 import { DecafMigrationModule } from "./migrations";
 
 const defaultInputCandidates = [
@@ -155,25 +152,58 @@ const migrateCommand = new Command()
     try {
       app = await NestFactory.create(
         await normalizeImport(import(path.join(process.cwd(), input))),
-        {
-          logger: false,
-        }
+        { logger: false }
       );
       await app.init();
       log.info(`App booted`);
-      
-      const migrations = await DecafMigrationModule.migrate({
-        toVersion: config.toVersion,
-        taskMode: config.taskMode,
-        dryRun: config.dryRun,
+
+      const cache = (Adapter as any)["_cache"] as Record<string, Adapter<any, any, any, any>>;
+      const seen = new Set<string>();
+      const adapters = Object.values(cache).filter((a) => {
+        if (seen.has(a.alias)) return false;
+        seen.add(a.alias);
+        return true;
       });
-      
+
+      let taskService: any;
+      if (config.taskMode) {
+        try {
+          taskService = Service.get(TaskModel);
+        } catch {
+          // not registered
+        }
+        if (!taskService)
+          throw new InternalError(
+            `task-mode requested but no TaskService is registered (expected @service(TaskModel))`
+          );
+      }
+
+      // Exclude the task engine's adapter from migration targets — MigrationService
+      // will throw if it appears in the adapter list alongside cfg.taskService.
+      const taskAdapterAlias: string | undefined =
+        (taskService as any)?.client?.adapter?.alias ||
+        (taskService as any)?.client?.adapter?.flavour;
+      const migrateAdapters = taskAdapterAlias
+        ? adapters.filter((a) => a.alias !== taskAdapterAlias && a.flavour !== taskAdapterAlias)
+        : adapters;
+
+      const migrations = await DecafMigrationModule.migrate(
+        {
+          toVersion: config.toVersion,
+          taskMode: config.taskMode,
+          dryRun: config.dryRun,
+          flavours: config.flavours.length > 0 ? config.flavours : undefined,
+          taskService,
+        },
+        migrateAdapters
+      );
+
       for (const migrationService of migrations || []) {
         await migrationService.track();
       }
-      
+
       log.info(
-        `Migration completed${(options.to || pkg.version) ? ` up to ${options.to || pkg.version}` : ""}`
+        `Migration completed${options.to || pkg.version ? ` up to ${options.to || pkg.version}` : ""}`
       );
     } catch (e: unknown) {
       throw new InternalError(e as Error);

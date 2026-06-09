@@ -8,6 +8,7 @@ import { InternalError } from "@decaf-ts/db-decorators";
 import { Logging } from "@decaf-ts/logging";
 import { DECAF_ADAPTER_ID } from "../constants";
 import { Adapter } from "@decaf-ts/core";
+import { MigrationService } from "@decaf-ts/core/migrations";
 
 const logger = Logging.for("DecafMigrationModule");
 
@@ -39,7 +40,7 @@ export class DecafMigrationModule {
     adapters?: Adapter<any, any, any, any>[]
   ): Promise<any[]> {
     const log = logger.for(this.migrate);
-    
+
     if (!adapters || adapters.length === 0) {
       throw new InternalError(
         "No adapters provided. Make sure DecafCoreModule is configured and adapters are available."
@@ -48,7 +49,6 @@ export class DecafMigrationModule {
 
     log.info(`Running migrations with config: ${JSON.stringify(config)}`);
 
-    // @ts-ignore - MigrationService is imported from @decaf-ts/core but not exported via subpath
-    return (await import("@decaf-ts/core/migrations")).MigrationService.migrateAdapters(adapters, config || {});
+    return MigrationService.migrateAdapters(adapters, config || {});
   }
 }

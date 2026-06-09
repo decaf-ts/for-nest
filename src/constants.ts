@@ -3,6 +3,7 @@ import { Logger } from "@decaf-ts/logging";
 
 export const DECAF_MODULE_OPTIONS = "DecafModuleOptions";
 export const DECAF_ADAPTER_ID = "DecafAdapter";
+export const DECAF_TASK_SERVICE_ID = "DecafTaskService";
 
 export const DECAF_ROUTE = "DecafRoute";
 export const DECAF_HANDLERS = Symbol("DecafHandlers");

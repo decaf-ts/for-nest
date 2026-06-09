@@ -20,9 +20,8 @@ import {
 } from "./interceptors";
 import { DecafHandlerExecutor, DecafRequestContext } from "./request";
 import { Constructor } from "@decaf-ts/decoration";
-import { PersistenceService } from "@decaf-ts/core";
+import { Adapter, PersistenceService, Service } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
-import { Adapter } from "@decaf-ts/core";
 import { Logger, Logging } from "@decaf-ts/logging";
 
 @Global()
@@ -154,5 +153,10 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
       } catch (e: unknown) {
         log.error(`Failed to shutdown application`, e as Error);
       }
+    try {
+      await Service.shutdown();
+    } catch (e: unknown) {
+      log.error(`Failed to shutdown services`, e as Error);
+    }
   }
 }

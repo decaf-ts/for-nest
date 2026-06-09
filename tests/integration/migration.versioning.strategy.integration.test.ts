@@ -24,7 +24,7 @@ function resolved(reference: string, version: string, flavour = "nest") {
   };
 }
 
-describe.skip("for-nest migration versioning strategies", () => {
+describe("for-nest migration versioning strategies", () => {
   it("defaults to legacy lexical ordering", () => {
     const service = new MigrationService<any>();
     const sorted = (service as any)

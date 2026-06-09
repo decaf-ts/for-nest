@@ -25,6 +25,17 @@
         "default": "./lib/cjs/ram/index.cjs"
       },
       "default": "./lib/esm/ram/index.js"
+    },
+    "./cli": {
+      "import": {
+        "types": "./lib/types/cli-module.d.mts",
+        "default": "./lib/esm/cli-module.js"
+      },
+      "require": {
+        "types": "./lib/types/cli-module.d.cts",
+        "default": "./lib/cjs/cli-module.cjs"
+      },
+      "default": "./lib/esm/cli-module.js"
     }
   },
   "bin": {

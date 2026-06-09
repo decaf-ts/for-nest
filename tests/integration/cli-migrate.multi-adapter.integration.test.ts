@@ -1,5 +1,6 @@
 import path from "path";
 
+import "./helpers/migrations";
 import nest from "../../src/cli-module";
 import { TypeORMAdapter } from "@decaf-ts/for-typeorm";
 
@@ -37,7 +38,7 @@ const envKeys = [
   "NEST_CLI_TYPEORM_PORT",
 ];
 
-describe.skip("nest cli migrate command (live)", () => {
+describe("nest cli migrate command (live)", () => {
   let nanoResources: NanoResources | undefined;
   let typeormResources: TypeormResources | undefined;
 
