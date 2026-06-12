@@ -6,6 +6,7 @@ import { Command } from "commander";
 import fs from "fs";
 import path from "path";
 import { Adapter, normalizeImport, Service, TaskModel } from "@decaf-ts/core";
+import { SemverMigrationVersioning } from "@decaf-ts/core/migrations/SemverMigrationVersioning";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { NestFactory } from "@nestjs/core";
 import { INestApplication } from "@nestjs/common";
@@ -93,6 +94,8 @@ export function resolveMigrateCommandConfig(
     taskMode: boolean | undefined;
     dryRun: boolean | undefined;
     flavours: string[];
+    versionDir: string | undefined;
+    references: string[];
   };
 } {
   const packageMigration = pkg?.decaf?.migration ?? {};
@@ -110,6 +113,9 @@ export function resolveMigrateCommandConfig(
     packageMigration.flavour ?? packageMigration.flavours
   );
   const flavours = cliFlavours.length > 0 ? unique(cliFlavours) : unique(packageFlavours);
+  const versionDir =
+    (options.versionDir as string | undefined) || packageMigration.versionDir;
+  const references = parseList(options.reference ?? packageMigration.references);
 
   return {
     input,
@@ -118,8 +124,40 @@ export function resolveMigrateCommandConfig(
       taskMode: parseBooleanFlag(options.taskMode ?? packageMigration.taskMode),
       dryRun: parseBooleanFlag(options.dryRun ?? packageMigration.dryRun),
       flavours,
+      versionDir,
+      references,
     },
   };
+}
+
+export function buildFileVersionHandlers(
+  versionDir: string,
+  adapters: Adapter<any, any, any, any>[]
+): Record<string, { retrieveLastVersion: () => Promise<string | undefined>; setCurrentVersion: (v: string) => Promise<void> }> {
+  const handlers: Record<string, any> = {};
+  for (const adapter of adapters) {
+    const alias = adapter.alias;
+    const file = path.join(versionDir, `${alias}.migration.version`);
+    handlers[alias] = {
+      // adapter and ctxArgs are available but not needed — version lives in the file
+      retrieveLastVersion: async (_adapter?: any, ..._args: any[]) => {
+        try {
+          if (fs.existsSync(file)) {
+            const v = fs.readFileSync(file, "utf-8").trim();
+            return v || undefined;
+          }
+        } catch {
+          // no file yet → first run
+        }
+        return undefined;
+      },
+      setCurrentVersion: async (version: string, _adapter?: any, ..._args: any[]) => {
+        fs.mkdirSync(versionDir, { recursive: true });
+        fs.writeFileSync(file, version, "utf-8");
+      },
+    };
+  }
+  return handlers;
 }
 
 const migrateCommand = new Command()
@@ -141,6 +179,18 @@ const migrateCommand = new Command()
   .option(
     "--dry-run [Boolean]",
     "runs migrations with dry-run context (true/false). accepts bare flag as true"
+  )
+  .option(
+    "--version-dir <String>",
+    "directory where per-adapter version files are persisted (e.g. a Docker volume path). " +
+      "Each adapter writes its last-migrated version to <versionDir>/<alias>.migration.version. " +
+      "Can also be set via package.json decaf.migration.versionDir."
+  )
+  .option(
+    "--reference <String>",
+    "run only the named migration reference(s), comma-separated (e.g. 'product-migration'). " +
+      "Bypasses version range filtering — use for zero-day or one-off migrations. " +
+      "Can also be set via package.json decaf.migration.references."
   )
   .action(async (options: any) => {
     const pkg = JSON.parse(
@@ -187,6 +237,18 @@ const migrateCommand = new Command()
         ? adapters.filter((a) => a.alias !== taskAdapterAlias && a.flavour !== taskAdapterAlias)
         : adapters;
 
+      const handlers = config.versionDir
+        ? buildFileVersionHandlers(config.versionDir, migrateAdapters)
+        : undefined;
+
+      if (config.versionDir)
+        log.info(`Version tracking: ${path.resolve(config.versionDir)}`);
+      else
+        log.warn(`No --version-dir set — every run will re-apply all migrations up to ${config.toVersion}`);
+
+      if (config.references.length)
+        log.info(`Running only references: ${config.references.join(", ")}`);
+
       const migrations = await DecafMigrationModule.migrate(
         {
           toVersion: config.toVersion,
@@ -194,6 +256,10 @@ const migrateCommand = new Command()
           dryRun: config.dryRun,
           flavours: config.flavours.length > 0 ? config.flavours : undefined,
           taskService,
+          handlers,
+          versioning: new SemverMigrationVersioning(),
+          references:
+            config.references.length > 0 ? config.references : undefined,
         },
         migrateAdapters
       );
@@ -211,6 +277,8 @@ const migrateCommand = new Command()
       if (app) await app.close();
     }
   });
+
+export { migrateCommand };
 
 const nestCmd = new Command()
   .name("nest")
