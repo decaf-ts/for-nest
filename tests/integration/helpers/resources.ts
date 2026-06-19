@@ -1,5 +1,5 @@
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { NanoAdapter } from "../../../../for-nano/src";
+import { NanoAdapter } from "@decaf-ts/for-nano";
 import { TypeORMAdapter } from "@decaf-ts/for-typeorm";
 
 export const LIVE_MIGRATION_VERSION = "1.1.0-nest-live";

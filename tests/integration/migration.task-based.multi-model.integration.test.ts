@@ -13,7 +13,7 @@ import { TaskService } from "@decaf-ts/core/tasks";
 import { uses } from "@decaf-ts/decoration";
 import { model, Model, required } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { NanoAdapter } from "../../../for-nano/src";
+import { NanoAdapter } from "@decaf-ts/for-nano";
 import { TypeORMAdapter } from "@decaf-ts/for-typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { DecafCoreModule } from "../../src/core-module";

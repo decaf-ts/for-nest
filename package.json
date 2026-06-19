@@ -36,6 +36,17 @@
         "default": "./lib/cjs/cli-module.cjs"
       },
       "default": "./lib/esm/cli-module.js"
+    },
+    "./webhooks": {
+      "import": {
+        "types": "./lib/types/webhooks/index.d.mts",
+        "default": "./lib/esm/webhooks/index.js"
+      },
+      "require": {
+        "types": "./lib/types/webhooks/index.d.cts",
+        "default": "./lib/cjs/webhooks/index.cjs"
+      },
+      "default": "./lib/esm/webhooks/index.js"
     }
   },
   "bin": {
@@ -148,6 +159,7 @@
     "@decaf-ts/db-decorators": "latest",
     "@decaf-ts/decoration": "latest",
     "@decaf-ts/decorator-validation": "latest",
+    "@decaf-ts/for-http": "latest",
     "@decaf-ts/injectable-decorators": "latest",
     "@decaf-ts/logging": "latest",
     "@decaf-ts/transactional-decorators": "latest",
