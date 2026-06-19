@@ -815,13 +815,19 @@ export class FromModelController {
         const { ctx, log } = (
           await this.logCtx([], BulkCrudOperationKeys.READ_ALL, true)
         ).for(this.readAll);
+        const normalizedIds = Array.isArray(ids) ? ids : [ids];
         let read: Model[];
         try {
-          log.debug(`reading ${ids.length} ${modelClazzName}: ${ids}`);
+          log.debug(
+            `reading ${normalizedIds} ${modelClazzName}: ${normalizedIds}`
+          );
           const persistence = this.persistence(ctx);
-          read = await persistence.readAll(ids as any, ctx);
+          read = await persistence.readAll(normalizedIds as any, ctx);
         } catch (e: unknown) {
-          log.error(`Failed to ${modelClazzName} with id ${ids}`, e as Error);
+          log.error(
+            `Failed to ${modelClazzName} with id ${normalizedIds}`,
+            e as Error
+          );
           throw e;
         }
 
@@ -986,13 +992,16 @@ export class FromModelController {
         const { ctx, log } = (
           await this.logCtx([], BulkCrudOperationKeys.DELETE_ALL, true)
         ).for(this.deleteAll);
+        const normalizedIds = Array.isArray(ids) ? ids : [ids];
         let read: Model[];
         try {
-          log.debug(`deleting ${ids.length} ${modelClazzName}: ${ids}`);
-          read = await this.persistence(ctx).deleteAll(ids, ctx);
+          log.debug(
+            `deleting ${normalizedIds.length} ${modelClazzName}: ${normalizedIds}`
+          );
+          read = await this.persistence(ctx).deleteAll(normalizedIds, ctx);
         } catch (e: unknown) {
           log.error(
-            `Failed to delete ${modelClazzName} with id ${ids}`,
+            `Failed to delete ${modelClazzName} with id ${normalizedIds}`,
             e as Error
           );
           throw e;
