@@ -9,7 +9,7 @@ import {
   WebhookStatus,
   WebhookSubscription,
   collectPagedResults,
-} from "@decaf-ts/for-http/server";
+} from "@decaf-ts/for-http/hooks";
 
 @Controller("webhook-subscriptions")
 export class WebhookSubscriptionActionsController extends DecafController<DecafServerCtx> {
@@ -22,9 +22,10 @@ export class WebhookSubscriptionActionsController extends DecafController<DecafS
     const { ctx } = (await this.logCtx([], "deactivate", true)).for(
       this.deactivate
     );
-    const repo = Repository.forModel<WebhookSubscription, Repo<WebhookSubscription>>(
-      WebhookSubscription
-    );
+    const repo = Repository.forModel<
+      WebhookSubscription,
+      Repo<WebhookSubscription>
+    >(WebhookSubscription);
     const current = await repo.read(id, ctx);
     current.active = false;
     return repo.update(current, ctx);
@@ -35,9 +36,10 @@ export class WebhookSubscriptionActionsController extends DecafController<DecafS
     const { ctx } = (await this.logCtx([], "reactivate", true)).for(
       this.reactivate
     );
-    const repo = Repository.forModel<WebhookSubscription, Repo<WebhookSubscription>>(
-      WebhookSubscription
-    );
+    const repo = Repository.forModel<
+      WebhookSubscription,
+      Repo<WebhookSubscription>
+    >(WebhookSubscription);
     const current = await repo.read(id, ctx);
     current.active = true;
     return repo.update(current, ctx);

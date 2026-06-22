@@ -37,7 +37,7 @@ export * from "./migrations";
 export * from "./types";
 export * from "./utils";
 export * from "./events-module";
-export * from "./webhooks";
+// export * from "./webhooks";
 
 /**
  * Represents the current version of the ts-workspace module.

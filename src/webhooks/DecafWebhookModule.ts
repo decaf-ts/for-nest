@@ -1,9 +1,6 @@
 import { DynamicModule, Module } from "@nestjs/common";
 import { RouterModule } from "@nestjs/core";
-import {
-  Adapter,
-  PersistenceService,
-} from "@decaf-ts/core";
+import { Adapter, PersistenceService } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Constructor, uses } from "@decaf-ts/decoration";
 import { Logging } from "@decaf-ts/logging";
@@ -19,7 +16,7 @@ import {
   WebhookDelivery,
   WebhookEventRecord,
   WebhookSubscription,
-} from "@decaf-ts/for-http/server";
+} from "@decaf-ts/for-http/hooks";
 import {
   WebhookEventActionsController,
   WebhookSubscriptionActionsController,
@@ -28,9 +25,7 @@ import {
 @Module({})
 export class DecafWebhookModule {
   private static _logger = Logging.for(DecafWebhookModule);
-  private static _persistence?: PersistenceService<
-    Adapter<any, any, any, any>
-  >;
+  private static _persistence?: PersistenceService<Adapter<any, any, any, any>>;
 
   private static get log() {
     return this._logger;
@@ -66,10 +61,7 @@ export class DecafWebhookModule {
         const c = options.conf[i];
         const possibleTransf = c.slice(2, c.length);
         let transformer = possibleTransf.pop();
-        if (
-          !transformer ||
-          !(transformer as { from?: unknown }).from
-        ) {
+        if (!transformer || !(transformer as { from?: unknown }).from) {
           const contr = Adapter.transformerFor(clients[i].flavour);
           if (!contr)
             throw new InternalError(

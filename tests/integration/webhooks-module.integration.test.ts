@@ -3,7 +3,7 @@ import {
   WebhookEventRecord,
   WebhookStatus,
   WebhookSubscription,
-} from "../../src/webhooks";
+} from "@decaf-ts/for-http/hooks";
 import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import {
@@ -17,12 +17,15 @@ import {
   uuid,
 } from "@decaf-ts/core";
 import { OperationKeys } from "@decaf-ts/db-decorators";
-import { Model, ModelArg, model, required } from "@decaf-ts/decorator-validation";
-import { DecorationKeys, Metadata, uses } from "@decaf-ts/decoration";
 import {
-  AxiosHttpAdapter,
-} from "@decaf-ts/for-http";
-import { hook } from "@decaf-ts/for-http/server";
+  Model,
+  ModelArg,
+  model,
+  required,
+} from "@decaf-ts/decorator-validation";
+import { DecorationKeys, Metadata, uses } from "@decaf-ts/decoration";
+import { AxiosHttpAdapter } from "@decaf-ts/for-http";
+import { hook } from "@decaf-ts/for-http/hooks";
 import { NanoAdapter, NanoFlavour } from "@decaf-ts/for-nano";
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { DecafExceptionFilter, DecafModule } from "../../src";
@@ -30,7 +33,7 @@ import { DecafWebhookModule } from "../../src/webhooks";
 import {
   WebhookDeliveryMode,
   WebhookDeliveryService,
-} from "@decaf-ts/for-http/server";
+} from "@decaf-ts/for-http/hooks";
 import { RequestToContextTransformer } from "../../src/interceptors/context";
 import * as http from "http";
 
@@ -219,7 +222,9 @@ describe("Standalone webhook module live integration", () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         await DecafModule.forRootAsync({
-          conf: [[RamAdapter, { UUID: "webhook-user" }, new WebhookRamTransformer()]],
+          conf: [
+            [RamAdapter, { UUID: "webhook-user" }, new WebhookRamTransformer()],
+          ],
           autoControllers: true,
           autoServices: true,
           observerOptions: {
@@ -256,10 +261,13 @@ describe("Standalone webhook module live integration", () => {
     if (!appAddress || typeof appAddress === "string") {
       throw new Error("Failed to bind application server");
     }
-    appHttp = new AxiosHttpAdapter({
-      protocol: "http",
-      host: `127.0.0.1:${appAddress.port}`,
-    }, "webhooks-app-client");
+    appHttp = new AxiosHttpAdapter(
+      {
+        protocol: "http",
+        host: `127.0.0.1:${appAddress.port}`,
+      },
+      "webhooks-app-client"
+    );
     appHttp.client.interceptors.request.use((config) => {
       config.headers = {
         ...(config.headers || {}),
@@ -276,10 +284,13 @@ describe("Standalone webhook module live integration", () => {
     deliveryService = new WebhookDeliveryService<AxiosHttpAdapter>();
     await deliveryService.boot({
       adapter: webhookAdapter,
-      httpAdapter: new AxiosHttpAdapter({
-        protocol: "http",
-        host: `127.0.0.1:${receiverAddress.port}`,
-      }, "webhooks-receiver"),
+      httpAdapter: new AxiosHttpAdapter(
+        {
+          protocol: "http",
+          host: `127.0.0.1:${receiverAddress.port}`,
+        },
+        "webhooks-receiver"
+      ),
       mode: WebhookDeliveryMode.POLLING,
       autoStart: false,
       models: [WebhookProduct],
@@ -325,15 +336,13 @@ describe("Standalone webhook module live integration", () => {
       case "POST":
         return appHttp.client.post(
           path,
-          typeof body === "string" ? body : JSON.stringify(body)
-          ,
+          typeof body === "string" ? body : JSON.stringify(body),
           { headers: { "content-type": "application/json" } }
         );
       case "PUT":
         return appHttp.client.put(
           path,
-          typeof body === "string" ? body : JSON.stringify(body)
-          ,
+          typeof body === "string" ? body : JSON.stringify(body),
           { headers: { "content-type": "application/json" } }
         );
       case "DELETE":
@@ -380,45 +389,52 @@ describe("Standalone webhook module live integration", () => {
     expect(readSubscriptionResponse.status).toBe(200);
     expect(readSubscription.active).toBe(true);
 
-    const visibleSubscription = await deliveryService.publications.subscriptions.read(
-      createdSubscription.id,
-      makeContext()
-    );
+    const visibleSubscription =
+      await deliveryService.publications.subscriptions.read(
+        createdSubscription.id,
+        makeContext()
+      );
     expect(visibleSubscription.id).toBe(createdSubscription.id);
 
     await waitFor(async () => {
-      const activeSubscriptions = await deliveryService.publications.subscriptions
-        .select()
-        .where(
-          deliveryService.publications.subscriptions.attr("active").eq(true)
-        )
-        .execute(makeContext());
+      const activeSubscriptions =
+        await deliveryService.publications.subscriptions
+          .select()
+          .where(
+            deliveryService.publications.subscriptions.attr("active").eq(true)
+          )
+          .execute(makeContext());
       return activeSubscriptions.some(
         (subscription) => subscription.id === createdSubscription.id
       );
     }, 12000);
 
-    const createdProductResponse = await requestJson("POST", "/webhook-products", {
-      classification: "webhook-live-test",
-    });
+    const createdProductResponse = await requestJson(
+      "POST",
+      "/webhook-products",
+      {
+        classification: "webhook-live-test",
+      }
+    );
     expect(createdProductResponse.status).toBe(201);
     const createdProduct = unwrap<any>(createdProductResponse);
 
     await waitFor(async () => {
-      const events = await deliveryService.events.select().execute(
-        makeContext()
-      );
+      const events = await deliveryService.events
+        .select()
+        .execute(makeContext());
       return events.some(
         (event) =>
           event.entityId === createdProduct.id && event.deliveriesTotal > 0
       );
     }, 12000);
 
-    const eventList = await deliveryService.events.select().execute(
-      makeContext()
-    );
+    const eventList = await deliveryService.events
+      .select()
+      .execute(makeContext());
     const event = eventList.find(
-      (entry) => entry.entityId === createdProduct.id && entry.deliveriesTotal > 0
+      (entry) =>
+        entry.entityId === createdProduct.id && entry.deliveriesTotal > 0
     );
     expect(event).toBeDefined();
     await deliveryService.processBatch(10, makeContext());
@@ -435,10 +451,7 @@ describe("Standalone webhook module live integration", () => {
     );
 
     await waitFor(async () => {
-      const state = await deliveryService.events.read(
-        event!.id,
-        makeContext()
-      );
+      const state = await deliveryService.events.read(event!.id, makeContext());
       return state.status === WebhookStatus.COMPLETED;
     }, 12000);
 
@@ -456,20 +469,25 @@ describe("Standalone webhook module live integration", () => {
     expect([200, 201]).toContain(deactivatedResponse.status);
     expect(deactivated.active).toBe(false);
     await waitFor(async () => {
-      const activeSubscriptions = await deliveryService.publications.subscriptions
-        .select()
-        .where(
-          deliveryService.publications.subscriptions.attr("active").eq(true)
-        )
-        .execute(makeContext());
+      const activeSubscriptions =
+        await deliveryService.publications.subscriptions
+          .select()
+          .where(
+            deliveryService.publications.subscriptions.attr("active").eq(true)
+          )
+          .execute(makeContext());
       return !activeSubscriptions.some(
         (subscription) => subscription.id === createdSubscription.id
       );
     }, 12000);
 
-    const secondProductResponse = await requestJson("POST", "/webhook-products", {
-      classification: "webhook-live-test-deactivated",
-    });
+    const secondProductResponse = await requestJson(
+      "POST",
+      "/webhook-products",
+      {
+        classification: "webhook-live-test-deactivated",
+      }
+    );
     expect(secondProductResponse.status).toBe(201);
     await deliveryService.processBatch(10, makeContext());
     expect(receivedRequests.length).toBe(1);
@@ -482,12 +500,13 @@ describe("Standalone webhook module live integration", () => {
     expect([200, 201]).toContain(reactivatedResponse.status);
     expect(reactivated.active).toBe(true);
     await waitFor(async () => {
-      const activeSubscriptions = await deliveryService.publications.subscriptions
-        .select()
-        .where(
-          deliveryService.publications.subscriptions.attr("active").eq(true)
-        )
-        .execute(makeContext());
+      const activeSubscriptions =
+        await deliveryService.publications.subscriptions
+          .select()
+          .where(
+            deliveryService.publications.subscriptions.attr("active").eq(true)
+          )
+          .execute(makeContext());
       return activeSubscriptions.some(
         (subscription) => subscription.id === createdSubscription.id
       );
@@ -503,19 +522,20 @@ describe("Standalone webhook module live integration", () => {
     expect(updatedProductResponse.status).toBe(200);
     const updatedProduct = unwrap<any>(updatedProductResponse);
     await waitFor(async () => {
-      const events = await deliveryService.events.select().execute(
-        makeContext()
-      );
+      const events = await deliveryService.events
+        .select()
+        .execute(makeContext());
       return events.some(
         (entry) =>
           entry.entityId === updatedProduct.id && entry.deliveriesTotal > 0
       );
     }, 12000);
-    const updatedEventList = await deliveryService.events.select().execute(
-      makeContext()
-    );
+    const updatedEventList = await deliveryService.events
+      .select()
+      .execute(makeContext());
     const updatedEvent = updatedEventList.find(
-      (entry) => entry.entityId === updatedProduct.id && entry.deliveriesTotal > 0
+      (entry) =>
+        entry.entityId === updatedProduct.id && entry.deliveriesTotal > 0
     );
     expect(updatedEvent).toBeDefined();
     await waitFor(async () => {
@@ -545,17 +565,17 @@ describe("Standalone webhook module live integration", () => {
     expect(createdForDeleteResponse.status).toBe(201);
     const createdForDelete = unwrap<any>(createdForDeleteResponse);
     await waitFor(async () => {
-      const events = await deliveryService.events.select().execute(
-        makeContext()
-      );
+      const events = await deliveryService.events
+        .select()
+        .execute(makeContext());
       return events.some(
         (entry) =>
           entry.entityId === createdForDelete.id && entry.deliveriesTotal > 0
       );
     }, 12000);
-    const createdForDeleteEventList = await deliveryService.events.select().execute(
-      makeContext()
-    );
+    const createdForDeleteEventList = await deliveryService.events
+      .select()
+      .execute(makeContext());
     const createdForDeleteEvent = createdForDeleteEventList.find(
       (entry) =>
         entry.entityId === createdForDelete.id && entry.deliveriesTotal > 0
@@ -584,17 +604,17 @@ describe("Standalone webhook module live integration", () => {
     );
     expect(deletedProductResponse.status).toBe(200);
     await waitFor(async () => {
-      const events = await deliveryService.events.select().execute(
-        makeContext()
-      );
+      const events = await deliveryService.events
+        .select()
+        .execute(makeContext());
       return events.some(
         (entry) =>
           entry.entityId === createdForDelete.id && entry.deliveriesTotal > 0
       );
     }, 12000);
-    const deletedEventList = await deliveryService.events.select().execute(
-      makeContext()
-    );
+    const deletedEventList = await deliveryService.events
+      .select()
+      .execute(makeContext());
     const deletedEvent = deletedEventList.find(
       (entry) =>
         entry.entityId === createdForDelete.id && entry.deliveriesTotal > 0
@@ -642,7 +662,9 @@ describe("Standalone webhook module live integration", () => {
       "webhook-live-test",
     ]);
 
-    expect(receivedRequests.map((request) => request.headers["x-webhook-topic"])).toEqual([
+    expect(
+      receivedRequests.map((request) => request.headers["x-webhook-topic"])
+    ).toEqual([
       "webhookproduct.created",
       "webhookproduct.updated",
       "webhookproduct.created",
