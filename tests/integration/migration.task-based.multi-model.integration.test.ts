@@ -21,7 +21,7 @@ import { DecafModule } from "../../src/module";
 import {
   RequestToContextTransformer,
   requestToContextTransformer,
-} from "../../src/interceptors/context";
+} from "@decaf-ts/for-http/server";
 import { DECAF_ADAPTER_ID } from "../../src/constants";
 
 jest.setTimeout(240000);

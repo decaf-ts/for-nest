@@ -1,6 +1,6 @@
 import "@decaf-ts/core";
 import type { Constructor } from "@decaf-ts/decoration";
-import { RequestToContextTransformer } from "../interceptors/context";
+import { RequestToContextTransformer } from "@decaf-ts/for-http/server";
 import { ContextOf } from "@decaf-ts/core";
 
 declare module "@decaf-ts/core" {

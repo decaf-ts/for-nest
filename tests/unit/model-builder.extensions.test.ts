@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { ModelBuilder } from "@decaf-ts/decorator-validation";
-import { AUTH_META_KEY } from "../../src/constants";
+import { AUTH_META_KEY } from "../../src/auth/constants";
 import "../../src/overrides/ModelBuilderExtensions";
 
 describe("for-nest ModelBuilder extensions", () => {

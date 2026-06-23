@@ -1,3 +1,2 @@
 export * from "./DecafRequestHandlerInterceptor";
-export * from "./AuthInterceptor";
-export * from "./context";
+export * from "../auth/AuthInterceptor";

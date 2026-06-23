@@ -1,13 +1,15 @@
-import { Metadata } from "@decaf-ts/decoration";
-import { Delete, Get, Patch, Post, Put } from "@nestjs/common";
+import { apply, Metadata } from "@decaf-ts/decoration";
 import { ApiExcludeEndpoint } from "@nestjs/swagger";
-import { apply } from "@decaf-ts/decoration";
 import {
   BulkCrudOperationKeys,
   OperationKeys,
   CrudOperations,
 } from "@decaf-ts/db-decorators";
 import { ModelConstructor } from "@decaf-ts/decorator-validation";
+import { Delete, Get, Patch, Post, Put } from "@nestjs/common";
+
+import { isOperationBlocked as coreIsOperationBlocked } from "@decaf-ts/core";
+import { PreparedStatementKeys } from "@decaf-ts/core";
 import { HttpVerbs } from "./types";
 
 /**
@@ -18,25 +20,6 @@ import { HttpVerbs } from "./types";
  * @return {boolean} `true` when the operation is explicitly blocked by the model's handler; otherwise `false`.
  * @function isOperationBlocked
  */
-export function isOperationBlocked(
-  ModelConstructor: ModelConstructor<any>,
-  op: CrudOperations
-): boolean {
-  const { handler, args } = (Metadata.get(
-    ModelConstructor as any,
-    OperationKeys.REFLECT + OperationKeys.BLOCK
-  ) || {}) as {
-    handler: (
-      operations: CrudOperations[],
-      operation: CrudOperations
-    ) => boolean;
-    args: any[];
-  };
-
-  // @ts-expect-error TODO @pedro
-  return !handler ? false : (handler(...args, op) ?? false);
-}
-
 /**
  * @description Conditionally applies an HTTP method decorator for a given model and verb, hiding the endpoint in Swagger (and not registering the route) when the model blocks that CRUD operation.
  * @summary Maps an HTTP verb to its corresponding `CrudOperations` key and Nest HTTP decorator (`@Get`, `@Post`, etc.). It checks `isOperationBlocked(ModelConstructor, crudOp)` and, if blocked, applies only `@ApiExcludeEndpoint()` (Swagger-hidden, no Nest route). If permitted, it applies the appropriate HTTP decorator with the optional `path`.
@@ -62,7 +45,12 @@ export function ApiOperationFromModel(
   };
 
   const [crudOp, HttpMethodDecorator] = httpToCrud[verb];
-  return isOperationBlocked(ModelConstructor, crudOp)
+  const target = resolveBlockTarget(verb, path);
+  return target
+    ? coreIsOperationBlocked(ModelConstructor, target.kind as any, target.value)
+      ? apply(ApiExcludeEndpoint())
+      : apply(HttpMethodDecorator(path))
+    : coreIsOperationBlocked(ModelConstructor, crudOp)
     ? apply(ApiExcludeEndpoint())
     : apply(HttpMethodDecorator(path));
 }
@@ -91,7 +79,51 @@ export function BulkApiOperationFromModel(
   };
 
   const [crudOp, HttpMethodDecorator] = httpToCrud[verb];
-  return isOperationBlocked(ModelConstructor, crudOp as any)
+  const target = path ? resolveBlockTarget(verb, path) : undefined;
+  return target
+    ? coreIsOperationBlocked(ModelConstructor, target.kind as any, target.value)
+      ? apply(ApiExcludeEndpoint())
+      : apply(HttpMethodDecorator(path))
+    : coreIsOperationBlocked(ModelConstructor, "bulk" as any, crudOp as any)
     ? apply(ApiExcludeEndpoint())
     : apply(HttpMethodDecorator(path));
+}
+function resolveBlockTarget(
+  verb: HttpVerbs,
+  path?: string
+): { kind: "crud" | "statement" | "query" | "bulk"; value: string } | undefined {
+  if (!path) return undefined;
+
+  const normalized = path.replace(/^\/+|\/+$/g, "");
+  const statementTargets: Record<string, string> = {
+    "listBy/:key": PreparedStatementKeys.LIST_BY,
+    "paginateBy/:key/:page": PreparedStatementKeys.PAGE_BY,
+    "find/:value": PreparedStatementKeys.FIND,
+    "page/:value": PreparedStatementKeys.PAGE,
+    "findOneBy/:key/:value": PreparedStatementKeys.FIND_ONE_BY,
+    "findBy/:key/:value": PreparedStatementKeys.FIND_BY,
+    "statement/:method/*args": "statement",
+    "countOf/:field": PreparedStatementKeys.COUNT_OF,
+    "maxOf/:field": PreparedStatementKeys.MAX_OF,
+    "minOf/:field": PreparedStatementKeys.MIN_OF,
+    "avgOf/:field": PreparedStatementKeys.AVG_OF,
+    "sumOf/:field": PreparedStatementKeys.SUM_OF,
+    "distinctOf/:field": PreparedStatementKeys.DISTINCT_OF,
+    "groupOf/:field": PreparedStatementKeys.GROUP_OF,
+  };
+
+  if (normalized.startsWith("query/")) {
+    return { kind: "query", value: normalized.replace(/^query\//, "") };
+  }
+
+  const statementValue = statementTargets[normalized];
+  if (statementValue) {
+    return { kind: "statement", value: statementValue };
+  }
+
+  if (verb === "GET" && normalized === "") {
+    return { kind: "crud", value: OperationKeys.READ };
+  }
+
+  return undefined;
 }

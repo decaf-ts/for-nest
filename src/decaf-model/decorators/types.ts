@@ -1,27 +1,18 @@
-export type HttpVerbs = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+import type {
+  HttpVerbs as ServerHttpVerbs,
+  ServerApiProperty,
+  ServerModelRoute,
+  ServerParamProps,
+  ServerRouteDecOptions,
+} from "@decaf-ts/for-http/server";
 
-export type DecafApiProperty = {
-  name: string;
-  description?: string;
-  required?: boolean;
-  type?: any;
-};
-
-export type DecafModelRoute = {
-  path: string;
-  description?: string;
-  apiProperties: DecafApiProperty[];
-  getPK: (...args: Array<string | number>) => string;
-};
-
-export type DecafParamProps = {
-  raw: Record<string, string | number>;
-  keysInOrder: Array<string>;
-  valuesInOrder: Array<string | number>;
-};
+export type HttpVerbs = ServerHttpVerbs;
+export type DecafApiProperty = ServerApiProperty;
+export type DecafModelRoute = ServerModelRoute;
+export type DecafParamProps = ServerParamProps;
 
 export interface DecafRouteDecOptions {
-  path: string;
-  httpMethod: HttpVerbs;
-  handler: PropertyDescriptor;
+  path: ServerRouteDecOptions["path"];
+  httpMethod: ServerRouteDecOptions["httpMethod"];
+  handler: ServerRouteDecOptions["handler"];
 }

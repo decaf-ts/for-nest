@@ -7,11 +7,15 @@ import {
 } from "@nestjs/common";
 import { DecafHandlerExecutor, DecafRequestContext } from "../request";
 import { Adapter, Context, DefaultAdapterFlags } from "@decaf-ts/core";
-import { DecafServerCtx, DecafServerFlags } from "../constants";
+import {
+  DECAF_ADAPTER_OPTIONS,
+  DecafServerCtx,
+  DecafServerFlags,
+} from "../constants";
 import "../overrides";
 import { Logging } from "@decaf-ts/logging";
 import { InternalError } from "@decaf-ts/db-decorators";
-import { RequestToContextTransformer } from "./context";
+import { RequestToContextTransformer } from "@decaf-ts/for-http/server";
 
 /**
  * @description
@@ -72,6 +76,7 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
       headers: headers,
       overrides: {},
     } as any;
+    Object.assign(flags.overrides, req?.[DECAF_ADAPTER_OPTIONS] ?? {});
 
     const flavours = Adapter.flavoursToTransform();
     if (flavours)

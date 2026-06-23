@@ -1,5 +1,5 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
-import { RequestToContextTransformer } from "../interceptors/context";
+import { RequestToContextTransformer } from "@decaf-ts/for-http/server";
 import { Adapter, ContextOf, Context } from "@decaf-ts/core";
 
 (Adapter as any).transformerFor = function toContextFlags<

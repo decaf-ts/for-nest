@@ -1,7 +1,7 @@
 import { Adapter, ConfigOf, ContextOf } from "@decaf-ts/core";
 import { Constructor } from "@decaf-ts/decoration";
 import { ExecutionContext, Type } from "@nestjs/common";
-import { RequestToContextTransformer } from "./interceptors/context";
+import { RequestToContextTransformer, type ModelControllerFactoryConfig } from "@decaf-ts/for-http/server";
 import { DecafRequestContext } from "./request/index";
 
 export interface DecafRequestHandler<
@@ -52,6 +52,8 @@ export type DecafModuleOptions<
   alias?: string;
   autoControllers: boolean;
   autoServices?: boolean;
+  controllerExposure?: Record<string, boolean | string[]>;
+  controllerConfig?: Record<string, ModelControllerFactoryConfig>;
   observerOptions?: ObserverEventsOptions;
   aggregations?: boolean;
   handlers?: Type<DecafRequestHandler>[];

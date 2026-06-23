@@ -5,3 +5,4 @@ export * from "./DecafBody";
 export * from "./DecafParams";
 export * from "./utils";
 export * from "./decorators";
+export * from "./controller-config";

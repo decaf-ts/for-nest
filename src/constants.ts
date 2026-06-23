@@ -8,9 +8,8 @@ export const DECAF_TASK_SERVICE_ID = "DecafTaskService";
 export const DECAF_ROUTE = "DecafRoute";
 export const DECAF_HANDLERS = Symbol("DecafHandlers");
 export const DECAF_ADAPTER_OPTIONS = Symbol("DecafAdapterForOptions");
-
-export const AUTH_HANDLER = Symbol("AUTH_HANDLER");
-export const AUTH_META_KEY = "auth:meta";
+export const DECAF_EXPOSE = "DecafExpose";
+export const DECAF_CONTROLLER_CONFIG = "DecafControllerConfig";
 
 export const DECAF_CONTEXT_KEY = Symbol("decaf:context");
 

@@ -15,14 +15,17 @@ import {
 import {
   AuthInterceptor,
   DecafRequestHandlerInterceptor,
-  RequestToContextTransformer,
-  requestToContextTransformer,
 } from "./interceptors";
 import { DecafHandlerExecutor, DecafRequestContext } from "./request";
 import { Constructor } from "@decaf-ts/decoration";
 import { Adapter, PersistenceService, Service } from "@decaf-ts/core";
+import { getRegisteredDecafProviders } from "./decorators";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Logger, Logging } from "@decaf-ts/logging";
+import {
+  RequestToContextTransformer,
+  requestToContextTransformer,
+} from "@decaf-ts/for-http/server";
 
 @Global()
 @Module({})
@@ -52,6 +55,7 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
 
   static forRoot(options: DecafModuleOptions): DynamicModule {
     const log = this.log.for(this.forRoot);
+    const decafProviders = getRegisteredDecafProviders();
     return {
       module: DecafCoreModule,
       providers: [
@@ -76,6 +80,7 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
           provide: APP_INTERCEPTOR,
           useClass: DecafRequestHandlerInterceptor,
         },
+        ...decafProviders,
       ],
       exports: [
         DECAF_MODULE_OPTIONS,
@@ -83,6 +88,7 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
         DECAF_HANDLERS,
         DecafRequestContext,
         DecafHandlerExecutor,
+        ...decafProviders.map((provider) => provider.provide),
       ],
     };
   }

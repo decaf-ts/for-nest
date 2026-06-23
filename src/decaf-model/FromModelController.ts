@@ -4,6 +4,7 @@ import {
   ApiBody,
   ApiCreatedResponse,
   ApiExtraModels,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -37,76 +38,24 @@ import {
   ApiParamsFromModel,
   type DecafApiProperty,
   DecafBody,
-  type DecafModelRoute,
-  type DecafParamProps,
   DecafParams,
   DecafQuery,
-  DecafRouteDecOptions,
 } from "./decorators";
+import { HttpVerbToDecorator } from "./decorators/utils";
+import type { HttpVerbs } from "./decorators/types";
 import { DecafRequestContext } from "../request";
-import { DECAF_ROUTE } from "../constants";
-import {
-  applyApiDecorators,
-  createRouteHandler,
-  defineRouteMethod,
-  getApiDecorators,
-  resolvePersistenceMethod,
-} from "./utils";
+import { DECAF_CONTROLLER_CONFIG, DECAF_ROUTE } from "../constants";
 import { Auth } from "./decorators/decorators";
 import { ControllerConstructor } from "./types";
 import { DecafModelController } from "../controllers";
 import { DtoFor } from "../factory/openapi/DtoBuilder";
 import "../overrides";
+import {
+  ModelControllerFactory,
+  type ModelControllerFactoryConfig,
+  type ServerRoute,
+} from "@decaf-ts/for-http/server";
 
-/**
- * @description
- * Factory and utilities for generating dynamic NestJS controllers from Decaf {@link Model} definitions.
- *
- * @summary
- * The `FromModelController` class provides the infrastructure necessary to automatically generate
- * strongly-typed CRUD controllers based on a given {@link ModelConstructor}. It inspects metadata from
- * the model, derives route paths, parameters, and generates a dynamic controller class at runtime with
- * full support for querying, creation, update, and deletion of model entities through a {@link Repo}.
- *
- * @template T The {@link Model} type associated with the generated controller.
- *
- * @param ModelClazz The model class to generate the controller from.
- *
- * @class FromModelController
- *
- * @example
- * ```ts
- * // Given a Decaf Model:
- * class User extends Model<User> {
- *   id!: string;
- *   name!: string;
- * }
- *
- * // Register controller:
- * const UserController = FromModelController.create(User);
- *
- * // NestJS will expose:
- * // POST   /user
- * // GET    /user/:id
- * // GET    /user/query/:method
- * // PUT    /user/:id
- * // DELETE /user/:id
- * ```
- *
- * @mermaid
- * sequenceDiagram
- *     participant Client
- *     participant Controller
- *     participant Repo
- *     participant DB
- *
- *     Client->>Controller: HTTP Request
- *     Controller->>Repo: Resolve repository for Model
- *     Repo->>DB: Execute DB operation
- *     DB-->>Repo: DB Result
- *     Repo-->>Controller: Model Instance(s)
- *     Controller-->>Client: JSON Response
- */
 export class FromModelController {
   private static readonly log = Logging.for(FromModelController.name);
 
@@ -118,8 +67,7 @@ export class FromModelController {
     } catch (e: unknown) {
       try {
         return ModelService.getService(ModelClazz) as ModelService<T>;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (e: unknown) {
+      } catch (e2: unknown) {
         return Repository.forModel(ModelClazz) as Repo<T>;
       }
     }
@@ -129,9 +77,6 @@ export class FromModelController {
     persistence: Repo<T> | ModelService<T>,
     prefix: string = PersistenceKeys.QUERY
   ): ControllerConstructor<T> {
-    const log = FromModelController.log.for(
-      FromModelController.createQueryRoutesFromRepository
-    );
     const repo: Repo<T> =
       persistence instanceof ModelService ? persistence.repo : persistence;
     const ModelConstr: Constructor = repo.class;
@@ -141,13 +86,12 @@ export class FromModelController {
         Metadata.key(PersistenceKeys.QUERY)
       ) ?? {};
 
-    const routeMethods: Record<string, DecafRouteDecOptions> =
+    const routeMethods: Record<string, any> =
       Metadata.get(
         persistence.constructor as Constructor,
         Metadata.key(DECAF_ROUTE)
       ) ?? {};
 
-    // create base class
     class QueryController extends DecafModelController<T> {
       override get class(): ModelConstructor<T> {
         throw new Error("Method not implemented.");
@@ -158,33 +102,30 @@ export class FromModelController {
     }
 
     for (const [methodName, params] of Object.entries(routeMethods)) {
-      // regex to trim slashes from start and end
       const routePath = [params.path.replace(/^\/+|\/+$/g, "")]
-        .filter((segment) => segment && segment.trim())
+        .filter((segment: string) => segment && segment.trim())
         .join("/");
 
-      // const handler = params.handler.value;
-      const handler = createRouteHandler(methodName) as any;
-      if (!handler) {
-        const message = `Invalid or missing handler for model ${ModelConstr.name} on decorated method ${methodName}`;
-        log.error(message);
-        throw new Error(message);
-      }
-
-      const descriptor = defineRouteMethod(
+      const handler = FromModelController.createComplexQueryHandler(
+        methodName
+      ) as any;
+      FromModelController.defineMethod(
         QueryController,
         methodName,
         handler
       );
 
-      if (descriptor) {
-        const decorators = getApiDecorators(
-          methodName,
-          routePath,
-          params.httpMethod
-        );
-        applyApiDecorators(QueryController, methodName, descriptor, decorators);
-      }
+      const httpDecorator = HttpVerbToDecorator(params.httpMethod as HttpVerbs)(routePath || undefined);
+      const decorators = FromModelController.getQueryDecorators(
+        methodName,
+        routePath,
+        params.httpMethod
+      );
+      FromModelController.applyDecorators(
+        QueryController,
+        methodName,
+        [httpDecorator, ...decorators]
+      );
     }
 
     for (const [methodName, objValues] of Object.entries(queryMethods)) {
@@ -193,44 +134,79 @@ export class FromModelController {
         .filter((segment) => segment && segment.trim())
         .join("/");
 
-      const handler = createRouteHandler(methodName) as any;
-      const descriptor = defineRouteMethod(
+      const handler = FromModelController.createComplexQueryHandler(
+        methodName
+      ) as any;
+      FromModelController.defineMethod(
         QueryController,
         methodName,
         handler
       );
 
-      if (descriptor) {
-        const decorators = getApiDecorators(methodName, routePath, "GET", true);
-        applyApiDecorators(QueryController, methodName, descriptor, decorators);
-      }
+      const httpDecorator = HttpVerbToDecorator("GET" as HttpVerbs)(routePath || undefined);
+      const decorators = FromModelController.getQueryDecorators(
+        methodName,
+        routePath,
+        "GET",
+        true
+      );
+      FromModelController.applyDecorators(
+        QueryController,
+        methodName,
+        [httpDecorator, ...decorators]
+      );
     }
 
     return QueryController;
   }
 
-  static create<T extends Model<any>>(ModelConstr: ModelConstructor<T>) {
+  static create<T extends Model<any>>(
+    ModelConstr: ModelConstructor<T>,
+    moduleConfigOverrides?: Record<string, ModelControllerFactoryConfig>
+  ): ControllerConstructor<T> {
     const log = FromModelController.log.for(FromModelController.create);
     const tableName = Model.tableName(ModelConstr);
     const routePath = toKebabCase(tableName);
     const modelClazzName = ModelConstr.name;
     const persistence = FromModelController.getPersistence(ModelConstr);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { description, getPK, apiProperties, path } =
+    // When persistence is a ModelService, the @query/@route metadata lives on
+    // the underlying repository class (custom repo), not on ModelService itself.
+    // Pass the repo to the factory so addComplexQueries() can discover them.
+    const factoryPersistence =
+      persistence instanceof ModelService ? persistence.repo : persistence;
+
+    const decoratorConfig = Metadata.get(
+      ModelConstr,
+      Metadata.key(DECAF_CONTROLLER_CONFIG)
+    ) as ModelControllerFactoryConfig | undefined;
+    const moduleOverride = moduleConfigOverrides?.[ModelConstr.name];
+    const mergedConfig: ModelControllerFactoryConfig = {
+      ...(decoratorConfig || {}),
+      ...(moduleOverride || {}),
+    };
+
+    const FactoryController = ModelControllerFactory.create<T>(
+      ModelConstr,
+      factoryPersistence,
+      mergedConfig
+    );
+    const factoryRoutes = (FactoryController as any).__routes__ as
+      | ServerRoute[]
+      | undefined;
+
+    const { getPK, apiProperties, path: pkPath } =
       FromModelController.getRouteParametersFromModel(ModelConstr);
 
-    log.debug(`Creating controller for model: ${modelClazzName}`);
-
-    const BaseController = FromModelController.createQueryRoutesFromRepository(
-      persistence // instanceof ModelService ? persistence.repo : persistence
-    ) as Constructor<DecafModelController<T>>;
+    log.debug(
+      `Creating controller for model: ${modelClazzName} with ${factoryRoutes?.length ?? 0} factory routes`
+    );
 
     @Controller(routePath)
     @ApiTags(modelClazzName)
     @ApiExtraModels(ModelConstr)
     @Auth(ModelConstr)
-    class DynamicModelController extends BaseController {
+    class DynamicModelController extends DecafModelController<T> {
       private readonly pk: string = Model.pk(ModelConstr) as string;
 
       protected static get class() {
@@ -239,819 +215,62 @@ export class FromModelController {
 
       override get class(): ModelConstructor<T> {
         return ModelConstr;
-        // return DynamicModelController.class;
       }
 
       constructor(clientContext: DecafRequestContext) {
-        super(clientContext);
+        super(clientContext, DynamicModelController.name);
         log.info(
           `Registering dynamic controller for model: ${this.class.name} route: /${routePath}`
         );
       }
+    }
 
-      //
-      // @ApiOperationFromModel(ModelClazz, "GET", "query/:condition/:orderBy")
-      // @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
-      // @ApiParam({ name: "method", description: "Query method to be called" })
-      // @ApiOkResponse({
-      //   description: `${modelClazzName} retrieved successfully.`,
-      // })
-      // @ApiNotFoundResponse({
-      //   description: `No ${modelClazzName} records matches the query.`,
-      // })
-      // async query(
-      //   @Param("condition") condition: Condition<any>,
-      //   @Param("orderBy") orderBy: string,
-      //   @QueryDetails() details: DirectionLimitOffset,
-      // ) {
-      //   const {direction, limit, offset} = details;
-      //   return this.persistence.query(condition, orderBy as keyof Model, direction, limit, offset);
-      // }
-
-      @ApiOperationFromModel(ModelConstr, "GET", "listBy/:key")
-      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
-      @ApiParam({ name: "key", description: "the model key to sort by" })
-      @ApiQuery({ name: "direction", required: true, enum: OrderDirection })
-      @ApiOkResponse({
-        description: `${modelClazzName} listed successfully.`,
-      })
-      async listBy(
-        @Param("key") key: string,
-        @DecafQuery() details: DirectionLimitOffset
-      ) {
-        const { ctx } = (
-          await this.logCtx([], PreparedStatementKeys.LIST_BY, true)
-        ).for(this.listBy);
-        return this.persistence(ctx).listBy(
-          key as keyof T,
-          details.direction as OrderDirection,
-          ctx
+    if (factoryRoutes) {
+      const sortedRoutes = [...factoryRoutes].sort((a, b) => {
+        const aSegments = a.path.split("/").filter(Boolean);
+        const bSegments = b.path.split("/").filter(Boolean);
+        const aParamCount = aSegments.filter((s) => s.startsWith(":")).length;
+        const bParamCount = bSegments.filter((s) => s.startsWith(":")).length;
+        const aLiteralCount = aSegments.length - aParamCount;
+        const bLiteralCount = bSegments.length - bParamCount;
+        if (aLiteralCount !== bLiteralCount)
+          return bLiteralCount - aLiteralCount;
+        if (aParamCount !== bParamCount)
+          return aParamCount - bParamCount;
+        return 0;
+      });
+      for (const route of sortedRoutes) {
+        const registration = FromModelController.matchRoute(
+          route,
+          pkPath,
+          apiProperties,
+          getPK,
+          ModelConstr,
+          modelClazzName,
+          factoryPersistence
         );
-      }
+        if (!registration) continue;
 
-      @ApiOperationFromModel(ModelConstr, "GET", "paginateBy/:key/:page")
-      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
-      @ApiParam({ name: "key", description: "the model key to sort by" })
-      @ApiParam({
-        name: "page",
-        description: "the page to retrieve or the bookmark",
-      })
-      @ApiQuery({
-        name: "direction",
-        required: true,
-        enum: OrderDirection,
-        description: "the sort order",
-      })
-      @ApiQuery({ name: "limit", required: true, description: "the page size" })
-      @ApiQuery({ name: "offset", description: "the bookmark when necessary" })
-      @ApiOkResponse({
-        description: `${modelClazzName} listed paginated.`,
-      })
-      async paginateBy(
-        @Param("key") key: string,
-        @DecafQuery() details: DirectionLimitOffset
-      ) {
-        const { ctx } = (
-          await this.logCtx([], PreparedStatementKeys.PAGE_BY, true)
-        ).for(this.paginateBy);
-        return this.persistence(ctx).paginateBy(
-          key as keyof T,
-          details.direction as OrderDirection,
-          details as Omit<DirectionLimitOffset, "direction">,
-          ctx
-        );
-      }
+        const { methodName, handler, decorators, paramDecorators } =
+          registration;
 
-      @ApiOperationFromModel(ModelConstr, "GET", "find/:value")
-      @ApiOperation({
-        summary: `Find ${modelClazzName} records using the default query attributes.`,
-      })
-      @ApiParam({
-        name: "value",
-        description: "The string to match against the default query attributes",
-      })
-      @ApiQuery({
-        name: "direction",
-        required: false,
-        enum: OrderDirection,
-        description: "the sort order for the matching results",
-      })
-      @ApiOkResponse({
-        description: `${modelClazzName} records matching the provided prefix.`,
-      })
-      async find(
-        @Param("value") value: string,
-        @DecafQuery() details: DirectionLimitOffset
-      ) {
-        const { ctx } = (
-          await this.logCtx([], PreparedStatementKeys.FIND, true)
-        ).for(this.find);
-        const direction = (details.direction ??
-          OrderDirection.ASC) as OrderDirection;
-        return resolvePersistenceMethod(
-          this.persistence(ctx),
-          this.find.name,
-          value,
-          direction,
-          ctx
-        );
-      }
-
-      @ApiOperationFromModel(ModelConstr, "GET", "page/:value")
-      @ApiOperation({
-        summary: `Page ${modelClazzName} records using the default query attributes.`,
-      })
-      @ApiParam({
-        name: "value",
-        description: "The string to match against the default query attributes",
-      })
-      @ApiQuery({
-        name: "direction",
-        required: false,
-        enum: OrderDirection,
-        description: "the sort order for the paged results",
-      })
-      @ApiQuery({
-        name: "limit",
-        required: false,
-        description: "page size",
-      })
-      @ApiQuery({
-        name: "offset",
-        required: false,
-        description: "page number",
-      })
-      @ApiQuery({
-        name: "bookmark",
-        required: false,
-        description: "bookmark for cursor pagination",
-      })
-      @ApiOkResponse({
-        description: `${modelClazzName} records paged by the provided prefix.`,
-      })
-      async page(
-        @Param("value") value: string,
-        @DecafQuery() details: DirectionLimitOffset
-      ) {
-        const { ctx } = (
-          await this.logCtx([], PreparedStatementKeys.PAGE, true)
-        ).for(this.page);
-        const {
-          direction = OrderDirection.ASC,
-          limit,
-          offset,
-          bookmark,
-        } = details;
-        const ref: Omit<DirectionLimitOffset, "direction"> = {
-          offset: offset ?? 1,
-          limit: limit ?? 10,
-          bookmark,
-        };
-        return resolvePersistenceMethod(
-          this.persistence(ctx),
-          this.page.name,
-          value,
-          direction as OrderDirection,
-          ref,
-          ctx
-        );
-      }
-
-      @ApiOperationFromModel(ModelConstr, "GET", "findOneBy/:key")
-      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
-      @ApiParam({ name: "key", description: "the model key to sort by" })
-      @ApiOkResponse({
-        description: `${modelClazzName} listed found.`,
-      })
-      @ApiNotFoundResponse({
-        description: `No ${modelClazzName} record matches the provided identifier.`,
-      })
-      async findOneBy(@Param("key") key: string, @Param("value") value: any) {
-        const { ctx } = (
-          await this.logCtx([], PreparedStatementKeys.FIND_ONE_BY, true)
-        ).for(this.findOneBy);
-        return this.persistence(ctx).findOneBy(key as keyof T, value, ctx);
-      }
-
-      @ApiOperationFromModel(ModelConstr, "GET", "findBy/:key/:value")
-      @ApiOperation({ summary: `Retrieve ${modelClazzName} records by query.` })
-      @ApiParam({ name: "key", description: "the model key to compare" })
-      @ApiParam({ name: "value", description: "the value to match" })
-      @ApiQuery({
-        name: "direction",
-        required: true,
-        enum: OrderDirection,
-        description: "the sort order when  applicable",
-      })
-      @ApiOkResponse({
-        description: `${modelClazzName} listed found.`,
-      })
-      @ApiNotFoundResponse({
-        description: `No ${modelClazzName} record matches the provided identifier.`,
-      })
-      async findBy(
-        @Param("key") key: string,
-        @Param("value") value: any,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        @DecafQuery() details: DirectionLimitOffset
-      ) {
-        const { ctx } = (
-          await this.logCtx([], PreparedStatementKeys.FIND_BY, true)
-        ).for(this.findBy);
-        return this.persistence(ctx)
-          .for(ctx.toOverrides())
-          .findBy(key as keyof T, value, ctx);
-      }
-
-      @ApiOperationFromModel(ModelConstr, "GET", "statement/:method/*args")
-      @ApiOperation({
-        summary: `Executes a prepared statement on ${modelClazzName}.`,
-      })
-      @ApiParam({
-        name: "method",
-        description: "the prepared statement to execute",
-      })
-      @ApiParam({
-        name: "args",
-        description:
-          "concatenated list of arguments the prepared statement can accept",
-      })
-      @ApiQuery({
-        name: "direction",
-        required: true,
-        enum: OrderDirection,
-        description: "the sort order when  applicable",
-      })
-      @ApiQuery({
-        name: "limit",
-        required: true,
-        description: "limit or page size when applicable",
-      })
-      @ApiQuery({
-        name: "offset",
-        required: true,
-        description: "offset or bookmark when applicable",
-      })
-      @ApiOkResponse({
-        description: `${modelClazzName} listed found.`,
-      })
-      @ApiNotFoundResponse({
-        description: `No ${modelClazzName} record matches the provided identifier.`,
-      })
-      async statement(
-        @Param("method") name: string,
-        @Param("args") args: (string | number)[],
-        @DecafQuery() details: DirectionLimitOffset
-      ) {
-        const { ctx } = (
-          await this.logCtx([], PersistenceKeys.STATEMENT, true)
-        ).for(this.statement);
-        const { direction, offset, limit, bookmark } = details;
-        args = args.map(
-          (a) => (typeof a === "string" ? parseInt(a) : a) || a
-        ) as any[];
-        const pathDirection = args.length > 1 ? args[1] : undefined;
-        const resolvedDirection = (direction ?? pathDirection) as
-          | string
-          | undefined;
-        if (resolvedDirection && args.length > 1) args[1] = resolvedDirection;
-        switch (name) {
-          case PreparedStatementKeys.FIND:
-          case PreparedStatementKeys.FIND_BY:
-            break;
-          case PreparedStatementKeys.LIST_BY:
-            args.push(direction as string);
-            break;
-          case PreparedStatementKeys.PAGE:
-          case PreparedStatementKeys.PAGE_BY:
-            args = [
-              args[0],
-              resolvedDirection as any,
-              {
-                limit: limit,
-                offset: offset,
-                bookmark: bookmark,
-              },
-            ];
-            break;
-          case PreparedStatementKeys.FIND_ONE_BY:
-            break;
-          case PreparedStatementKeys.COUNT_OF:
-          case PreparedStatementKeys.MAX_OF:
-          case PreparedStatementKeys.MIN_OF:
-          case PreparedStatementKeys.AVG_OF:
-          case PreparedStatementKeys.SUM_OF:
-          case PreparedStatementKeys.DISTINCT_OF:
-          case PreparedStatementKeys.GROUP_OF:
-            // Aggregation methods - args[0] is the field name (if provided)
-            break;
-        }
-        return this.persistence(ctx).statement(name, ...args, ctx);
-      }
-      //
-      // @ApiOperationFromModel(ModelConstr, "GET", "countOf")
-      // @ApiOperation({ summary: `Count all ${modelClazzName} records.` })
-      // @ApiOkResponse({
-      //   description: `Count of ${modelClazzName} records.`,
-      //   type: Number,
-      // })
-      // async countOf() {
-      //   const { ctx } = (
-      //     await this.logCtx([], PreparedStatementKeys.COUNT_OF, true)
-      //   ).for(this.countOf);
-      //   return this.persistence(ctx).statement(
-      //     PreparedStatementKeys.COUNT_OF,
-      //     ctx
-      //   );
-      // }
-      //
-      // @ApiOperationFromModel(ModelConstr, "GET", "countOf/:field")
-      // @ApiOperation({ summary: `Count ${modelClazzName} records by field.` })
-      // @ApiParam({ name: "field", description: "The field to count" })
-      // @ApiOkResponse({
-      //   description: `Count of ${modelClazzName} records.`,
-      //   type: Number,
-      // })
-      // async countOfField(@Param("field") field: string) {
-      //   const { ctx } = (
-      //     await this.logCtx([], PreparedStatementKeys.COUNT_OF, true)
-      //   ).for(this.countOfField);
-      //   return this.persistence(ctx).statement(
-      //     PreparedStatementKeys.COUNT_OF,
-      //     field,
-      //     ctx
-      //   );
-      // }
-      //
-      // @ApiOperationFromModel(ModelConstr, "GET", "maxOf/:field")
-      // @ApiOperation({
-      //   summary: `Find maximum value of a field in ${modelClazzName}.`,
-      // })
-      // @ApiParam({ name: "field", description: "The field to find max of" })
-      // @ApiOkResponse({
-      //   description: `Maximum value of the field in ${modelClazzName}.`,
-      // })
-      // async maxOf(@Param("field") field: string) {
-      //   const { ctx } = (
-      //     await this.logCtx([], PreparedStatementKeys.MAX_OF, true)
-      //   ).for(this.maxOf);
-      //   return this.persistence(ctx).statement(
-      //     PreparedStatementKeys.MAX_OF,
-      //     field,
-      //     ctx
-      //   );
-      // }
-      //
-      // @ApiOperationFromModel(ModelConstr, "GET", "minOf/:field")
-      // @ApiOperation({
-      //   summary: `Find minimum value of a field in ${modelClazzName}.`,
-      // })
-      // @ApiParam({ name: "field", description: "The field to find min of" })
-      // @ApiOkResponse({
-      //   description: `Minimum value of the field in ${modelClazzName}.`,
-      // })
-      // async minOf(@Param("field") field: string) {
-      //   const { ctx } = (
-      //     await this.logCtx([], PreparedStatementKeys.MIN_OF, true)
-      //   ).for(this.minOf);
-      //   return this.persistence(ctx).statement(
-      //     PreparedStatementKeys.MIN_OF,
-      //     field,
-      //     ctx
-      //   );
-      // }
-      //
-      // @ApiOperationFromModel(ModelConstr, "GET", "avgOf/:field")
-      // @ApiOperation({
-      //   summary: `Calculate average of a field in ${modelClazzName}.`,
-      // })
-      // @ApiParam({
-      //   name: "field",
-      //   description: "The field to calculate average of",
-      // })
-      // @ApiOkResponse({
-      //   description: `Average value of the field in ${modelClazzName}.`,
-      //   type: Number,
-      // })
-      // async avgOf(@Param("field") field: string) {
-      //   const { ctx } = (
-      //     await this.logCtx([], PreparedStatementKeys.AVG_OF, true)
-      //   ).for(this.avgOf);
-      //   return this.persistence(ctx).statement(
-      //     PreparedStatementKeys.AVG_OF,
-      //     field,
-      //     ctx
-      //   );
-      // }
-      //
-      // @ApiOperationFromModel(ModelConstr, "GET", "sumOf/:field")
-      // @ApiOperation({
-      //   summary: `Calculate sum of a field in ${modelClazzName}.`,
-      // })
-      // @ApiParam({ name: "field", description: "The field to calculate sum of" })
-      // @ApiOkResponse({
-      //   description: `Sum of the field in ${modelClazzName}.`,
-      //   type: Number,
-      // })
-      // async sumOf(@Param("field") field: string) {
-      //   const { ctx } = (
-      //     await this.logCtx([], PreparedStatementKeys.SUM_OF, true)
-      //   ).for(this.sumOf);
-      //   return this.persistence(ctx).statement(
-      //     PreparedStatementKeys.SUM_OF,
-      //     field,
-      //     ctx
-      //   );
-      // }
-      //
-      // @ApiOperationFromModel(ModelConstr, "GET", "distinctOf/:field")
-      // @ApiOperation({
-      //   summary: `Find distinct values of a field in ${modelClazzName}.`,
-      // })
-      // @ApiParam({
-      //   name: "field",
-      //   description: "The field to find distinct values of",
-      // })
-      // @ApiOkResponse({
-      //   description: `Distinct values of the field in ${modelClazzName}.`,
-      //   type: [String],
-      // })
-      // async distinctOf(@Param("field") field: string) {
-      //   const { ctx } = (
-      //     await this.logCtx([], PreparedStatementKeys.DISTINCT_OF, true)
-      //   ).for(this.distinctOf);
-      //   return this.persistence(ctx).statement(
-      //     PreparedStatementKeys.DISTINCT_OF,
-      //     field,
-      //     ctx
-      //   );
-      // }
-      //
-      // @ApiOperationFromModel(ModelConstr, "GET", "groupOf/:field")
-      // @ApiOperation({
-      //   summary: `Group ${modelClazzName} records by a field.`,
-      // })
-      // @ApiParam({ name: "field", description: "The field to group by" })
-      // @ApiOkResponse({
-      //   description: `${modelClazzName} records grouped by the field.`,
-      // })
-      // async groupOf(@Param("field") field: string) {
-      //   const { ctx } = (
-      //     await this.logCtx([], PreparedStatementKeys.GROUP_OF, true)
-      //   ).for(this.groupOf);
-      //   return this.persistence(ctx).statement(
-      //     PreparedStatementKeys.GROUP_OF,
-      //     field,
-      //     ctx
-      //   );
-      // }
-
-      @ApiOperationFromModel(ModelConstr, "POST", "bulk")
-      @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
-      @ApiBody({
-        description: `Payload for ${modelClazzName}`,
-        schema: {
-          type: "array",
-          items: {
-            $ref: getSchemaPath(ModelConstr),
-            // $ref: getSchemaPath(DtoFor(OperationKeys.CREATE, ModelConstr)),
-          },
-        },
-      })
-      @ApiCreatedResponse({
-        description: `${modelClazzName} created successfully.`,
-        schema: {
-          type: "array",
-          items: {
-            $ref: getSchemaPath(ModelConstr),
-          },
-        },
-      })
-      @ApiBadRequestResponse({ description: "Payload validation failed." })
-      @ApiUnprocessableEntityResponse({
-        description: "Repository rejected the provided payload.",
-      })
-      async createAll(
-        @DecafBody() data: T[],
-        @Response({ passthrough: true }) resp: any
-      ): Promise<Model[]> {
-        const { ctx, log } = (
-          await this.logCtx([], BulkCrudOperationKeys.CREATE_ALL, true)
-        ).for(this.createAll);
-        log.verbose(`creating new ${modelClazzName}`);
-        let created: T[];
-        try {
-          created = await this.persistence(ctx).createAll(
-            data.map((d) => new ModelConstr(d)),
-            ctx
-          );
-        } catch (e: unknown) {
-          log.error(`Failed to create new ${modelClazzName}`, e as Error);
-          throw e;
-        }
-        log.info(
-          `created new ${modelClazzName} with id ${(created as any)[this.pk]}`
+        const descriptor = FromModelController.defineMethod(
+          DynamicModelController,
+          methodName,
+          handler
         );
 
-        ctx.toResponse(resp);
-        return created;
-      }
-
-      @ApiOperationFromModel(ModelConstr, "POST")
-      @ApiOperation({ summary: `Create a new ${modelClazzName}.` })
-      @ApiBody({
-        description: `Payload for ${modelClazzName}`,
-        type: DtoFor(OperationKeys.CREATE, ModelConstr),
-      })
-      @ApiCreatedResponse({
-        description: `${modelClazzName} created successfully.`,
-        schema: {
-          $ref: getSchemaPath(ModelConstr),
-        },
-      })
-      @ApiBadRequestResponse({ description: "Payload validation failed." })
-      @ApiUnprocessableEntityResponse({
-        description: "Repository rejected the provided payload.",
-      })
-      async create(
-        @DecafBody() data: T,
-        @Response({ passthrough: true }) resp: any
-      ): Promise<Model<any>> {
-        const { ctx, log } = (
-          await this.logCtx([], OperationKeys.CREATE, true)
-        ).for(this.create);
-        log.verbose(`creating new ${modelClazzName}`);
-        let created: Model;
-        try {
-          const persistence = this.persistence(ctx);
-          created = await persistence.create(data, ctx);
-        } catch (e: unknown) {
-          log.error(`Failed to create new ${modelClazzName}`, e as Error);
-          throw e;
+        if (descriptor) {
+          const httpDecorator = HttpVerbToDecorator(route.method as HttpVerbs)(
+            route.path.replace(/^\/+|\/+$/g, "") || undefined
+          );
+          FromModelController.applyDecorators(
+            DynamicModelController,
+            methodName,
+            [httpDecorator, ...decorators],
+            paramDecorators
+          );
         }
-        log.info(
-          `created new ${modelClazzName} with id ${(created as any)[this.pk]}`
-        );
-        ctx.toResponse(resp);
-        return created;
-      }
-
-      @ApiOperationFromModel(ModelConstr, "GET", "bulk")
-      @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
-      @ApiQuery({ name: "ids", required: true, type: "array" })
-      @ApiOkResponse({
-        description: `${modelClazzName} retrieved successfully.`,
-        schema: {
-          type: "array",
-          items: {
-            $ref: getSchemaPath(ModelConstr),
-          },
-        },
-      })
-      @ApiNotFoundResponse({
-        description: `No ${modelClazzName} record matches the provided identifier.`,
-      })
-      async readAll(@Query("ids") ids: string[]) {
-        const { ctx, log } = (
-          await this.logCtx([], BulkCrudOperationKeys.READ_ALL, true)
-        ).for(this.readAll);
-        const normalizedIds = Array.isArray(ids) ? ids : [ids];
-        let read: Model[];
-        try {
-          log.debug(
-            `reading ${normalizedIds} ${modelClazzName}: ${normalizedIds}`
-          );
-          const persistence = this.persistence(ctx);
-          read = await persistence.readAll(normalizedIds as any, ctx);
-        } catch (e: unknown) {
-          log.error(
-            `Failed to ${modelClazzName} with id ${normalizedIds}`,
-            e as Error
-          );
-          throw e;
-        }
-
-        log.info(`read ${read.length} ${modelClazzName}`);
-        return read;
-      }
-
-      @ApiOperationFromModel(ModelConstr, "GET", path)
-      @ApiParamsFromModel(apiProperties)
-      @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
-      @ApiOkResponse({
-        description: `${modelClazzName} retrieved successfully.`,
-        schema: {
-          $ref: getSchemaPath(ModelConstr),
-        },
-      })
-      @ApiNotFoundResponse({
-        description: `No ${modelClazzName} record matches the provided identifier.`,
-      })
-      async read(@DecafParams(apiProperties) routeParams: DecafParamProps) {
-        const { ctx, log } = (
-          await this.logCtx([], OperationKeys.READ, true)
-        ).for(this.read);
-        const id = getPK(...routeParams.valuesInOrder);
-        if (typeof id === "undefined")
-          throw new ValidationError(`No ${this.pk} provided`);
-
-        let read: Model;
-        try {
-          log.debug(`reading ${modelClazzName} with ${this.pk} ${id}`);
-          const persistence = this.persistence(ctx);
-          read = await persistence.read(id, ctx);
-        } catch (e: unknown) {
-          log.error(
-            `Failed to read ${modelClazzName} with id ${id}`,
-            e as Error
-          );
-          throw e;
-        }
-
-        log.info(`read ${modelClazzName} with id ${(read as any)[this.pk]}`);
-        return read;
-      }
-
-      @ApiOperationFromModel(ModelConstr, "PUT", `bulk`)
-      @ApiParamsFromModel(apiProperties)
-      @ApiOperation({
-        summary: `Replace an existing ${modelClazzName} record with a new payload.`,
-      })
-      @ApiBody({
-        description: `Payload for replace a existing record of ${modelClazzName}`,
-        schema: {
-          type: "array",
-          $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
-        },
-      })
-      @ApiOkResponse({
-        description: `${modelClazzName} updated successfully.`,
-        schema: {
-          type: "array",
-          items: {
-            $ref: getSchemaPath(ModelConstr),
-          },
-        },
-      })
-      @ApiNotFoundResponse({
-        description: `No ${modelClazzName} record matches the provided identifier.`,
-      })
-      @ApiBadRequestResponse({ description: "Payload validation failed." })
-      async updateAll(
-        @DecafBody() body: T[],
-        @Response({ passthrough: true }) resp: any
-      ) {
-        const { ctx, log } = (
-          await this.logCtx([], BulkCrudOperationKeys.UPDATE_ALL, true)
-        ).for(this.updateAll);
-
-        let updated: T[];
-        try {
-          log.info(`updating ${body.length} ${modelClazzName}`);
-          updated = await this.persistence(ctx).updateAll(body, ctx);
-        } catch (e: unknown) {
-          log.error(e as Error);
-          throw e;
-        }
-        ctx.toResponse(resp);
-        return updated;
-      }
-
-      @ApiOperationFromModel(ModelConstr, "PUT", path)
-      @ApiParamsFromModel(apiProperties)
-      @ApiOperation({
-        summary: `Replace an existing ${modelClazzName} record with a new payload.`,
-      })
-      @ApiBody({
-        description: `Payload for replace a existing record of ${modelClazzName}`,
-        type: DtoFor(OperationKeys.UPDATE, ModelConstr),
-      })
-      @ApiOkResponse({
-        description: `${modelClazzName} updated successfully.`,
-        schema: {
-          $ref: getSchemaPath(ModelConstr),
-        },
-      })
-      @ApiNotFoundResponse({
-        description: `No ${modelClazzName} record matches the provided identifier.`,
-      })
-      @ApiBadRequestResponse({ description: "Payload validation failed." })
-      async update(
-        @DecafParams(apiProperties) routeParams: DecafParamProps,
-        @DecafBody() body: T,
-        @Response({ passthrough: true }) resp: any
-      ) {
-        const { ctx, log } = (
-          await this.logCtx([], OperationKeys.UPDATE, true)
-        ).for(this.update);
-
-        const id = getPK(...routeParams.valuesInOrder);
-        if (typeof id === "undefined")
-          throw new ValidationError(`No ${this.pk} provided`);
-
-        let updated: T;
-        try {
-          log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
-          const payload = JSON.parse(JSON.stringify(body));
-          const persistence = this.persistence(ctx);
-          updated = await persistence.update(
-            new ModelConstr({
-              ...payload,
-              [this.pk]: id,
-            }),
-            ctx
-          );
-        } catch (e: unknown) {
-          log.error(e as Error);
-          throw e;
-        }
-        ctx.toResponse(resp);
-        return updated;
-      }
-
-      @ApiOperationFromModel(ModelConstr, "DELETE", "bulk")
-      @ApiParamsFromModel(apiProperties)
-      @ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` })
-      @ApiQuery({ name: "ids", required: true, type: "array" })
-      @ApiOkResponse({
-        description: `${modelClazzName} deleted successfully.`,
-        schema: {
-          type: "array",
-          items: {
-            $ref: getSchemaPath(ModelConstr),
-          },
-        },
-      })
-      @ApiNotFoundResponse({
-        description: `No ${modelClazzName} record matches the provided identifier.`,
-      })
-      async deleteAll(
-        @Query("ids") ids: string[],
-        @Response({ passthrough: true }) resp: any
-      ) {
-        const { ctx, log } = (
-          await this.logCtx([], BulkCrudOperationKeys.DELETE_ALL, true)
-        ).for(this.deleteAll);
-        const normalizedIds = Array.isArray(ids) ? ids : [ids];
-        let read: Model[];
-        try {
-          log.debug(
-            `deleting ${normalizedIds.length} ${modelClazzName}: ${normalizedIds}`
-          );
-          read = await this.persistence(ctx).deleteAll(normalizedIds, ctx);
-        } catch (e: unknown) {
-          log.error(
-            `Failed to delete ${modelClazzName} with id ${normalizedIds}`,
-            e as Error
-          );
-          throw e;
-        }
-
-        log.info(`deleted ${read.length} ${modelClazzName}`);
-        ctx.toResponse(resp);
-        return read;
-      }
-
-      @ApiOperationFromModel(ModelConstr, "DELETE", path)
-      @ApiParamsFromModel(apiProperties)
-      @ApiOperation({ summary: `Delete a ${modelClazzName} record by id.` })
-      @ApiOkResponse({
-        description: `${modelClazzName} deleted successfully.`,
-        schema: {
-          $ref: getSchemaPath(ModelConstr),
-        },
-      })
-      @ApiNotFoundResponse({
-        description: `No ${modelClazzName} record matches the provided identifier.`,
-      })
-      async delete(
-        @DecafParams(apiProperties) routeParams: DecafParamProps,
-        @Response({ passthrough: true }) resp: any
-      ) {
-        const { ctx, log } = (
-          await this.logCtx([], OperationKeys.DELETE, true)
-        ).for(this.delete);
-
-        const id = getPK(...routeParams.valuesInOrder);
-        if (typeof id === "undefined")
-          throw new ValidationError(`No ${this.pk} provided`);
-
-        let del: Model;
-        try {
-          log.debug(
-            `deleting ${modelClazzName} with ${this.pk as string} ${id}`
-          );
-          del = await this.persistence(ctx).delete(id, ctx);
-        } catch (e: unknown) {
-          log.error(
-            `Failed to delete ${modelClazzName} with id ${id}`,
-            e as Error
-          );
-          throw e;
-        }
-        log.info(`deleted ${modelClazzName} with id ${id}`);
-        ctx.toResponse(resp);
-        return del;
       }
     }
 
@@ -1060,7 +279,12 @@ export class FromModelController {
 
   static getRouteParametersFromModel<T extends Model<any>>(
     ModelClazz: ModelConstructor<T>
-  ): DecafModelRoute {
+  ): {
+    path: string;
+    description: string;
+    apiProperties: DecafApiProperty[];
+    getPK: (...params: Array<string | number>) => string;
+  } {
     const pk = Model.pk(ModelClazz) as keyof Model<any>;
     const composed = Metadata.get(
       ModelClazz,
@@ -1068,13 +292,12 @@ export class FromModelController {
     );
     const composedKeys = composed?.args ?? [];
 
-    // remove duplicates while preserving order
     const uniqueKeys =
       Array.isArray(composedKeys) && composedKeys.length > 0
         ? Array.from(new Set([...composedKeys]))
         : Array.from(new Set([pk]));
 
-    const description = Metadata.description(ModelClazz);
+    const description = Metadata.description(ModelClazz) ?? "";
     const path = `:${uniqueKeys.join("/:")}`;
     const apiProperties: DecafApiProperty[] = uniqueKeys.map((key) => {
       return {
@@ -1092,5 +315,1083 @@ export class FromModelController {
       getPK: (...params: Array<string | number>) =>
         composed?.separator ? params.join(composed.separator) : params.join(""),
     };
+  }
+
+  private static defineMethod(
+    target: any,
+    methodName: string,
+    handler: (...args: any[]) => any
+  ): PropertyDescriptor | undefined {
+    Object.defineProperty(
+      target.prototype || target,
+      methodName,
+      {
+        value: handler,
+        writable: false,
+        configurable: true,
+        enumerable: false,
+      }
+    );
+
+    return Object.getOwnPropertyDescriptor(
+      target.prototype || target,
+      methodName
+    );
+  }
+
+  private static applyDecorators(
+    target: any,
+    methodName: string,
+    methodDecorators: Array<(target: any, key: string, desc: any) => void>,
+    paramDecorators: Array<{ decorator: ParameterDecorator; index: number }> = []
+  ) {
+    const proto = target?.prototype ?? target;
+    const descriptor = Object.getOwnPropertyDescriptor(proto, methodName);
+    methodDecorators.forEach((d) => d(proto, methodName, descriptor));
+    paramDecorators.forEach(({ decorator, index }) =>
+      decorator(proto, methodName, index)
+    );
+  }
+
+  private static matchRoute(
+    route: ServerRoute,
+    pkPath: string,
+    apiProperties: DecafApiProperty[],
+    getPK: (...p: Array<string | number>) => string,
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string,
+    persistence?: any
+  ): {
+    methodName: string;
+    handler: (...args: any[]) => any;
+    decorators: Array<(target: any, key: string, desc: any) => void>;
+    paramDecorators: Array<{ decorator: ParameterDecorator; index: number }>;
+  } | undefined {
+    const { method, path } = route;
+    const normalizedPath = path.replace(/^\/+|\/+$/g, "");
+
+    if (method === "POST" && normalizedPath === "") {
+      return FromModelController.createRegistration(
+        "create",
+        FromModelController.createCreateHandler(ModelConstr, modelClazzName),
+        FromModelController.createCreateDecorators(ModelConstr, modelClazzName),
+        [{ decorator: DecafBody() as any, index: 0 }, { decorator: Response({ passthrough: true }) as any, index: 1 }]
+      );
+    }
+
+    if (method === "POST" && normalizedPath === "bulk") {
+      return FromModelController.createRegistration(
+        "createAll",
+        FromModelController.createBulkCreateHandler(ModelConstr, modelClazzName),
+        FromModelController.bulkCreateDecorators(ModelConstr, modelClazzName),
+        [{ decorator: DecafBody() as any, index: 0 }, { decorator: Response({ passthrough: true }) as any, index: 1 }]
+      );
+    }
+
+    if (method === "GET" && normalizedPath === "bulk") {
+      return FromModelController.createRegistration(
+        "readAll",
+        FromModelController.createBulkReadHandler(modelClazzName),
+        FromModelController.bulkReadDecorators(ModelConstr, modelClazzName),
+        [{ decorator: Query("ids") as any, index: 0 }]
+      );
+    }
+
+    if (method === "PUT" && normalizedPath === "bulk") {
+      return FromModelController.createRegistration(
+        "updateAll",
+        FromModelController.createBulkUpdateHandler(modelClazzName),
+        FromModelController.bulkUpdateDecorators(ModelConstr, modelClazzName, apiProperties),
+        [{ decorator: DecafBody() as any, index: 0 }, { decorator: Response({ passthrough: true }) as any, index: 1 }]
+      );
+    }
+
+    if (method === "DELETE" && normalizedPath === "bulk") {
+      return FromModelController.createRegistration(
+        "deleteAll",
+        FromModelController.createBulkDeleteHandler(modelClazzName),
+        FromModelController.bulkDeleteDecorators(ModelConstr, modelClazzName, apiProperties),
+        [{ decorator: Query("ids") as any, index: 0 }, { decorator: Response({ passthrough: true }) as any, index: 1 }]
+      );
+    }
+
+    if (method === "GET" && normalizedPath === pkPath) {
+      return FromModelController.createRegistration(
+        "read",
+        FromModelController.createReadHandler(getPK, modelClazzName),
+        FromModelController.readDecorators(ModelConstr, modelClazzName, apiProperties, pkPath),
+        [{ decorator: DecafParams(apiProperties) as any, index: 0 }]
+      );
+    }
+
+    if (method === "PUT" && normalizedPath === pkPath) {
+      return FromModelController.createRegistration(
+        "update",
+        FromModelController.createUpdateHandler(getPK, ModelConstr, modelClazzName),
+        FromModelController.updateDecorators(ModelConstr, modelClazzName, apiProperties, pkPath),
+        [
+          { decorator: DecafParams(apiProperties) as any, index: 0 },
+          { decorator: DecafBody() as any, index: 1 },
+          { decorator: Response({ passthrough: true }) as any, index: 2 },
+        ]
+      );
+    }
+
+    if (method === "DELETE" && normalizedPath === pkPath) {
+      return FromModelController.createRegistration(
+        "delete",
+        FromModelController.createDeleteHandler(getPK, modelClazzName),
+        FromModelController.deleteDecorators(ModelConstr, modelClazzName, apiProperties, pkPath),
+        [
+          { decorator: DecafParams(apiProperties) as any, index: 0 },
+          { decorator: Response({ passthrough: true }) as any, index: 1 },
+        ]
+      );
+    }
+
+    // Composed PK fallback routes (filterEmpty) — path differs from pkPath
+    const fallbackSegments = normalizedPath.split("/").filter(Boolean);
+    const isAllParams = fallbackSegments.length > 0 && fallbackSegments.every((s) => s.startsWith(":"));
+    if (isAllParams && normalizedPath !== pkPath) {
+      const fallbackApiProps = fallbackSegments.map((s) => s.slice(1)).map((name) => ({
+        name,
+        description: `${name} parameter`,
+        required: true,
+        type: String,
+      }));
+      const suffix = fallbackSegments.map((s) => s.slice(1)).join("And");
+      if (method === "GET") {
+        return FromModelController.createRegistration(
+          `readBy${suffix}`,
+          FromModelController.createReadHandler(getPK, modelClazzName),
+          FromModelController.readDecorators(ModelConstr, modelClazzName, fallbackApiProps, normalizedPath),
+          [{ decorator: DecafParams(fallbackApiProps) as any, index: 0 }]
+        );
+      }
+      if (method === "PUT") {
+        return FromModelController.createRegistration(
+          `updateBy${suffix}`,
+          FromModelController.createUpdateHandler(getPK, ModelConstr, modelClazzName),
+          FromModelController.updateDecorators(ModelConstr, modelClazzName, fallbackApiProps, normalizedPath),
+          [
+            { decorator: DecafParams(fallbackApiProps) as any, index: 0 },
+            { decorator: DecafBody() as any, index: 1 },
+            { decorator: Response({ passthrough: true }) as any, index: 2 },
+          ]
+        );
+      }
+      if (method === "DELETE") {
+        return FromModelController.createRegistration(
+          `deleteBy${suffix}`,
+          FromModelController.createDeleteHandler(getPK, modelClazzName),
+          FromModelController.deleteDecorators(ModelConstr, modelClazzName, fallbackApiProps, normalizedPath),
+          [
+            { decorator: DecafParams(fallbackApiProps) as any, index: 0 },
+            { decorator: Response({ passthrough: true }) as any, index: 1 },
+          ]
+        );
+      }
+    }
+
+    if (method === "GET" && normalizedPath === "statement/:method/*args") {
+      return FromModelController.createRegistration(
+        "statement",
+        FromModelController.createStatementHandler(modelClazzName),
+        FromModelController.statementDecorators(ModelConstr, modelClazzName),
+        [
+          { decorator: Param("method") as any, index: 0 },
+          { decorator: Param("args") as any, index: 1 },
+          { decorator: DecafQuery() as any, index: 2 },
+        ]
+      );
+    }
+
+    const statementRoutes: Record<string, string> = {
+      "listBy/:key": PreparedStatementKeys.LIST_BY,
+      "paginateBy/:key/:page": PreparedStatementKeys.PAGE_BY,
+      "find/:value": PreparedStatementKeys.FIND,
+      "page/:value": PreparedStatementKeys.PAGE,
+      "findOneBy/:key/:value": PreparedStatementKeys.FIND_ONE_BY,
+      "findBy/:key/:value": PreparedStatementKeys.FIND_BY,
+      "countOf/:field": PreparedStatementKeys.COUNT_OF,
+      "maxOf/:field": PreparedStatementKeys.MAX_OF,
+      "minOf/:field": PreparedStatementKeys.MIN_OF,
+      "avgOf/:field": PreparedStatementKeys.AVG_OF,
+      "sumOf/:field": PreparedStatementKeys.SUM_OF,
+      "distinctOf/:field": PreparedStatementKeys.DISTINCT_OF,
+      "groupOf/:field": PreparedStatementKeys.GROUP_OF,
+    };
+
+    const statementKey = statementRoutes[normalizedPath];
+    if (statementKey && method === "GET") {
+      return FromModelController.createRegistration(
+        FromModelController.statementMethodName(normalizedPath),
+        FromModelController.createStatementShortcutHandler(statementKey, modelClazzName),
+        FromModelController.statementShortcutDecorators(ModelConstr, modelClazzName, normalizedPath, statementKey),
+        FromModelController.statementShortcutParams(normalizedPath)
+      );
+    }
+
+    if (method === "GET" && normalizedPath.startsWith("query/")) {
+      const queryMethod = normalizedPath.replace(/^query\//, "").split("/")[0];
+      return FromModelController.createRegistration(
+        queryMethod,
+        FromModelController.createComplexQueryHandler(queryMethod),
+        FromModelController.getQueryDecorators(queryMethod, normalizedPath, "GET", true),
+        FromModelController.complexQueryParams(normalizedPath)
+      );
+    }
+
+    // Fallback for custom @route() paths (e.g. "metadata/for-product/:productCode")
+    const pathSegments = normalizedPath.split("/").filter(Boolean);
+    const knownPrefixes = new Set<string>([
+      "listBy", "findBy", "findByPaginate", "findOneBy", "paginateBy",
+      "find", "page", "countOf", "maxOf", "minOf", "avgOf", "sumOf",
+      "distinctOf", "groupOf", "statement", "bulk", "query",
+    ]);
+    if (
+      pathSegments.length > 0 &&
+      !normalizedPath.startsWith("query/") &&
+      !knownPrefixes.has(pathSegments[0])
+    ) {
+      // Look up the actual method name from @route metadata by matching the path.
+      // The @route decorator stores { path, httpMethod, handler } keyed by method name
+      // on the repository constructor.
+      const routeMetadata: Record<string, any> =
+        Metadata.get(
+          (persistence as any)?.constructor,
+          Metadata.key(DECAF_ROUTE)
+        ) ?? {};
+      const matchedEntry = Object.entries(routeMetadata).find(
+        ([, info]) =>
+          info &&
+          typeof info === "object" &&
+          info.path?.replace(/^\/+|\/+$/g, "") === normalizedPath
+      );
+      const actualMethodName = matchedEntry?.[0] || pathSegments[0];
+
+      const paramSegments = pathSegments.filter((s) => s.startsWith(":"));
+      const apiPathParams = paramSegments.map((s) => s.slice(1)).map((name) => ({
+        name,
+        description: `${name} parameter for the query`,
+        required: true,
+        type: String,
+      }));
+
+      return FromModelController.createRegistration(
+        actualMethodName,
+        FromModelController.createCustomRouteHandler(actualMethodName),
+        [
+          ...apiPathParams.map((p) => ApiParam(p)),
+          ApiOperation({ summary: `Retrieve records using "${actualMethodName}".` }),
+          ApiOkResponse({ description: "Result successfully retrieved." }),
+          ApiNoContentResponse({ description: "No content returned by the method." }),
+        ],
+        FromModelController.complexQueryParams(normalizedPath)
+      );
+    }
+
+    return undefined;
+  }
+
+  private static createRegistration(
+    methodName: string,
+    handler: (...args: any[]) => any,
+    decorators: Array<(target: any, key: string, desc: any) => void>,
+    paramDecorators: Array<{ decorator: ParameterDecorator; index: number }>
+  ) {
+    return { methodName, handler, decorators, paramDecorators };
+  }
+
+  private static statementMethodName(path: string): string {
+    const firstSegment = path.split("/")[0];
+    return firstSegment;
+  }
+
+  private static statementShortcutParams(
+    path: string
+  ): Array<{ decorator: ParameterDecorator; index: number }> {
+    const segments = path.split("/").filter((s) => s.startsWith(":"));
+    const params: Array<{ decorator: ParameterDecorator; index: number }> = [];
+    segments.forEach((seg, i) => {
+      const name = seg.replace(":", "");
+      params.push({ decorator: Param(name) as any, index: i });
+    });
+    if (
+      path.startsWith("listBy/") ||
+      path.startsWith("paginateBy/") ||
+      path.startsWith("find/") ||
+      path.startsWith("page/")
+    ) {
+      params.push({ decorator: DecafQuery() as any, index: segments.length });
+    }
+    return params;
+  }
+
+  private static complexQueryParams(
+    path: string
+  ): Array<{ decorator: ParameterDecorator; index: number }> {
+    const segments = path.split("/").filter((s) => s.startsWith(":"));
+    const params: Array<{ decorator: ParameterDecorator; index: number }> = [];
+    segments.forEach((seg, i) => {
+      const name = seg.replace(":", "");
+      params.push({ decorator: Param(name) as any, index: i });
+    });
+    if (path.startsWith("query/")) {
+      params.push({ decorator: DecafQuery() as any, index: segments.length });
+    }
+    return params;
+  }
+
+  private static createCreateHandler(
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string
+  ) {
+    return async function create(
+      this: any,
+      data: any,
+      resp?: any
+    ): Promise<Model<any>> {
+      const { ctx, log } = (
+        await this.logCtx([], OperationKeys.CREATE, true)
+      ).for(create);
+      log.verbose(`creating new ${modelClazzName}`);
+      let created: Model;
+      try {
+        created = await this.persistence(ctx).create(data, ctx);
+      } catch (e: unknown) {
+        log.error(`Failed to create new ${modelClazzName}`, e as Error);
+        throw e;
+      }
+      log.info(`created new ${modelClazzName} with id ${(created as any)[this.pk]}`);
+      if (resp) ctx.toResponse(resp);
+      return created;
+    };
+  }
+
+  private static createBulkCreateHandler(
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string
+  ) {
+    return async function createAll(
+      this: any,
+      data: any[],
+      resp?: any
+    ): Promise<Model[]> {
+      const { ctx, log } = (
+        await this.logCtx([], BulkCrudOperationKeys.CREATE_ALL, true)
+      ).for(createAll);
+      log.verbose(`creating new ${modelClazzName}`);
+      let created: any[];
+      try {
+        created = await this.persistence(ctx).createAll(
+          data.map((d) => new ModelConstr(d)),
+          ctx
+        );
+      } catch (e: unknown) {
+        log.error(`Failed to create new ${modelClazzName}`, e as Error);
+        throw e;
+      }
+      log.info(`created new ${modelClazzName} with id ${(created as any)[this.pk]}`);
+      if (resp) ctx.toResponse(resp);
+      return created;
+    };
+  }
+
+  private static createBulkReadHandler(modelClazzName: string) {
+    return async function readAll(
+      this: any,
+      ids: string[]
+    ): Promise<Model[]> {
+      const { ctx, log } = (
+        await this.logCtx([], BulkCrudOperationKeys.READ_ALL, true)
+      ).for(readAll);
+      const normalizedIds = Array.isArray(ids) ? ids : [ids];
+      let read: Model[];
+      try {
+        log.debug(`reading ${normalizedIds} ${modelClazzName}`);
+        read = await this.persistence(ctx).readAll(normalizedIds as any, ctx);
+      } catch (e: unknown) {
+        log.error(`Failed to read ${modelClazzName}`, e as Error);
+        throw e;
+      }
+      log.info(`read ${read.length} ${modelClazzName}`);
+      return read;
+    };
+  }
+
+  private static createBulkUpdateHandler(modelClazzName: string) {
+    return async function updateAll(
+      this: any,
+      body: any[],
+      resp?: any
+    ): Promise<any[]> {
+      const { ctx, log } = (
+        await this.logCtx([], BulkCrudOperationKeys.UPDATE_ALL, true)
+      ).for(updateAll);
+      let updated: any[];
+      try {
+        log.info(`updating ${body.length} ${modelClazzName}`);
+        updated = await this.persistence(ctx).updateAll(body, ctx);
+      } catch (e: unknown) {
+        log.error(e as Error);
+        throw e;
+      }
+      if (resp) ctx.toResponse(resp);
+      return updated;
+    };
+  }
+
+  private static createBulkDeleteHandler(modelClazzName: string) {
+    return async function deleteAll(
+      this: any,
+      ids: string[],
+      resp?: any
+    ): Promise<Model[]> {
+      const { ctx, log } = (
+        await this.logCtx([], BulkCrudOperationKeys.DELETE_ALL, true)
+      ).for(deleteAll);
+      const normalizedIds = Array.isArray(ids) ? ids : [ids];
+      let read: Model[];
+      try {
+        log.debug(`deleting ${normalizedIds.length} ${modelClazzName}`);
+        read = await this.persistence(ctx).deleteAll(normalizedIds, ctx);
+      } catch (e: unknown) {
+        log.error(`Failed to delete ${modelClazzName}`, e as Error);
+        throw e;
+      }
+      log.info(`deleted ${read.length} ${modelClazzName}`);
+      if (resp) ctx.toResponse(resp);
+      return read;
+    };
+  }
+
+  private static createReadHandler(
+    getPK: (...p: Array<string | number>) => string,
+    modelClazzName: string
+  ) {
+    return async function read(
+      this: any,
+      routeParams: any
+    ): Promise<Model> {
+      const { ctx, log } = (
+        await this.logCtx([], OperationKeys.READ, true)
+      ).for(read);
+      const id = getPK(...routeParams.valuesInOrder);
+      if (typeof id === "undefined")
+        throw new ValidationError(`No ${this.pk} provided`);
+      let readResult: Model;
+      try {
+        log.debug(`reading ${modelClazzName} with ${this.pk} ${id}`);
+        readResult = await this.persistence(ctx).read(id, ctx);
+      } catch (e: unknown) {
+        log.error(`Failed to read ${modelClazzName} with id ${id}`, e as Error);
+        throw e;
+      }
+      log.info(`read ${modelClazzName} with id ${(readResult as any)[this.pk]}`);
+      return readResult;
+    };
+  }
+
+  private static createUpdateHandler(
+    getPK: (...p: Array<string | number>) => string,
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string
+  ) {
+    return async function update(
+      this: any,
+      routeParams: any,
+      body: any,
+      resp?: any
+    ): Promise<any> {
+      const { ctx, log } = (
+        await this.logCtx([], OperationKeys.UPDATE, true)
+      ).for(update);
+      const id = getPK(...routeParams.valuesInOrder);
+      if (typeof id === "undefined")
+        throw new ValidationError(`No ${this.pk} provided`);
+      let updated: any;
+      try {
+        log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
+        const payload = JSON.parse(JSON.stringify(body));
+        updated = await this.persistence(ctx).update(
+          new ModelConstr({ ...payload, [this.pk]: id }),
+          ctx
+        );
+      } catch (e: unknown) {
+        log.error(e as Error);
+        throw e;
+      }
+      if (resp) ctx.toResponse(resp);
+      return updated;
+    };
+  }
+
+  private static createDeleteHandler(
+    getPK: (...p: Array<string | number>) => string,
+    modelClazzName: string
+  ) {
+    return async function remove(
+      this: any,
+      routeParams: any,
+      resp?: any
+    ): Promise<Model> {
+      const { ctx, log } = (
+        await this.logCtx([], OperationKeys.DELETE, true)
+      ).for(remove);
+      const id = getPK(...routeParams.valuesInOrder);
+      if (typeof id === "undefined")
+        throw new ValidationError(`No ${this.pk} provided`);
+      let del: Model;
+      try {
+        log.debug(`deleting ${modelClazzName} with ${this.pk} ${id}`);
+        del = await this.persistence(ctx).delete(id, ctx);
+      } catch (e: unknown) {
+        log.error(`Failed to delete ${modelClazzName} with id ${id}`, e as Error);
+        throw e;
+      }
+      log.info(`deleted ${modelClazzName} with id ${id}`);
+      if (resp) ctx.toResponse(resp);
+      return del;
+    };
+  }
+
+  private static createStatementHandler(modelClazzName: string) {
+    return async function statement(
+      this: any,
+      name: string,
+      args: (string | number)[],
+      details: DirectionLimitOffset
+    ): Promise<any> {
+      const { ctx } = (
+        await this.logCtx([], PersistenceKeys.STATEMENT, true)
+      ).for(statement);
+      const { direction, offset, limit, bookmark } = details;
+      args = args.map(
+        (a) => (typeof a === "string" ? parseInt(a as string) : a) || a
+      ) as any[];
+      const pathDirection = args.length > 1 ? args[1] : undefined;
+      const resolvedDirection = (direction ?? pathDirection) as
+        | string
+        | undefined;
+      if (resolvedDirection && args.length > 1) args[1] = resolvedDirection;
+      switch (name) {
+        case PreparedStatementKeys.FIND:
+        case PreparedStatementKeys.FIND_BY:
+          break;
+        case PreparedStatementKeys.LIST_BY:
+          args.push(direction as string);
+          break;
+        case PreparedStatementKeys.PAGE:
+        case PreparedStatementKeys.PAGE_BY:
+          args = [
+            args[0],
+            resolvedDirection as any,
+            { limit, offset, bookmark },
+          ];
+          break;
+        case PreparedStatementKeys.FIND_ONE_BY:
+          break;
+        case PreparedStatementKeys.COUNT_OF:
+        case PreparedStatementKeys.MAX_OF:
+        case PreparedStatementKeys.MIN_OF:
+        case PreparedStatementKeys.AVG_OF:
+        case PreparedStatementKeys.SUM_OF:
+        case PreparedStatementKeys.DISTINCT_OF:
+        case PreparedStatementKeys.GROUP_OF:
+          break;
+      }
+      return this.persistence(ctx).statement(name, ...args, ctx);
+    };
+  }
+
+  private static createStatementShortcutHandler(
+    statementKey: string,
+    modelClazzName: string
+  ) {
+    return async function statementShortcut(
+      this: any,
+      ...args: any[]
+    ): Promise<any> {
+      const { ctx } = (
+        await this.logCtx([], statementKey, true)
+      ).for(statementShortcut);
+
+      switch (statementKey) {
+        case PreparedStatementKeys.LIST_BY: {
+          const [key, details] = args;
+          return this.persistence(ctx).listBy(
+            key,
+            (details as any)?.direction as OrderDirection,
+            ctx
+          );
+        }
+        case PreparedStatementKeys.PAGE_BY: {
+          const [key, page, details] = args;
+          return this.persistence(ctx).paginateBy(
+            key,
+            (details as any)?.direction as OrderDirection,
+            {
+              limit: (details as any)?.limit,
+              offset: (details as any)?.offset,
+              page,
+            } as any,
+            ctx
+          );
+        }
+        case PreparedStatementKeys.FIND: {
+          const [value, details] = args;
+          const direction =
+            (details as any)?.direction ?? OrderDirection.ASC;
+          const persistence = this.persistence(ctx);
+          if (typeof persistence.find === "function")
+            return persistence.find(value, direction, ctx);
+          return persistence.statement(PreparedStatementKeys.FIND, value, direction, ctx);
+        }
+        case PreparedStatementKeys.PAGE: {
+          const [value, details] = args;
+          const ref = {
+            offset: (details as any)?.offset ?? 1,
+            limit: (details as any)?.limit ?? 10,
+            bookmark: (details as any)?.bookmark,
+          };
+          const persistence = this.persistence(ctx);
+          const direction = (details as any)?.direction ?? OrderDirection.ASC;
+          if (typeof persistence.page === "function")
+            return persistence.page(value, direction, ref, ctx);
+          return persistence.statement(PreparedStatementKeys.PAGE, value, direction, ref, ctx);
+        }
+        case PreparedStatementKeys.FIND_ONE_BY: {
+          const [key, value] = args;
+          return this.persistence(ctx).findOneBy(key, value, ctx);
+        }
+        case PreparedStatementKeys.FIND_BY: {
+          const [key, value] = args;
+          return this.persistence(ctx)
+            .for(ctx.toOverrides())
+            .findBy(key, value, ctx);
+        }
+        default:
+          if (
+            statementKey === PreparedStatementKeys.COUNT_OF ||
+            statementKey === PreparedStatementKeys.MAX_OF ||
+            statementKey === PreparedStatementKeys.MIN_OF ||
+            statementKey === PreparedStatementKeys.AVG_OF ||
+            statementKey === PreparedStatementKeys.SUM_OF ||
+            statementKey === PreparedStatementKeys.DISTINCT_OF ||
+            statementKey === PreparedStatementKeys.GROUP_OF
+          ) {
+            const [field] = args;
+            return this.persistence(ctx).statement(statementKey, field, ctx);
+          }
+          throw new Error(`Unknown statement: ${statementKey}`);
+      }
+    };
+  }
+
+  private static createComplexQueryHandler(methodName: string) {
+    return async function complexQuery(
+      this: any,
+      ...args: any[]
+    ): Promise<any> {
+      const log: any = this.log?.for?.(complexQuery);
+      try {
+        if (log) log.debug(`Invoking custom query "${methodName}"`);
+        const { ctx } = (
+          await this.logCtx([], methodName, true)
+        ).for(complexQuery);
+        const persistence = this.persistence(ctx);
+        const spreadArgs = FromModelController.extractQueryArgs(args);
+        if (typeof persistence[methodName] === "function") {
+          return persistence[methodName](...spreadArgs, ctx);
+        }
+        if (typeof persistence.statement === "function") {
+          return persistence.statement(methodName, ...spreadArgs, ctx);
+        }
+        throw new Error(
+          `Persistence method "${methodName}" not found on ${persistence?.constructor?.name}`
+        );
+      } catch (e: any) {
+        if (log) log.error(`Custom query "${methodName}" failed`, e);
+        throw e;
+      }
+    };
+  }
+
+  private static createCustomRouteHandler(methodName: string) {
+    return async function customRoute(
+      this: any,
+      ...args: any[]
+    ): Promise<any> {
+      const log: any = this.log?.for?.(customRoute);
+      const { ctx } = (
+        await this.logCtx([], methodName, true)
+      ).for(customRoute);
+      const persistence = this.persistence(ctx);
+      const spreadArgs = FromModelController.extractQueryArgs(args);
+
+      // Try the persistence directly (works when it's a custom Repository)
+      if (typeof persistence[methodName] === "function") {
+        return persistence[methodName](...spreadArgs, ctx);
+      }
+      // When persistence is a ModelService, the method lives on the underlying repo
+      if (persistence?.repo && typeof persistence.repo[methodName] === "function") {
+        return persistence.repo[methodName](...spreadArgs, ctx);
+      }
+      // Fall back to statement gateway
+      if (typeof persistence.statement === "function") {
+        return persistence.statement(methodName, ...spreadArgs, ctx);
+      }
+      throw new Error(
+        `Method "${methodName}" not found on ${persistence?.constructor?.name} or its repo`
+      );
+    };
+  }
+
+  private static extractQueryArgs(args: any[]): any[] {
+    if (args.length === 0) return args;
+    const last = args[args.length - 1];
+    if (
+      last &&
+      typeof last === "object" &&
+      !Array.isArray(last)
+    ) {
+      const queryObj = args.pop();
+      const hasDirection = queryObj.direction !== undefined;
+      const hasLimit = queryObj.limit !== undefined;
+      const hasOffset = queryObj.offset !== undefined;
+      if (!hasDirection && !hasLimit && !hasOffset) return args;
+      const extras: any[] = [];
+      if (hasDirection) extras.push(queryObj.direction);
+      else if (hasLimit || hasOffset) extras.push(undefined);
+      if (hasLimit) extras.push(queryObj.limit);
+      if (hasOffset) extras.push(queryObj.offset);
+      return [...args, ...extras];
+    }
+    return args;
+  }
+
+  private static createCreateDecorators(
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string
+  ): Array<(target: any, key: string, desc: any) => void> {
+    return [
+      ApiOperationFromModel(ModelConstr, "POST"),
+      ApiOperation({ summary: `Create a new ${modelClazzName}.` }),
+      ApiBody({
+        description: `Payload for ${modelClazzName}`,
+        type: DtoFor(OperationKeys.CREATE, ModelConstr),
+      }),
+      ApiCreatedResponse({
+        description: `${modelClazzName} created successfully.`,
+        schema: { $ref: getSchemaPath(ModelConstr) },
+      }),
+      ApiBadRequestResponse({ description: "Payload validation failed." }),
+      ApiUnprocessableEntityResponse({
+        description: "Repository rejected the provided payload.",
+      }),
+    ];
+  }
+
+  private static bulkCreateDecorators(
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string
+  ): Array<(target: any, key: string, desc: any) => void> {
+    return [
+      ApiOperationFromModel(ModelConstr, "POST", "bulk"),
+      ApiOperation({ summary: `Create a new ${modelClazzName}.` }),
+      ApiBody({
+        description: `Payload for ${modelClazzName}`,
+        schema: {
+          type: "array",
+          items: { $ref: getSchemaPath(ModelConstr) },
+        },
+      }),
+      ApiCreatedResponse({
+        description: `${modelClazzName} created successfully.`,
+        schema: {
+          type: "array",
+          items: { $ref: getSchemaPath(ModelConstr) },
+        },
+      }),
+      ApiBadRequestResponse({ description: "Payload validation failed." }),
+      ApiUnprocessableEntityResponse({
+        description: "Repository rejected the provided payload.",
+      }),
+    ];
+  }
+
+  private static bulkReadDecorators(
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string
+  ): Array<(target: any, key: string, desc: any) => void> {
+    return [
+      ApiOperationFromModel(ModelConstr, "GET", "bulk"),
+      ApiOperation({ summary: `Retrieve ${modelClazzName} records by ids.` }),
+      ApiQuery({ name: "ids", required: true, type: "array" }),
+      ApiOkResponse({
+        description: `${modelClazzName} retrieved successfully.`,
+        schema: {
+          type: "array",
+          items: { $ref: getSchemaPath(ModelConstr) },
+        },
+      }),
+      ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      }),
+    ];
+  }
+
+  private static bulkUpdateDecorators(
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string,
+    apiProperties: DecafApiProperty[]
+  ): Array<(target: any, key: string, desc: any) => void> {
+    return [
+      ApiOperationFromModel(ModelConstr, "PUT", "bulk"),
+      ApiParamsFromModel(apiProperties),
+      ApiOperation({
+        summary: `Replace existing ${modelClazzName} records with new payloads.`,
+      }),
+      ApiBody({
+        description: `Payload for replacing existing records of ${modelClazzName}`,
+        schema: {
+          type: "array",
+          $ref: getSchemaPath(DtoFor(OperationKeys.UPDATE, ModelConstr)),
+        },
+      }),
+      ApiOkResponse({
+        description: `${modelClazzName} updated successfully.`,
+        schema: {
+          type: "array",
+          items: { $ref: getSchemaPath(ModelConstr) },
+        },
+      }),
+      ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      }),
+      ApiBadRequestResponse({ description: "Payload validation failed." }),
+    ];
+  }
+
+  private static bulkDeleteDecorators(
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string,
+    apiProperties: DecafApiProperty[]
+  ): Array<(target: any, key: string, desc: any) => void> {
+    return [
+      ApiOperationFromModel(ModelConstr, "DELETE", "bulk"),
+      ApiParamsFromModel(apiProperties),
+      ApiOperation({ summary: `Delete ${modelClazzName} records by ids.` }),
+      ApiQuery({ name: "ids", required: true, type: "array" }),
+      ApiOkResponse({
+        description: `${modelClazzName} deleted successfully.`,
+        schema: {
+          type: "array",
+          items: { $ref: getSchemaPath(ModelConstr) },
+        },
+      }),
+      ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      }),
+    ];
+  }
+
+  private static readDecorators(
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string,
+    apiProperties: DecafApiProperty[],
+    pkPath: string
+  ): Array<(target: any, key: string, desc: any) => void> {
+    return [
+      ApiOperationFromModel(ModelConstr, "GET", pkPath),
+      ApiParamsFromModel(apiProperties),
+      ApiOperation({ summary: `Retrieve a ${modelClazzName} record by id.` }),
+      ApiOkResponse({
+        description: `${modelClazzName} retrieved successfully.`,
+        schema: { $ref: getSchemaPath(ModelConstr) },
+      }),
+      ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      }),
+    ];
+  }
+
+  private static updateDecorators(
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string,
+    apiProperties: DecafApiProperty[],
+    pkPath: string
+  ): Array<(target: any, key: string, desc: any) => void> {
+    return [
+      ApiOperationFromModel(ModelConstr, "PUT", pkPath),
+      ApiParamsFromModel(apiProperties),
+      ApiOperation({
+        summary: `Replace an existing ${modelClazzName} record with a new payload.`,
+      }),
+      ApiBody({
+        description: `Payload for replacing an existing record of ${modelClazzName}`,
+        type: DtoFor(OperationKeys.UPDATE, ModelConstr),
+      }),
+      ApiOkResponse({
+        description: `${modelClazzName} updated successfully.`,
+        schema: { $ref: getSchemaPath(ModelConstr) },
+      }),
+      ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      }),
+      ApiBadRequestResponse({ description: "Payload validation failed." }),
+    ];
+  }
+
+  private static deleteDecorators(
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string,
+    apiProperties: DecafApiProperty[],
+    pkPath: string
+  ): Array<(target: any, key: string, desc: any) => void> {
+    return [
+      ApiOperationFromModel(ModelConstr, "DELETE", pkPath),
+      ApiParamsFromModel(apiProperties),
+      ApiOperation({ summary: `Delete a ${modelClazzName} record by id.` }),
+      ApiOkResponse({
+        description: `${modelClazzName} deleted successfully.`,
+        schema: { $ref: getSchemaPath(ModelConstr) },
+      }),
+      ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      }),
+    ];
+  }
+
+  private static statementDecorators(
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string
+  ): Array<(target: any, key: string, desc: any) => void> {
+    return [
+      ApiOperationFromModel(ModelConstr, "GET", "statement/:method/*args"),
+      ApiOperation({
+        summary: `Executes a prepared statement on ${modelClazzName}.`,
+      }),
+      ApiParam({ name: "method", description: "the prepared statement to execute" }),
+      ApiParam({
+        name: "args",
+        description: "concatenated list of arguments the prepared statement can accept",
+      }),
+      ApiQuery({
+        name: "direction",
+        required: true,
+        enum: OrderDirection,
+        description: "the sort order when applicable",
+      }),
+      ApiQuery({ name: "limit", required: true, description: "limit or page size when applicable" }),
+      ApiQuery({ name: "offset", required: true, description: "offset or bookmark when applicable" }),
+      ApiOkResponse({ description: `${modelClazzName} listed found.` }),
+      ApiNotFoundResponse({
+        description: `No ${modelClazzName} record matches the provided identifier.`,
+      }),
+    ];
+  }
+
+  private static statementShortcutDecorators(
+    ModelConstr: ModelConstructor<any>,
+    modelClazzName: string,
+    path: string,
+    statementKey: string
+  ): Array<(target: any, key: string, desc: any) => void> {
+    const base: Array<(target: any, key: string, desc: any) => void> = [
+      ApiOperationFromModel(ModelConstr, "GET", path),
+      ApiOperation({ summary: `Retrieve ${modelClazzName} records.` }),
+      ApiOkResponse({ description: `${modelClazzName} retrieved successfully.` }),
+    ];
+
+    const segments = path.split("/").filter((s) => s.startsWith(":"));
+    segments.forEach((seg) => {
+      const name = seg.replace(":", "");
+      base.push(ApiParam({ name, description: `The ${name} parameter` }));
+    });
+
+    if (
+      path.startsWith("listBy/") ||
+      path.startsWith("paginateBy/") ||
+      path.startsWith("find/") ||
+      path.startsWith("page/")
+    ) {
+      base.push(
+        ApiQuery({
+          name: "direction",
+          required: true,
+          enum: OrderDirection,
+          description: "the sort order",
+        })
+      );
+    }
+    if (path.startsWith("paginateBy/") || path.startsWith("page/")) {
+      base.push(
+        ApiQuery({ name: "limit", required: false, description: "page size" }),
+        ApiQuery({ name: "offset", required: false, description: "page number" }),
+        ApiQuery({ name: "bookmark", required: false, description: "bookmark for cursor pagination" })
+      );
+    }
+
+    if (path.startsWith("findOneBy/") || path.startsWith("findBy/")) {
+      base.push(
+        ApiNotFoundResponse({
+          description: `No ${modelClazzName} record matches the provided identifier.`,
+        })
+      );
+    }
+
+    if (
+      statementKey === PreparedStatementKeys.COUNT_OF ||
+      statementKey === PreparedStatementKeys.AVG_OF ||
+      statementKey === PreparedStatementKeys.SUM_OF
+    ) {
+      base.push(ApiOkResponse({ description: `Result for ${modelClazzName}.`, type: Number }));
+    }
+    if (statementKey === PreparedStatementKeys.DISTINCT_OF) {
+      base.push(ApiOkResponse({ description: `Distinct values for ${modelClazzName}.`, type: [String] }));
+    }
+
+    return base;
+  }
+
+  private static getQueryDecorators(
+    methodName: string,
+    routePath: string,
+    httpVerb: string,
+    includeQueryParams: boolean = false
+  ): Array<(target: any, key: string, desc: any) => void> {
+    const extractPathParams = (p: string): string[] =>
+      p.split("/").filter((s) => s.startsWith(":")).map((s) => s.slice(1));
+
+    const apiPathParams = extractPathParams(routePath).map((name) => ({
+      name,
+      description: `${name} parameter for the query`,
+      required: true,
+      type: String,
+    }));
+
+    const decorators: Array<(target: any, key: string, desc: any) => void> = [
+      ...apiPathParams.map((p) => ApiParam(p)),
+      ApiOperation({ summary: `Retrieve records using "${methodName}".` }),
+      ApiOkResponse({ description: "Result successfully retrieved." }),
+      ApiNoContentResponse({ description: "No content returned by the method." }),
+    ];
+
+    if (httpVerb === "GET" && includeQueryParams) {
+      decorators.push(
+        ApiQuery({
+          name: "direction",
+          required: false,
+          enum: OrderDirection,
+          description: "the sort order when applicable",
+        }),
+        ApiQuery({ name: "limit", required: false, description: "limit or page size" }),
+        ApiQuery({ name: "offset", required: false, description: "offset or bookmark" })
+      );
+    }
+
+    return decorators;
   }
 }

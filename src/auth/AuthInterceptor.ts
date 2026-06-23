@@ -10,9 +10,10 @@ import { Reflector } from "@nestjs/core";
 import { Observable } from "rxjs";
 
 import { Constructor } from "@decaf-ts/decoration";
-import { AUTH_HANDLER, AUTH_META_KEY } from "../constants";
-import type { AuthHandler } from "../types";
 import { Logging } from "@decaf-ts/logging";
+
+import { AUTH_HANDLER, AUTH_META_KEY } from "./constants";
+import type { AuthHandler } from "../types";
 
 @Injectable()
 export class AuthInterceptor implements NestInterceptor {

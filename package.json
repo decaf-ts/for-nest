@@ -15,17 +15,6 @@
       },
       "default": "./lib/esm/index.js"
     },
-    "./ram": {
-      "import": {
-        "types": "./lib/types/ram/index.d.mts",
-        "default": "./lib/esm/ram/index.js"
-      },
-      "require": {
-        "types": "./lib/types/ram/index.d.cts",
-        "default": "./lib/cjs/ram/index.cjs"
-      },
-      "default": "./lib/esm/ram/index.js"
-    },
     "./cli": {
       "import": {
         "types": "./lib/types/cli-module.d.mts",

@@ -25,6 +25,7 @@ import "./decoration";
 
 export * from "./decoration"; // on top on purpose
 export * from "./decaf-model";
+export * from "./auth";
 export * from "./factory";
 export * from "./interceptors";
 export * from "./overrides";
@@ -35,6 +36,7 @@ export * from "./module";
 export * from "./core-module";
 export * from "./migrations";
 export * from "./types";
+export * from "./decorators";
 export * from "./utils";
 export * from "./events-module";
 // export * from "./webhooks";

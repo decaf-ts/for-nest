@@ -11,7 +11,7 @@ import { DECAF_HANDLERS } from "../constants";
 import { APP_INTERCEPTOR } from "@nestjs/core";
 import { DecafWebhookModuleOptions } from "./types";
 import { FromModelController } from "../decaf-model";
-import { requestToContextTransformer } from "../interceptors/context";
+import { requestToContextTransformer } from "@decaf-ts/for-http/server";
 import {
   WebhookDelivery,
   WebhookEventRecord,

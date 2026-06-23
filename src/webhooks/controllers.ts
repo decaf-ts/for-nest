@@ -121,7 +121,7 @@ export class WebhookEventActionsController extends DecafController<DecafServerCt
         try {
           await deliveryRepo.updateAll(
             deliveries,
-            ctx.override({ applyUpdateValidation: false })
+            ctx.override({ applyUpdateValidation: false } as any)
           );
         } catch {
           // Replay still resets the event state even if bulk delivery updates are not queryable here.

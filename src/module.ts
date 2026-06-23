@@ -29,14 +29,16 @@ export class DecafModule {
       | undefined = [DecafCoreModule.forRoot(options)];
 
     if (autoControllers) {
-      flavours.forEach((flavour) => {
-        imports.push(
-          getModuleFor(flavour).forRoot(flavour, {
-            autoServices,
-          })
-        );
-      });
-    }
+        flavours.forEach((flavour) => {
+          imports.push(
+            getModuleFor(flavour).forRoot(flavour, {
+              autoServices,
+              controllerExposure: options.controllerExposure,
+              controllerConfig: options.controllerConfig,
+            })
+          );
+        });
+      }
 
     if (options.observerOptions?.enableObserverEvents) {
       imports.push(

@@ -16,7 +16,7 @@ import { TypeORMAdapter, TypeORMFlavour } from "@decaf-ts/for-typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { DecafModule } from "../../src";
 import { DECAF_ADAPTER_ID } from "../../src/constants";
-import { RequestToContextTransformer } from "../../src/interceptors/context";
+import { RequestToContextTransformer } from "@decaf-ts/for-http/server";
 
 class NoopTransformer extends RequestToContextTransformer<any> {
   async from(): Promise<any> {

@@ -48,8 +48,14 @@
 
     /* Module Resolution Options */
     "moduleResolution": "bundler",                  /* Specify module resolution strategy: 'node' (Node.js) or 'classic' (TypeScript pre-1.6). */
-    // "baseUrl": "./",                             /* Base directory to resolve non-absolute module names. */
-    // "paths": {},                                 /* A series of entries which re-map imports to lookup locations relative to the 'baseUrl'. */
+    "baseUrl": ".",                               /* Base directory to resolve non-absolute module names. */
+    "paths": {
+      "@decaf-ts/for-http/server": ["../for-http/lib/types/server/index.d.mts"],
+      "@decaf-ts/for-http/server/*": ["../for-http/lib/types/server/*"],
+      "@decaf-ts/for-http/hooks": ["../for-http/lib/types/server/hooks/index.d.mts"],
+      "@decaf-ts/core": ["../core/lib/types/index.d.mts"],
+      "@decaf-ts/core/*": ["../core/lib/types/*"]
+    },                                              /* A series of entries which re-map imports to lookup locations relative to the 'baseUrl'. */
     // "rootDirs": [],                              /* List of root folders whose combined content represents the structure of the project at runtime. */
     // "typeRoots": [],                             /* List of folders to include type definitions from. */
     // "types": [],                                 /* Type declaration files to be included in compilation. */

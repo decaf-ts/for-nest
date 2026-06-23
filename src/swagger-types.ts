@@ -62,7 +62,7 @@ type SchemaObjectCommonMetadata = Omit<
   pattern?: string | RegExp;
   enum?: EnumAllowedTypes;
   [key: string]: any;
-};
+  };
 
 export type SchemaObjectMetadata =
   | (SchemaObjectCommonMetadata & {

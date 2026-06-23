@@ -12,8 +12,8 @@ import {
   DecafApiProperty,
   type DecafParamProps,
   DecafParams,
-  HttpVerbs,
 } from "./decorators";
+import type { HttpVerbs } from "./decorators/types";
 import {
   DirectionLimitOffset,
   ModelService,

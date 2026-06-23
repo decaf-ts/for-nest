@@ -4,6 +4,8 @@ import { Logging } from "@decaf-ts/logging";
 import { FromModelController } from "./FromModelController";
 import { DecafModuleOptions } from "../types";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
+import { Metadata } from "@decaf-ts/decoration";
+import { DECAF_EXPOSE } from "../constants";
 
 export function getModuleFor(flavour: string) {
   @Module({})
@@ -19,6 +21,22 @@ export function getModuleFor(flavour: string) {
       }));
     }
 
+    static isExposed(
+      model: ModelConstructor<any>,
+      exposure?: Record<string, boolean | string[]>
+    ): boolean {
+      const override = exposure?.[model.name];
+      const value =
+        typeof override !== "undefined"
+          ? override
+          : Metadata.get(model, Metadata.key(DECAF_EXPOSE));
+
+      if (typeof value === "undefined") return true;
+      if (value === true) return true;
+      if (Array.isArray(value)) return value.includes(flavour);
+      return false;
+    }
+
     static forRoot(
       flavour: string,
       options: Partial<DecafModuleOptions> = {}
@@ -26,7 +44,9 @@ export function getModuleFor(flavour: string) {
       const log = this.log.for(this.forRoot);
       log.info(`Generating controllers for flavour...`);
 
-      const trackedModels = Adapter.models(flavour);
+      const trackedModels = Adapter.models(flavour).filter((model) =>
+        this.isExposed(model, options.controllerExposure)
+      );
 
       let modelServices: Provider[] = [];
       if (options.autoServices) {
@@ -37,7 +57,9 @@ export function getModuleFor(flavour: string) {
         );
       }
 
-      const controllers = trackedModels.map(FromModelController.create);
+      const controllers = trackedModels.map((model) =>
+        FromModelController.create(model, options.controllerConfig)
+      );
       log.info(`Generated ${controllers.length} controllers`);
 
       return {
