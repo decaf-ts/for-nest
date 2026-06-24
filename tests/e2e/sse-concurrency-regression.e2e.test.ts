@@ -6,7 +6,7 @@ import { DecafExceptionFilter, DecafModule } from "../../src";
 // @ts-expect-error paths
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { DecafStreamModule } from "../../src/events-module";
-import { RamTransformer } from "../../src/ram";
+import { RamTransformer } from "@decaf-ts/for-http/server";
 import { EventSource } from "eventsource";
 
 @Module({

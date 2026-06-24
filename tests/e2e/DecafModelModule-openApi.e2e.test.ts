@@ -14,7 +14,7 @@ import { TestDtoModel } from "./fakes/models/TestDtoModel";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { OpenAPIObject } from "@nestjs/swagger/dist/interfaces/index";
 import { Constructor } from "@decaf-ts/decoration";
-import { RamTransformer } from "../../src/ram/index";
+import { RamTransformer } from "@decaf-ts/for-http/server";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);

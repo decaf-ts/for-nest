@@ -10,7 +10,7 @@ import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { genStr } from "./fakes/utils";
 import { Product } from "./fakes/models/Product";
 import request from "supertest";
-import { RamTransformer } from "../../src/ram/index";
+import { RamTransformer } from "@decaf-ts/for-http/server";
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
 

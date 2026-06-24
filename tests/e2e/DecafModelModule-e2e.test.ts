@@ -16,7 +16,7 @@ import { HttpModelClient, HttpModelResponse } from "./fakes/server";
 import { genStr } from "./fakes/utils";
 import { Product } from "./fakes/models/Product";
 import { NestFactory } from "@nestjs/core";
-import { RamTransformer } from "../../src/ram/index";
+import { RamTransformer } from "@decaf-ts/for-http/server";
 
 Adapter.setCurrent(RamFlavour);
 

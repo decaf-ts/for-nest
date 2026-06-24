@@ -1,4 +1,4 @@
-import { Adapter, ConfigOf, ContextOf } from "@decaf-ts/core";
+import { Adapter, ConfigOf, ContextOf, Context } from "@decaf-ts/core";
 import { Constructor } from "@decaf-ts/decoration";
 import { ExecutionContext, Type } from "@nestjs/common";
 import { RequestToContextTransformer, type ModelControllerFactoryConfig } from "@decaf-ts/for-http/server";
@@ -99,11 +99,20 @@ export interface AuthHandler {
    * Inspect the request context and ensure the caller can access the model.
    * Implementations should throw an {@link AuthorizationError} on denial.
    *
+   * After successful authorization, implementations SHOULD populate the
+   * provided DecafRequestContext with auth-derived data (user, organization,
+   * roles, etc.) via `context.accumulate({ UUID: user, ... })` so that
+   * downstream code (adapters, logging, createdBy/updatedBy) can read it.
+   *
    * @param ctx - Nest execution context that exposes the request/response.
    * @param model - Model name or constructor being accessed.
+   * @param context - The request-scoped DecafRequestContext to populate with auth data.
+   * @param requiredRoles - Optional route-level roles from @RequireRoles() decorator.
    */
   authorize(
     ctx: ExecutionContext,
-    model: string | Constructor
+    model: string | Constructor,
+    context?: DecafRequestContext,
+    requiredRoles?: string[]
   ): Promise<void> | void;
 }

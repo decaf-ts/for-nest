@@ -4,6 +4,7 @@ import { AuthorizationError, PersistenceKeys } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
 
 import type { AuthHandler } from "../types";
+import { DecafRequestContext } from "../request/DecafRequestContext";
 
 export class DecafAuthHandler implements AuthHandler {
   protected parseRequest(req: any) {
@@ -11,16 +12,33 @@ export class DecafAuthHandler implements AuthHandler {
     return userRole;
   }
 
-  async authorize(ctx: ExecutionContext, resource: string) {
+  async authorize(
+    ctx: ExecutionContext,
+    resource: string,
+    context?: DecafRequestContext,
+    requiredRoles?: string[]
+  ) {
     const req = ctx.switchToHttp().getRequest();
 
     const userRole = this.parseRequest(req);
     if (!userRole) throw new AuthorizationError("Unauthenticated");
 
+    if (requiredRoles && requiredRoles.length > 0) {
+      if (!requiredRoles.includes(userRole)) {
+        throw new AuthorizationError(`Missing required role: ${userRole}`);
+      }
+    }
+
     const roles = Metadata.get(Model.get(resource)!, PersistenceKeys.AUTH_ROLE);
 
-    if (!roles.includes(userRole)) {
+    if (roles && !roles.includes(userRole)) {
       throw new AuthorizationError(`Missing role: ${userRole}`);
+    }
+
+    if (context) {
+      context.accumulate({
+        UUID: userRole,
+      } as any);
     }
   }
 }
@@ -30,17 +48,35 @@ export class DecafRoleAuthHandler extends DecafAuthHandler {
     super();
   }
 
-  override async authorize(ctx: ExecutionContext, resource: string) {
+  override async authorize(
+    ctx: ExecutionContext,
+    resource: string,
+    context?: DecafRequestContext,
+    requiredRoles?: string[]
+  ) {
     const req = ctx.switchToHttp().getRequest();
 
     const userRole = this.parseRequest(req);
     if (!userRole) throw new AuthorizationError("Unauthenticated");
 
+    if (requiredRoles && requiredRoles.length > 0) {
+      if (!requiredRoles.includes(userRole)) {
+        throw new AuthorizationError(`Missing required role: ${userRole}`);
+      }
+    }
+
     const roles = Metadata.get(Model.get(resource)!, PersistenceKeys.AUTH_ROLE);
 
-    if (!roles.includes(userRole)) {
+    if (roles && !roles.includes(userRole)) {
       throw new AuthorizationError(`Missing role: ${userRole}`);
     }
+
+    if (context) {
+      context.accumulate({
+        UUID: userRole,
+      } as any);
+    }
+
     return roles;
   }
 }

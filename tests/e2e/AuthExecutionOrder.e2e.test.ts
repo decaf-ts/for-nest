@@ -5,7 +5,7 @@ import { DecafModule } from "../../src";
 import { Adapter } from "@decaf-ts/core";
 // @ts-expect-error ram
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
-import { RamTransformer } from "../../src/ram";
+import { RamTransformer } from "@decaf-ts/for-http/server";
 import { AuthModule } from "./fakes/auth.module";
 import { AuthHttpModelClient } from "./fakes/serverAuth";
 import { Product } from "./fakes/models/ProductAdmin";
@@ -50,7 +50,7 @@ describe("AuthInterceptor order", () => {
     jest.restoreAllMocks();
   });
 
-  it("runs AuthInterceptor and DecafAuthHandler before DecafRequestHandlerInterceptor", async () => {
+  it("runs DecafRequestHandlerInterceptor before AuthInterceptor and AuthHandler", async () => {
     const order: string[] = [];
 
     const originalAuthIntercept = AuthInterceptor.prototype.intercept;
@@ -74,9 +74,9 @@ describe("AuthInterceptor order", () => {
 
     jest
       .spyOn(MockAuthHandler.prototype, "authorize")
-      .mockImplementation(function (ctx, resource) {
+      .mockImplementation(function (this: any, ...args: any[]) {
         order.push("auth-handler");
-        return originalAuthAuthorize.call(this, ctx, resource);
+        return (originalAuthAuthorize as any).apply(this, args);
       });
 
     const productCode = genStr(14);
@@ -95,11 +95,11 @@ describe("AuthInterceptor order", () => {
     expect(authInterceptorIndex).toBeGreaterThanOrEqual(0);
     expect(authHandlerIndex).toBeGreaterThanOrEqual(0);
     expect(decafInterceptorIndex).toBeGreaterThanOrEqual(0);
-    expect(authInterceptorIndex).toBeLessThan(decafInterceptorIndex);
-    expect(authHandlerIndex).toBeLessThan(decafInterceptorIndex);
+    expect(decafInterceptorIndex).toBeLessThan(authInterceptorIndex);
+    expect(decafInterceptorIndex).toBeLessThan(authHandlerIndex);
   });
 
-  it.skip("always runs AuthInterceptor/AuthHandler before DecafRequestHandlerInterceptor", async () => {
+  it.skip("always runs DecafRequestHandlerInterceptor before AuthInterceptor/AuthHandler", async () => {
     const order: string[] = [];
     const runs: string[][] = [];
 
@@ -124,9 +124,9 @@ describe("AuthInterceptor order", () => {
 
     jest
       .spyOn(MockAuthHandler.prototype, "authorize")
-      .mockImplementation(function (ctx, resource) {
+      .mockImplementation(function (this: any, ...args: any[]) {
         order.push("auth-handler");
-        return originalAuthAuthorize.call(this, ctx, resource);
+        return (originalAuthAuthorize as any).apply(this, args);
       });
 
     const recordRun = () => {
@@ -157,8 +157,9 @@ describe("AuthInterceptor order", () => {
       const decafInterceptorIndex = run.indexOf("decaf-interceptor");
 
       expect(authInterceptorIndex).toBeGreaterThanOrEqual(0);
+      expect(decafInterceptorIndex).toBeGreaterThanOrEqual(0);
+      expect(decafInterceptorIndex).toBeLessThan(authInterceptorIndex);
       expect(authHandlerIndex).toBeGreaterThan(authInterceptorIndex);
-      expect(decafInterceptorIndex).toBeGreaterThan(authHandlerIndex);
     }
   });
 });

@@ -8,7 +8,7 @@ import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 import { EventSource } from "eventsource";
 import { DecafStreamModule } from "../../src/events-module";
-import { RamTransformer } from "../../src/ram";
+import { RamTransformer } from "@decaf-ts/for-http/server";
 import { Serialization } from "@decaf-ts/decorator-validation";
 
 let serverUrl: string;

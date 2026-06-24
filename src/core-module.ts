@@ -13,7 +13,6 @@ import {
   DECAF_MODULE_OPTIONS,
 } from "./constants";
 import {
-  AuthInterceptor,
   DecafRequestHandlerInterceptor,
 } from "./interceptors";
 import { DecafHandlerExecutor, DecafRequestContext } from "./request";
@@ -68,11 +67,6 @@ export class DecafCoreModule<CONF, ADAPTER extends Adapter<CONF, any, any, any>>
               log.info(`Registered request handler: ${H.name}`);
               return new H();
             }) ?? [],
-        },
-        AuthInterceptor,
-        {
-          provide: APP_INTERCEPTOR,
-          useExisting: AuthInterceptor,
         },
         DecafRequestContext,
         DecafHandlerExecutor,

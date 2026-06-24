@@ -50,9 +50,13 @@ function makeContext(operation: OperationKeys): Context {
 }
 
 function makeRequestContext(operation: OperationKeys): DecafRequestContext {
-  const ctx = makeContext(operation);
   const requestContext = new DecafRequestContext({} as any);
-  requestContext.applyCtx(ctx);
+  requestContext.accumulate({
+    logger: Logging.get(),
+    operation,
+    headers: {},
+    overrides: {},
+  } as any);
   return requestContext;
 }
 

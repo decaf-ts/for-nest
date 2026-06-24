@@ -2,12 +2,7 @@ import { type Request } from "express";
 import { DecafController as HttpDecafController } from "@decaf-ts/for-http/server";
 import {
   Context,
-  ContextualLoggedClass,
-  ContextualizedArgs,
-  FlagsOf,
   ModelService,
-  MaybeContextualArg,
-  MethodOrOperation,
   Repo,
   Repository,
   Service,
@@ -25,86 +20,6 @@ export abstract class DecafController<
     _name: string
   ) {
     super(clientContext);
-  }
-
-  protected override logCtx<
-    ARGS extends any[] = any[],
-    METHOD extends MethodOrOperation = MethodOrOperation,
-  >(
-    args: MaybeContextualArg<any, ARGS>,
-    operation: METHOD
-  ): ContextualizedArgs<
-    ContextualizedArgs<any, any>["ctx"],
-    ARGS,
-    METHOD extends string ? true : false
-  >;
-  protected override logCtx<
-    ARGS extends any[] = any[],
-    METHOD extends MethodOrOperation = MethodOrOperation,
-  >(
-    args: MaybeContextualArg<any, ARGS>,
-    operation: METHOD,
-    allowCreate: false,
-    overrides?: Partial<FlagsOf<any>>
-  ): ContextualizedArgs<
-    ContextualizedArgs<any, any>["ctx"],
-    ARGS,
-    METHOD extends string ? true : false
-  >;
-  protected override logCtx<
-    ARGS extends any[] = any[],
-    METHOD extends MethodOrOperation = MethodOrOperation,
-  >(
-    args: MaybeContextualArg<any, ARGS>,
-    operation: METHOD,
-    allowCreate: true,
-    overrides?: Partial<FlagsOf<any>>
-  ): Promise<
-    ContextualizedArgs<
-      ContextualizedArgs<any, any>["ctx"],
-      ARGS,
-      METHOD extends string ? true : false
-    >
-  >;
-  protected override logCtx<
-    CREATE extends boolean = false,
-    ARGS extends any[] = any[],
-    METHOD extends MethodOrOperation = MethodOrOperation,
-  >(
-    args: MaybeContextualArg<any, ARGS>,
-    operation: METHOD,
-    allowCreate: CREATE = false as CREATE,
-    overrides?: Partial<FlagsOf<any>>
-  ):
-    | Promise<
-        ContextualizedArgs<
-          ContextualizedArgs<any, any>["ctx"],
-          ARGS,
-          METHOD extends string ? true : false
-        >
-      >
-    | ContextualizedArgs<
-        ContextualizedArgs<any, any>["ctx"],
-        ARGS,
-        METHOD extends string ? true : false
-      > {
-    const ctx = this.clientContext.ctx;
-    args = args.filter((e) => typeof e !== "undefined");
-
-    let request: Request | undefined = undefined;
-    if (overrides && ((overrides as any).headers || (overrides as any).ip)) {
-      request = overrides as any;
-      overrides = {};
-    }
-
-    const result = ContextualLoggedClass.logCtx.call(
-      this,
-      operation,
-      overrides || {},
-      allowCreate,
-      ...[...args, ctx]
-    ) as any;
-    return this.bindLoggerToRequest(result, request);
   }
 }
 

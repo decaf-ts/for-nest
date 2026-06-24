@@ -2,7 +2,7 @@ import "../../src/decoration";
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { DecafExceptionFilter, DecafModule } from "../../src";
-import { RamTransformer } from "../../src/ram";
+import { RamTransformer } from "@decaf-ts/for-http/server";
 
 import {
   RamFlavour,

@@ -1,4 +1,5 @@
 import "./overrides";
+import "./logging";
 
 export * from "./Adapter";
 export * from "./constants";

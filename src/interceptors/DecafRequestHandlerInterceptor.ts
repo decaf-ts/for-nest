@@ -6,10 +6,9 @@ import {
   Scope,
 } from "@nestjs/common";
 import { DecafHandlerExecutor, DecafRequestContext } from "../request";
-import { Adapter, Context, DefaultAdapterFlags } from "@decaf-ts/core";
+import { DefaultAdapterFlags, Adapter } from "@decaf-ts/core";
 import {
   DECAF_ADAPTER_OPTIONS,
-  DecafServerCtx,
   DecafServerFlags,
 } from "../constants";
 import "../overrides";
@@ -70,7 +69,7 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
     protected readonly executor: DecafHandlerExecutor
   ) {}
 
-  protected async contextualize(req: any): Promise<DecafServerCtx> {
+  protected async contextualize(req: any): Promise<void> {
     const headers = req.headers;
     const flags: DecafServerFlags = {
       headers: headers,
@@ -91,19 +90,22 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
           throw new InternalError(`Failed to contextualize request: ${e}`);
         }
       }
-    const ctx = new Context().accumulate(
+
+    const ip = extractIp(req);
+    const logger = Logging.get().for({ ip });
+
+    this.requestContext.accumulate(
       Object.assign(
         {},
         DefaultAdapterFlags,
         {
-          logger: Logging.get(),
+          logger,
           timestamp: new Date(),
           operation: `${req.method} ${req.url}`,
         },
         flags
       )
     );
-    return ctx as any;
   }
 
   async intercept(context: ExecutionContext, next: CallHandler) {
@@ -113,14 +115,9 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
     log.debug(
       `CONTEXT ${this.requestContext.uuid} - request: ${req.method} ${req.url}`
     );
-    const ctx = await this.contextualize(req);
+    await this.contextualize(req);
     log.debug(
       `CONTEXT ${this.requestContext.uuid} contextualized - request: ${req.method} ${req.url}`
-    );
-
-    this.requestContext.applyCtx(ctx);
-    log.debug(
-      `CONTEXT ${this.requestContext.uuid} applied - request: ${req.method} ${req.url}`
     );
 
     await this.executor.exec(req, res);
@@ -129,4 +126,23 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
     );
     return next.handle();
   }
+}
+
+function extractIp(req: any): string | undefined {
+  const headers = req.headers;
+  function parseIpHeader(value?: string | string[]): string | undefined {
+    if (!value) return undefined;
+    const candidate = Array.isArray(value) ? value[0] : value;
+    return candidate
+      .split(",")
+      .map((segment) => segment.trim())
+      .filter(Boolean)[0];
+  }
+  return (
+    parseIpHeader(headers?.["x-forwarded-for"]) ??
+    parseIpHeader(headers?.["x-real-ip"]) ??
+    parseIpHeader(headers?.["X-Forwarded-For"]) ??
+    parseIpHeader(headers?.["X-Real-IP"]) ??
+    req.ip
+  );
 }

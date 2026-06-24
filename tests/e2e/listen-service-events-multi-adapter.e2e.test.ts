@@ -8,7 +8,7 @@ import { DecafExceptionFilter, DecafModule } from "../../src";
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { DecafStreamModule } from "../../src/events-module";
 import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
-import { RamTransformer } from "../../src/ram";
+import { RamTransformer } from "@decaf-ts/for-http/server";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 
 type ReceivedEvent = {

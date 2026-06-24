@@ -7,11 +7,11 @@ import fs from "fs";
 import path from "path";
 import { Adapter, normalizeImport, Service, TaskModel } from "@decaf-ts/core";
 import { SemverMigrationVersioning } from "@decaf-ts/core/migrations/SemverMigrationVersioning";
+import { MigrationService } from "@decaf-ts/core/migrations";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { NestFactory } from "@nestjs/core";
 import { INestApplication } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import { DecafMigrationModule } from "./migrations";
 
 const defaultInputCandidates = [
   "./lib/app.module.cjs",
@@ -133,7 +133,7 @@ export function resolveMigrateCommandConfig(
 export function buildFileVersionHandlers(
   versionDir: string,
   adapters: Adapter<any, any, any, any>[]
-): Record<string, { retrieveLastVersion: () => Promise<string | undefined>; setCurrentVersion: (v: string) => Promise<void> }> {
+): Partial<Record<string, any>> {
   const handlers: Record<string, any> = {};
   for (const adapter of adapters) {
     const alias = adapter.alias;
@@ -249,7 +249,8 @@ const migrateCommand = new Command()
       if (config.references.length)
         log.info(`Running only references: ${config.references.join(", ")}`);
 
-      const migrations = await DecafMigrationModule.migrate(
+      const migrations = await MigrationService.migrateAdapters(
+        migrateAdapters,
         {
           toVersion: config.toVersion,
           taskMode: config.taskMode,
@@ -260,8 +261,7 @@ const migrateCommand = new Command()
           versioning: new SemverMigrationVersioning(),
           references:
             config.references.length > 0 ? config.references : undefined,
-        },
-        migrateAdapters
+        }
       );
 
       for (const migrationService of migrations || []) {

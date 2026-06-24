@@ -12,7 +12,7 @@ import {
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { Model, ModelArg, model, required } from "@decaf-ts/decorator-validation";
 import { DecorationKeys, Metadata, uses } from "@decaf-ts/decoration";
-import { RamTransformer } from "../../src/ram";
+import { RamTransformer } from "@decaf-ts/for-http/server";
 import { DecafModule } from "../../src/module";
 import { Service, Repository } from "../../src/decorators";
 

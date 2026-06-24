@@ -13,7 +13,7 @@ import { EventSourceController, EventSourcePlus } from "event-source-plus";
 import { AxiosHttpAdapter } from "@decaf-ts/for-http";
 import { RestRepository } from "@decaf-ts/for-http";
 import { DecafModule, DecafExceptionFilter } from "../../src/index";
-import { RamTransformer } from "../../src/ram";
+import { RamTransformer } from "@decaf-ts/for-http/server";
 import { uses } from "@decaf-ts/decoration";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 

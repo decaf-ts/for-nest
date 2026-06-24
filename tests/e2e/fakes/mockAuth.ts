@@ -1,6 +1,7 @@
 import { ExecutionContext, Injectable } from "@nestjs/common";
 import { DecafRoleAuthHandler } from "../../../src/request/DecafAuthHandler";
 import type { Constructor } from "@decaf-ts/decoration";
+import { DecafRequestContext } from "../../../src/request/DecafRequestContext";
 
 @Injectable()
 export class MockAuthHandler extends DecafRoleAuthHandler {
@@ -10,11 +11,13 @@ export class MockAuthHandler extends DecafRoleAuthHandler {
 
   override async authorize(
     ctx: ExecutionContext,
-    resource?: string | Constructor
+    resource: string | Constructor,
+    context?: DecafRequestContext,
+    requiredRoles?: string[]
   ): Promise<any> {
     if (!resource) {
       return;
     }
-    return super.authorize(ctx, resource);
+    return super.authorize(ctx, resource, context, requiredRoles);
   }
 }

@@ -325,6 +325,17 @@ describe("Standalone webhook module live integration", () => {
     receivedRequests.length = 0;
   });
 
+  async function processBatchUntilReceived(
+    expectedCount: number,
+    timeoutMs = 12000
+  ) {
+    await waitFor(async () => {
+      await deliveryService.processBatch(10, makeContext());
+      return receivedRequests.length >= expectedCount;
+    }, timeoutMs);
+    expect(receivedRequests.length).toBe(expectedCount);
+  }
+
   async function requestJson(
     method: "GET" | "POST" | "PUT" | "DELETE",
     path: string,
@@ -437,9 +448,7 @@ describe("Standalone webhook module live integration", () => {
         entry.entityId === createdProduct.id && entry.deliveriesTotal > 0
     );
     expect(event).toBeDefined();
-    await deliveryService.processBatch(10, makeContext());
-
-    expect(receivedRequests.length).toBe(1);
+    await processBatchUntilReceived(1);
 
     expect(receivedRequests[0].url).toBe("/hooks/product");
     expect(receivedRequests[0].headers["x-webhook-topic"]).toBe(
@@ -552,8 +561,7 @@ describe("Standalone webhook module live integration", () => {
       makeContext()
     );
     expect(updatedDeliveries.length).toBeGreaterThan(0);
-    await deliveryService.processBatch(10, makeContext());
-    expect(receivedRequests.length).toBe(2);
+    await processBatchUntilReceived(2);
 
     const createdForDeleteResponse = await requestJson(
       "POST",
@@ -595,8 +603,7 @@ describe("Standalone webhook module live integration", () => {
       makeContext()
     );
     expect(createdForDeleteDeliveries.length).toBeGreaterThan(0);
-    await deliveryService.processBatch(10, makeContext());
-    expect(receivedRequests.length).toBe(3);
+    await processBatchUntilReceived(3);
 
     const deletedProductResponse = await requestJson(
       "DELETE",
@@ -634,8 +641,7 @@ describe("Standalone webhook module live integration", () => {
       makeContext()
     );
     expect(deletedDeliveries.length).toBeGreaterThan(0);
-    await deliveryService.processBatch(10, makeContext());
-    expect(receivedRequests.length).toBe(4);
+    await processBatchUntilReceived(4);
 
     const replayResponse = await requestJson(
       "POST",
@@ -648,8 +654,7 @@ describe("Standalone webhook module live integration", () => {
       makeContext()
     );
     expect(replayDeliveries.length).toBeGreaterThan(0);
-    await deliveryService.processBatch(10, makeContext());
-    expect(receivedRequests.length).toBe(5);
+    await processBatchUntilReceived(5);
 
     const classifications = receivedRequests.map(
       (request) => request.body?.payload?.classification

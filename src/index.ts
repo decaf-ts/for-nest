@@ -34,7 +34,6 @@ export * from "./constants";
 export * from "./controllers";
 export * from "./module";
 export * from "./core-module";
-export * from "./migrations";
 export * from "./types";
 export * from "./decorators";
 export * from "./utils";

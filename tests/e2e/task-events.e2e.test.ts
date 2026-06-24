@@ -18,7 +18,7 @@ import { DecafModule, DecafExceptionFilter, EventsController } from "../../src";
 import { uses } from "@decaf-ts/decoration";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 import { Subscription } from "rxjs";
-import { RamTransformer } from "../../src/ram/index";
+import { RamTransformer } from "@decaf-ts/for-http/server";
 
 RamAdapter.decoration();
 uses(RamFlavour)(TaskModel);

@@ -16,7 +16,7 @@ export class DecafResponseInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap((data) => {
-        response = this.ctx.ctx.toResponse(response);
+        response = this.ctx.toResponse(response);
       })
     );
   }

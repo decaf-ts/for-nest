@@ -1,6 +1,6 @@
 const { Module } = require("@nestjs/common");
 const { DecafModule } = require("../../../lib/cjs/module.cjs");
-const { RamTransformer } = require("../../../lib/cjs/ram/index.cjs");
+const { RamTransformer } = require("@decaf-ts/for-http/server");
 const { NanoAdapter } = require("@decaf-ts/for-nano");
 const { TypeORMAdapter } = require("@decaf-ts/for-typeorm");
 const { RamAdapter } = require("@decaf-ts/core/ram");

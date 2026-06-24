@@ -4,7 +4,7 @@ import "../src/overrides";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { NestFactory } from "@nestjs/core";
 import { DecafExceptionFilter, DecafModule } from "../src/index";
-import { RamTransformer } from "../src/ram";
+import { RamTransformer } from "@decaf-ts/for-http/server";
 // @ts-expect-error path
 import { RamAdapter } from "@decaf-ts/core/ram";
 

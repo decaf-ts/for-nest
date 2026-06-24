@@ -8,7 +8,7 @@ import { Adapter } from "@decaf-ts/core";
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { Fake } from "./fakes/models/Fake";
 import { Model } from "@decaf-ts/decorator-validation";
-import { RamTransformer } from "../../src/ram/index";
+import { RamTransformer } from "@decaf-ts/for-http/server";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
