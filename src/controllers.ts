@@ -26,22 +26,6 @@ export abstract class DecafController<
   ) {
     super(clientContext);
   }
-}
-
-export abstract class DecafModelController<
-  M extends Model<boolean>,
-  C extends DecafServerCtx = DecafServerCtx,
-> extends DecafController<C> {
-  private _persistence?: Repo<M> | ModelService<M>;
-
-  protected constructor(
-    protected override readonly clientContext: DecafRequestContext,
-    _name: string
-  ) {
-    super(clientContext, _name);
-  }
-
-  abstract get class(): ModelConstructor<M>;
 
   protected override logCtx<
     ARGS extends any[] = any[],
@@ -122,6 +106,22 @@ export abstract class DecafModelController<
     ) as any;
     return this.bindLoggerToRequest(result, request);
   }
+}
+
+export abstract class DecafModelController<
+  M extends Model<boolean>,
+  C extends DecafServerCtx = DecafServerCtx,
+> extends DecafController<C> {
+  private _persistence?: Repo<M> | ModelService<M>;
+
+  protected constructor(
+    protected override readonly clientContext: DecafRequestContext,
+    _name: string
+  ) {
+    super(clientContext, _name);
+  }
+
+  abstract get class(): ModelConstructor<M>;
 
   persistence(ctx?: Context<any>): Repo<M> | ModelService<M> {
     if (!this._persistence)

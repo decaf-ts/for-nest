@@ -28,17 +28,22 @@ const dtoCache = new Map<
  *      • CREATE  – included only when the pk is NOT auto-generated
  *                  (checked via Model.pkProps().generated AND Model.generated()).
  *  - Relation properties (@oneToOne, @oneToMany, …):
- *      • CREATE  – nested as DtoFor(CREATE, RelatedModel).
+ *      • CREATE  – nested as DtoFor(CREATE, RelatedModel). When the relation
+ *                  creates a circular reference (model A → model B → model A),
+ *                  the back-reference uses the related model's PK type
+ *                  (string/integer) instead of the full DTO to break the cycle.
  *      • UPDATE  – union of DtoFor(UPDATE, RelatedModel) **or** the
  *                  related model's primary-key type (string / integer),
- *                  expressed as a Swagger oneOf.
+ *                  expressed as a Swagger oneOf. Circular back-references
+ *                  omit the DTO $ref and only include the PK type.
  *
  * Metadata.properties() now returns ALL properties across the prototype chain,
  * so DTO inheritance is no longer needed; every DTO is a flat class.
  */
 export function DtoFor<M extends Model>(
   op: OperationKeys,
-  model: Constructor<M>
+  model: Constructor<M>,
+  stack: Set<Constructor<any>> = new Set()
 ): Constructor<any> {
   if (!TransactionOperationKeys.includes(op)) {
     return model;
@@ -151,7 +156,20 @@ export function DtoFor<M extends Model>(
     const meta = Metadata.validationFor(model, relation as any);
     const isArray = !!(meta as any)?.[ValidationKeys.LIST];
     const isRequired = !!(meta as any)?.[ValidationKeys.REQUIRED];
-    const relationDto = DtoFor(op, relationType);
+
+    // Detect circular reference: if the related model is already in the
+    // recursion stack, use the PK type instead of the full DTO to break
+    // the cycle. This prevents @nestjs/swagger's SchemaObjectFactory from
+    // infinitely recursing when exploring the schemas.
+    const isCircular = stack.has(relationType);
+
+    if (isCircular) {
+      const pkTypeName = getPkOpenApiType(relationType);
+      addRelationPkRef(DynamicDTO, relation, pkTypeName, isArray, isRequired);
+      continue;
+    }
+
+    const relationDto = DtoFor(op, relationType, new Set(stack).add(model));
 
     if (isUpdateOp) {
       addRelationUpdate(
@@ -186,6 +204,35 @@ function addRelation(
   Reflect.defineMetadata(
     "design:type",
     isArray ? Array : relationDto,
+    DtoClass.prototype,
+    relation
+  );
+  Object.defineProperty(DtoClass.prototype, relation, {
+    value: undefined,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+/**
+ * Adds a relation property that uses the PK type (string/integer) instead of
+ * a full DTO class. Used to break circular references (e.g. Customer → Order → Customer).
+ */
+function addRelationPkRef(
+  DtoClass: any,
+  relation: string,
+  pkTypeName: string,
+  isArray: boolean,
+  isRequired: boolean
+): void {
+  const apiOptions: Parameters<typeof ApiProperty>[0] = isArray
+    ? ({ type: "array", items: { type: pkTypeName }, required: isRequired } as any)
+    : ({ type: pkTypeName === "integer" ? Number : String, required: isRequired } as any);
+  ApiProperty(apiOptions)(DtoClass.prototype, relation);
+  Reflect.defineMetadata(
+    "design:type",
+    isArray ? Array : (pkTypeName === "integer" ? Number : String),
     DtoClass.prototype,
     relation
   );

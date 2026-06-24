@@ -34,7 +34,7 @@ import {
   WebhookDeliveryMode,
   WebhookDeliveryService,
 } from "@decaf-ts/for-http/hooks";
-import { RequestToContextTransformer } from "../../src/interceptors/context";
+import { RequestToContextTransformer } from "@decaf-ts/for-http/server";
 import * as http from "http";
 
 NanoAdapter.decoration();

@@ -11,7 +11,7 @@ import { AuthHttpModelClient } from "./fakes/serverAuth";
 import { Product } from "./fakes/models/ProductAdmin";
 import { MockAuthHandler } from "./fakes/mockAuth";
 import { genStr } from "./fakes/utils";
-import { AuthInterceptor } from "../../src/interceptors/AuthInterceptor";
+import { AuthInterceptor } from "../../src/auth/AuthInterceptor";
 import { DecafRequestHandlerInterceptor } from "../../src/interceptors/DecafRequestHandlerInterceptor";
 
 RamAdapter.decoration();

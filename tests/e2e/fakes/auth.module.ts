@@ -2,7 +2,7 @@
 import { Global, Module } from "@nestjs/common";
 import { MockAuthHandler } from "./mockAuth";
 import { AUTH_HANDLER } from "../../../src";
-import { AuthInterceptor } from "../../../src/interceptors/AuthInterceptor";
+import { AuthInterceptor } from "../../../src/auth/AuthInterceptor";
 
 @Global()
 @Module({

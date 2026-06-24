@@ -280,11 +280,59 @@ const migrateCommand = new Command()
 
 export { migrateCommand };
 
+const exportApiCommand = new Command()
+  .name("export-api")
+  .description(
+    "boots the app context headlessly, extracts the OpenAPI spec, and writes it to a JSON file"
+  )
+  .option("--input <String>", "path to app module (ts or compiled)")
+  .option("--output <String>", "output directory for the OpenAPI JSON file", "./")
+  .option("--fileName <String>", "output file name (without extension)", "openapi")
+  .option("--title <String>", "OpenAPI document title", "DECAF API")
+  .option("--description <String>", "OpenAPI document description", "Auto-generated OpenAPI specification")
+  .option("--version <String>", "OpenAPI document version")
+  .action(async (options: any) => {
+    const log = logger.for("export-api");
+    const input = resolveInputPath(options.input);
+    let app: INestApplication | undefined;
+    try {
+      app = await NestFactory.create(
+        await normalizeImport(import(path.join(process.cwd(), input))),
+        { logger: false }
+      );
+      await app.init();
+      log.info(`App booted from ${input}`);
+
+      const config = new DocumentBuilder()
+        .setTitle(options.title)
+        .setDescription(options.description)
+        .setVersion(options.version || "1.0.0")
+        .addBearerAuth()
+        .build();
+
+      const document = SwaggerModule.createDocument(app, config);
+
+      const outputDir = path.resolve(options.output);
+      fs.mkdirSync(outputDir, { recursive: true });
+      const outputFile = path.join(outputDir, `${options.fileName}.json`);
+      fs.writeFileSync(outputFile, JSON.stringify(document, null, 2), "utf-8");
+
+      const pathCount = Object.keys(document.paths || {}).length;
+      const schemaCount = Object.keys(document.components?.schemas || {}).length;
+      log.info(`OpenAPI spec written to ${outputFile} (${pathCount} paths, ${schemaCount} schemas)`);
+    } catch (e: unknown) {
+      throw new InternalError(e as Error);
+    } finally {
+      if (app) await app.close();
+    }
+  });
+
 const nestCmd = new Command()
   .name("nest")
-  .description("exposes several commands to help manage the nest integration");
+  .description("exposes various commands to help manage the nest integration");
 
 nestCmd.addCommand(migrateCommand);
+nestCmd.addCommand(exportApiCommand);
 
 export default function nest() {
   return nestCmd;

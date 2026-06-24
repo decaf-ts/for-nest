@@ -86,7 +86,7 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
             flavour
           ) as RequestToContextTransformer<any>;
           const from = await transformer.from(req);
-          Object.assign(flags.overrides, from);
+          Object.assign(flags, from);
         } catch (e: unknown) {
           throw new InternalError(`Failed to contextualize request: ${e}`);
         }
@@ -98,6 +98,7 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
         {
           logger: Logging.get(),
           timestamp: new Date(),
+          operation: `${req.method} ${req.url}`,
         },
         flags
       )
