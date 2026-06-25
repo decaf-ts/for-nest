@@ -1,15 +1,15 @@
 import { ExecutionContext } from "@nestjs/common";
-import { AuthorizationError, Context } from "@decaf-ts/core";
+import { AuthorizationError } from "@decaf-ts/core";
 import { AuthHandler, AuthData } from "@decaf-ts/for-http/server";
 import { DecafRequestContext } from "../request/DecafRequestContext";
 
 /**
  * Simple auth handler that reads a role string from the `Authorization: Bearer <role>` header.
  *
- * Extends the framework-agnostic {@link AuthHandler} and overrides
- * {@link AuthHandler.extractFromAuth} to return the bearer token as both the user identifier
- * and the single role, and {@link AuthHandler.bindToContext} to accumulate `UUID` and
- * `organization` onto the request context.
+ * Only overrides {@link AuthHandler.extractFromAuth} to return the bearer token as
+ * both the user identifier and the single role. The base class `bindToContext`
+ * (`ctx.accumulate(data)`) is sufficient — the transformer/adapter is responsible
+ * for mapping context fields to adapter-specific keys like `UUID`.
  */
 export class DecafAuthHandler extends AuthHandler<
   ExecutionContext,
@@ -26,17 +26,6 @@ export class DecafAuthHandler extends AuthHandler<
     const userRole = this.parseRequest(req);
     if (!userRole) throw new AuthorizationError("Unauthenticated");
     return { user: userRole, roles: [userRole] };
-  }
-
-  protected bindToContext(
-    context: DecafRequestContext,
-    data: AuthData,
-    _ctx?: ExecutionContext
-  ): void {
-    context.accumulate({
-      UUID: data.user,
-      organization: data.organization,
-    });
   }
 }
 

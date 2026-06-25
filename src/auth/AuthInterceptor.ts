@@ -12,6 +12,8 @@ import { Observable } from "rxjs";
 
 import { Constructor } from "@decaf-ts/decoration";
 import { Logging } from "@decaf-ts/logging";
+import { Adapter } from "@decaf-ts/core";
+import { RequestToContextTransformer } from "@decaf-ts/for-http/server";
 
 import { AUTH_HANDLER, AUTH_META_KEY, IS_PUBLIC_KEY, REQUIRED_ROLES_KEY } from "./constants";
 import type { AuthHandler } from "../types";
@@ -35,10 +37,6 @@ export class AuthInterceptor implements NestInterceptor {
       ctx.getHandler(),
       ctx.getClass(),
     ]);
-    if (isPublic) {
-      log.debug(`Public route — skipping auth`);
-      return next.handle();
-    }
 
     const modelName =
       this.reflector.get<string | Constructor>(
@@ -53,25 +51,47 @@ export class AuthInterceptor implements NestInterceptor {
     );
 
     log.verbose(`Intercepted request${modelName ? ` for ${modelName}` : ""}`);
-    if (this.authHandler) {
+
+    if (isPublic) {
+      log.debug(`Public route — skipping auth`);
+    } else if (this.authHandler) {
       await this.authHandler.authorize(
         ctx,
         modelName as string | Constructor,
         requiredRoles,
         this.requestContext
       );
-
-      const user = this.requestContext.getOrUndefined("UUID" as any);
-      const organization = this.requestContext.getOrUndefined("organization" as any);
-      if (user || organization) {
-        const currentLog = this.requestContext.get("logger" as any);
-        const childLog = currentLog.for({ user, organization });
-        this.requestContext.accumulate({ logger: childLog } as any);
-      }
     } else {
       log.debug(`No auth handler registered`);
     }
 
+    // Transformers run AFTER auth so they can read auth-populated fields
+    // (e.g. `user`) from the context and map them to adapter-specific keys
+    // (e.g. `UUID` for RamAdapter's @createdBy/@updatedBy handlers).
+    await this.applyTransformers();
+
+    const user = this.requestContext.getOrUndefined("user" as any);
+    const organization = this.requestContext.getOrUndefined("organization" as any);
+    if (user || organization) {
+      const currentLog = this.requestContext.get("logger" as any);
+      const childLog = currentLog.for({ user, organization });
+      this.requestContext.accumulate({ logger: childLog } as any);
+    }
+
     return next.handle();
+  }
+
+  protected async applyTransformers(): Promise<void> {
+    const flavours = Adapter.flavoursToTransform();
+    if (!flavours) return;
+
+    for (const flavour of flavours) {
+      const transformer = Adapter.transformerFor(
+        flavour
+      ) as RequestToContextTransformer<any>;
+      if (!transformer) continue;
+      const from = await transformer.from(this.requestContext);
+      if (from) this.requestContext.accumulate(from);
+    }
   }
 }

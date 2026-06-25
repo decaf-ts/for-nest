@@ -6,15 +6,13 @@ import {
   Scope,
 } from "@nestjs/common";
 import { DecafHandlerExecutor, DecafRequestContext } from "../request";
-import { DefaultAdapterFlags, Adapter } from "@decaf-ts/core";
+import { DefaultAdapterFlags } from "@decaf-ts/core";
 import {
   DECAF_ADAPTER_OPTIONS,
   DecafServerFlags,
 } from "../constants";
 import "../overrides";
 import { Logging } from "@decaf-ts/logging";
-import { InternalError } from "@decaf-ts/db-decorators";
-import { RequestToContextTransformer } from "@decaf-ts/for-http/server";
 
 /**
  * @description
@@ -76,20 +74,6 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
       overrides: {},
     } as any;
     Object.assign(flags.overrides, req?.[DECAF_ADAPTER_OPTIONS] ?? {});
-
-    const flavours = Adapter.flavoursToTransform();
-    if (flavours)
-      for (const flavour of flavours) {
-        try {
-          const transformer = Adapter.transformerFor(
-            flavour
-          ) as RequestToContextTransformer<any>;
-          const from = await transformer.from(req);
-          Object.assign(flags, from);
-        } catch (e: unknown) {
-          throw new InternalError(`Failed to contextualize request: ${e}`);
-        }
-      }
 
     const ip = extractIp(req);
     const logger = Logging.get().for({ ip });

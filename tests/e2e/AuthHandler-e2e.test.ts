@@ -259,14 +259,14 @@ describe("Authentication", () => {
       );
 
       expect(productRes.raw.error).toContain(
-        "User lacks any of the required model roles: admin"
+        "Missing required roles: admin"
       );
 
       const token2 = "admin";
       const fakeRes = await FakeHttpRequest.get(token2, fake.id);
 
       expect(fakeRes.raw.error).toContain(
-        "User lacks any of the required model roles: partner"
+        "Missing required roles: partner"
       );
     });
   });
@@ -337,13 +337,13 @@ describe("Authentication", () => {
       );
 
       expect(productRes.raw.error).toContain(
-        "User lacks any of the required model roles: admin"
+        "Missing required roles: admin"
       );
 
       const fakeRes = await FakeHttpRequest.delete("admin", fake.id);
 
       expect(fakeRes.raw.error).toContain(
-        "User lacks any of the required model roles: partner"
+        "Missing required roles: partner"
       );
     });
   });
