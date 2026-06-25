@@ -57,8 +57,8 @@ export class AuthInterceptor implements NestInterceptor {
       await this.authHandler.authorize(
         ctx,
         modelName as string | Constructor,
-        this.requestContext,
-        requiredRoles
+        requiredRoles,
+        this.requestContext
       );
 
       const user = this.requestContext.getOrUndefined("UUID" as any);

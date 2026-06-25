@@ -1,82 +1,48 @@
 import { ExecutionContext } from "@nestjs/common";
-import { Metadata } from "@decaf-ts/decoration";
-import { AuthorizationError, PersistenceKeys } from "@decaf-ts/core";
-import { Model } from "@decaf-ts/decorator-validation";
-
-import type { AuthHandler } from "../types";
+import { AuthorizationError, Context } from "@decaf-ts/core";
+import { AuthHandler, AuthData } from "@decaf-ts/for-http/server";
 import { DecafRequestContext } from "../request/DecafRequestContext";
 
-export class DecafAuthHandler implements AuthHandler {
-  protected parseRequest(req: any) {
+/**
+ * Simple auth handler that reads a role string from the `Authorization: Bearer <role>` header.
+ *
+ * Extends the framework-agnostic {@link AuthHandler} and overrides
+ * {@link AuthHandler.extractFromAuth} to return the bearer token as both the user identifier
+ * and the single role, and {@link AuthHandler.bindToContext} to accumulate `UUID` and
+ * `organization` onto the request context.
+ */
+export class DecafAuthHandler extends AuthHandler<
+  ExecutionContext,
+  DecafRequestContext,
+  AuthData
+> {
+  protected parseRequest(req: any): string {
     const userRole = req.headers.authorization?.split(" ")[1] as string;
     return userRole;
   }
 
-  async authorize(
-    ctx: ExecutionContext,
-    resource: string,
-    context?: DecafRequestContext,
-    requiredRoles?: string[]
-  ) {
+  protected extractFromAuth(ctx: ExecutionContext): AuthData {
     const req = ctx.switchToHttp().getRequest();
-
     const userRole = this.parseRequest(req);
     if (!userRole) throw new AuthorizationError("Unauthenticated");
+    return { user: userRole, roles: [userRole] };
+  }
 
-    if (requiredRoles && requiredRoles.length > 0) {
-      if (!requiredRoles.includes(userRole)) {
-        throw new AuthorizationError(`Missing required role: ${userRole}`);
-      }
-    }
-
-    const roles = Metadata.get(Model.get(resource)!, PersistenceKeys.AUTH_ROLE);
-
-    if (roles && !roles.includes(userRole)) {
-      throw new AuthorizationError(`Missing role: ${userRole}`);
-    }
-
-    if (context) {
-      context.accumulate({
-        UUID: userRole,
-      } as any);
-    }
+  protected bindToContext(
+    context: DecafRequestContext,
+    data: AuthData,
+    _ctx?: ExecutionContext
+  ): void {
+    context.accumulate({
+      UUID: data.user,
+      organization: data.organization,
+    });
   }
 }
 
-export class DecafRoleAuthHandler extends DecafAuthHandler {
-  constructor() {
-    super();
-  }
-
-  override async authorize(
-    ctx: ExecutionContext,
-    resource: string,
-    context?: DecafRequestContext,
-    requiredRoles?: string[]
-  ) {
-    const req = ctx.switchToHttp().getRequest();
-
-    const userRole = this.parseRequest(req);
-    if (!userRole) throw new AuthorizationError("Unauthenticated");
-
-    if (requiredRoles && requiredRoles.length > 0) {
-      if (!requiredRoles.includes(userRole)) {
-        throw new AuthorizationError(`Missing required role: ${userRole}`);
-      }
-    }
-
-    const roles = Metadata.get(Model.get(resource)!, PersistenceKeys.AUTH_ROLE);
-
-    if (roles && !roles.includes(userRole)) {
-      throw new AuthorizationError(`Missing role: ${userRole}`);
-    }
-
-    if (context) {
-      context.accumulate({
-        UUID: userRole,
-      } as any);
-    }
-
-    return roles;
-  }
-}
+/**
+ * Alias for {@link DecafAuthHandler} kept for backward compatibility.
+ * The "role" variant previously returned roles from `authorize`; with the base
+ * class now orchestrating role checks internally, the two classes are equivalent.
+ */
+export class DecafRoleAuthHandler extends DecafAuthHandler {}

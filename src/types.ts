@@ -1,7 +1,11 @@
 import { Adapter, ConfigOf, ContextOf, Context } from "@decaf-ts/core";
 import { Constructor } from "@decaf-ts/decoration";
 import { ExecutionContext, Type } from "@nestjs/common";
-import { RequestToContextTransformer, type ModelControllerFactoryConfig } from "@decaf-ts/for-http/server";
+import {
+  RequestToContextTransformer,
+  type ModelControllerFactoryConfig,
+  type AuthHandler as AuthHandlerBase,
+} from "@decaf-ts/for-http/server";
 import { DecafRequestContext } from "./request/index";
 
 export interface DecafRequestHandler<
@@ -61,58 +65,35 @@ export type DecafModuleOptions<
 };
 
 /**
- * Abstraction used by the {@link AuthInterceptor} to authorize decaf models.
+ * NestJS-narrowed alias for the base {@link AuthHandlerBase} class from
+ * `@decaf-ts/for-http/server`, specializing the execution context to
+ * `ExecutionContext` and the request context to {@link DecafRequestContext}.
  *
- * // costumauthHandler.ts
+ * Concrete handlers extend this class and override `extractFromAuth`.
  *
  * @example
- * export class CustomAuthHandler implements AuthHandler {
- *   async authorize(ctx: ExecutionContext, resource: string) {
+ * export class CustomAuthHandler extends AuthHandler {
+ *   protected extractFromAuth(ctx: ExecutionContext) {
  *     const req = ctx.switchToHttp().getRequest();
  *     const userRole = req.headers.authorization?.split(" ")[1] as string;
  *     if (!userRole) throw new AuthorizationError("Unauthenticated");
- *     const roles = Metadata.get(Model.get(resource)!, AuthRole);
- *     if (!roles.includes(userRole)) {
- *       throw new AuthorizationError("Unauthorized");
- *     }
+ *     return { user: userRole, roles: [userRole] };
  *   }
  * }
  *
  * // auth.module.ts
- *
  * @Global()
  * @Module({
  *  providers: [
  *    AuthInterceptor,
  *    CustomAuthHandler,
- *    {
- *      provide: AUTH_HANDLER,
- *      useClass: CustomAuthHandler, //swap this to use another provider
- *    },
+ *    { provide: AUTH_HANDLER, useClass: CustomAuthHandler },
  *  ],
  *  exports: [AUTH_HANDLER, AuthInterceptor],
  * })
  * export class AuthModule {}
  */
-export interface AuthHandler {
-  /**
-   * Inspect the request context and ensure the caller can access the model.
-   * Implementations should throw an {@link AuthorizationError} on denial.
-   *
-   * After successful authorization, implementations SHOULD populate the
-   * provided DecafRequestContext with auth-derived data (user, organization,
-   * roles, etc.) via `context.accumulate({ UUID: user, ... })` so that
-   * downstream code (adapters, logging, createdBy/updatedBy) can read it.
-   *
-   * @param ctx - Nest execution context that exposes the request/response.
-   * @param model - Model name or constructor being accessed.
-   * @param context - The request-scoped DecafRequestContext to populate with auth data.
-   * @param requiredRoles - Optional route-level roles from @RequireRoles() decorator.
-   */
-  authorize(
-    ctx: ExecutionContext,
-    model: string | Constructor,
-    context?: DecafRequestContext,
-    requiredRoles?: string[]
-  ): Promise<void> | void;
-}
+export type AuthHandler<
+  EC = ExecutionContext,
+  C extends DecafRequestContext = DecafRequestContext,
+> = AuthHandlerBase<EC, C>;

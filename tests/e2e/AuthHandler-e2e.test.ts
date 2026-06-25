@@ -258,12 +258,16 @@ describe("Authentication", () => {
         product.batchNumber
       );
 
-      expect(productRes.raw.error).toContain("Missing role: partner");
+      expect(productRes.raw.error).toContain(
+        "User lacks any of the required model roles: admin"
+      );
 
       const token2 = "admin";
       const fakeRes = await FakeHttpRequest.get(token2, fake.id);
 
-      expect(fakeRes.raw.error).toContain("Missing role: admin");
+      expect(fakeRes.raw.error).toContain(
+        "User lacks any of the required model roles: partner"
+      );
     });
   });
 
@@ -332,11 +336,15 @@ describe("Authentication", () => {
         product.batchNumber
       );
 
-      expect(productRes.raw.error).toContain("Missing role: partner");
+      expect(productRes.raw.error).toContain(
+        "User lacks any of the required model roles: admin"
+      );
 
       const fakeRes = await FakeHttpRequest.delete("admin", fake.id);
 
-      expect(fakeRes.raw.error).toContain("Missing role: admin");
+      expect(fakeRes.raw.error).toContain(
+        "User lacks any of the required model roles: partner"
+      );
     });
   });
 });
