@@ -9,7 +9,7 @@ import {
 } from "@decaf-ts/core";
 import { Model, type ModelConstructor } from "@decaf-ts/decorator-validation";
 
-import { DECAF_ADAPTER_OPTIONS, DecafServerCtx } from "./constants";
+import { DecafServerCtx } from "./constants";
 import { DecafRequestContext } from "./request/DecafRequestContext";
 
 export abstract class DecafController<
@@ -54,15 +54,12 @@ export abstract class DecafModelController<
         }
       }
 
-    const certs = (this.clientContext.request as any)[DECAF_ADAPTER_OPTIONS] || {};
-    if (ctx) {
-      this.clientContext.put(certs);
-    }
+    const overrides = this.clientContext.toOverrides();
 
     return ctx
       ? this._persistence instanceof Repository
-        ? this._persistence.override(certs)
-        : this._persistence.for(certs)
+        ? this._persistence.override(overrides)
+        : this._persistence.for(overrides)
       : this._persistence;
   }
 }

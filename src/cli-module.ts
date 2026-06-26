@@ -201,7 +201,7 @@ const migrateCommand = new Command()
     let app: INestApplication | undefined;
     try {
       app = await NestFactory.create(
-        await normalizeImport(import(path.join(process.cwd(), input))),
+        resolveNestModule(await normalizeImport(import(path.join(process.cwd(), input)))),
         { logger: false }
       );
       await app.init();
@@ -280,6 +280,20 @@ const migrateCommand = new Command()
 
 export { migrateCommand };
 
+function resolveNestModule(mod: any): any {
+  if (typeof mod === "function") return mod;
+  if (mod?.default && typeof mod.default === "function") return mod.default;
+  if (mod && typeof mod === "object") {
+    const classes = Object.values(mod).filter((v) => typeof v === "function");
+    if (classes.length === 1) return classes[0];
+    const named = (mod as Record<string, any>)[
+      Object.keys(mod).find((k) => /Module$/.test(k)) || ""
+    ];
+    if (typeof named === "function") return named;
+  }
+  return mod;
+}
+
 const exportApiCommand = new Command()
   .name("export-api")
   .description(
@@ -297,7 +311,7 @@ const exportApiCommand = new Command()
     let app: INestApplication | undefined;
     try {
       app = await NestFactory.create(
-        await normalizeImport(import(path.join(process.cwd(), input))),
+        resolveNestModule(await normalizeImport(import(path.join(process.cwd(), input)))),
         { logger: false }
       );
       await app.init();

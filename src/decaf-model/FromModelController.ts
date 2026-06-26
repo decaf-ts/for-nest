@@ -1,4 +1,4 @@
-import { Controller, Param, Query, Response } from "@nestjs/common";
+import { Controller, Param, Query, Response, SetMetadata } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -45,7 +45,8 @@ import { HttpVerbToDecorator } from "./decorators/utils";
 import type { HttpVerbs } from "./decorators/types";
 import { DecafRequestContext } from "../request";
 import { DECAF_CONTROLLER_CONFIG, DECAF_ROUTE } from "../constants";
-import { Auth } from "./decorators/decorators";
+import { SKIP_MODEL_ROLES_KEY } from "../auth/constants";
+import { Auth, Public, RequireRoles } from "../auth/decorators";
 import { ControllerConstructor } from "./types";
 import { DecafModelController } from "../controllers";
 import { DtoFor } from "../factory/openapi/DtoBuilder";
@@ -53,6 +54,7 @@ import "../overrides";
 import {
   ModelControllerFactory,
   type ModelControllerFactoryConfig,
+  type AuthConfig,
   type ServerRoute,
 } from "@decaf-ts/for-http/server";
 
@@ -162,7 +164,8 @@ export class FromModelController {
 
   static create<T extends Model<any>>(
     ModelConstr: ModelConstructor<T>,
-    moduleConfigOverrides?: Record<string, ModelControllerFactoryConfig>
+    moduleConfigOverrides?: Record<string, ModelControllerFactoryConfig>,
+    globalDefaults?: Partial<ModelControllerFactoryConfig>
   ): ControllerConstructor<T> {
     const log = FromModelController.log.for(FromModelController.create);
     const tableName = Model.tableName(ModelConstr);
@@ -182,6 +185,7 @@ export class FromModelController {
     ) as ModelControllerFactoryConfig | undefined;
     const moduleOverride = moduleConfigOverrides?.[ModelConstr.name];
     const mergedConfig: ModelControllerFactoryConfig = {
+      ...(globalDefaults || {}),
       ...(decoratorConfig || {}),
       ...(moduleOverride || {}),
     };
@@ -202,10 +206,24 @@ export class FromModelController {
       `Creating controller for model: ${modelClazzName} with ${factoryRoutes?.length ?? 0} factory routes`
     );
 
+    const authConfig: AuthConfig | undefined = mergedConfig.auth;
+
+    function applyClassAuth(target: any) {
+      if (authConfig?.public) {
+        Public()(target);
+      } else if (authConfig?.roles?.length) {
+        RequireRoles(...authConfig.roles)(target);
+      } else {
+        Auth(ModelConstr)(target);
+      }
+      if (authConfig?.skipModelRoles) {
+        SetMetadata(SKIP_MODEL_ROLES_KEY, true)(target);
+      }
+    }
+
     @Controller(routePath)
     @ApiTags(modelClazzName)
     @ApiExtraModels(ModelConstr)
-    @Auth(ModelConstr)
     class DynamicModelController extends DecafModelController<T> {
       private readonly pk: string = Model.pk(ModelConstr) as string;
 
@@ -224,6 +242,8 @@ export class FromModelController {
         );
       }
     }
+
+    applyClassAuth(DynamicModelController);
 
     if (factoryRoutes) {
       const sortedRoutes = [...factoryRoutes].sort((a, b) => {

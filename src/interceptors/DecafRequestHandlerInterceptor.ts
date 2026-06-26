@@ -7,10 +7,7 @@ import {
 } from "@nestjs/common";
 import { DecafHandlerExecutor, DecafRequestContext } from "../request";
 import { DefaultAdapterFlags } from "@decaf-ts/core";
-import {
-  DECAF_ADAPTER_OPTIONS,
-  DecafServerFlags,
-} from "../constants";
+import { DecafServerFlags } from "../constants";
 import "../overrides";
 import { Logging } from "@decaf-ts/logging";
 
@@ -73,7 +70,6 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
       headers: headers,
       overrides: {},
     } as any;
-    Object.assign(flags.overrides, req?.[DECAF_ADAPTER_OPTIONS] ?? {});
 
     const ip = extractIp(req);
     const logger = Logging.get().for({ ip });

@@ -15,7 +15,7 @@ import { Logging } from "@decaf-ts/logging";
 import { Adapter } from "@decaf-ts/core";
 import { RequestToContextTransformer } from "@decaf-ts/for-http/server";
 
-import { AUTH_HANDLER, AUTH_META_KEY, IS_PUBLIC_KEY, REQUIRED_ROLES_KEY } from "./constants";
+import { AUTH_HANDLER, AUTH_META_KEY, IS_PUBLIC_KEY, REQUIRED_ROLES_KEY, SKIP_MODEL_ROLES_KEY } from "./constants";
 import type { AuthHandler } from "../types";
 import { DecafRequestContext } from "../request/DecafRequestContext";
 
@@ -50,6 +50,13 @@ export class AuthInterceptor implements NestInterceptor {
       [ctx.getHandler(), ctx.getClass()]
     );
 
+    const skipModelRoles = this.reflector.getAllAndOverride<boolean>(
+      SKIP_MODEL_ROLES_KEY,
+      [ctx.getHandler(), ctx.getClass()]
+    );
+
+    const effectiveModel = skipModelRoles ? undefined : modelName;
+
     log.verbose(`Intercepted request${modelName ? ` for ${modelName}` : ""}`);
 
     if (isPublic) {
@@ -57,7 +64,7 @@ export class AuthInterceptor implements NestInterceptor {
     } else if (this.authHandler) {
       await this.authHandler.authorize(
         ctx,
-        modelName as string | Constructor,
+        effectiveModel as string | Constructor,
         requiredRoles,
         this.requestContext
       );

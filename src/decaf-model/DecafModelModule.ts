@@ -6,6 +6,7 @@ import { DecafModuleOptions } from "../types";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Metadata } from "@decaf-ts/decoration";
 import { DECAF_EXPOSE } from "../constants";
+import type { ModelControllerFactoryConfig } from "@decaf-ts/for-http/server";
 
 export function getModuleFor(flavour: string) {
   @Module({})
@@ -57,8 +58,13 @@ export function getModuleFor(flavour: string) {
         );
       }
 
+      const globalDefaults: Partial<ModelControllerFactoryConfig> = {};
+      if (options.aggregations === false) {
+        globalDefaults.allowGroupingQueries = false;
+      }
+
       const controllers = trackedModels.map((model) =>
-        FromModelController.create(model, options.controllerConfig)
+        FromModelController.create(model, options.controllerConfig, globalDefaults)
       );
       log.info(`Generated ${controllers.length} controllers`);
 
