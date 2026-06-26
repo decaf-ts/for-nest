@@ -21,6 +21,10 @@ export class DecafRequestContext<C extends DecafServerCtx = DecafServerCtx> exte
     this.request = req;
   }
 
+  get headers(): Record<string, string | string[] | undefined> | undefined {
+    return this.getOrUndefined("headers" as any);
+  }
+
   put(record: Record<any, any>) {
     let overrides: any;
     try {

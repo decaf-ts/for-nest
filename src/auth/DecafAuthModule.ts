@@ -3,7 +3,6 @@ import { APP_INTERCEPTOR } from "@nestjs/core";
 
 import { AuthInterceptor } from "./AuthInterceptor";
 import { AUTH_HANDLER } from "./constants";
-import { DecafRequestHandlerInterceptor } from "../interceptors/DecafRequestHandlerInterceptor";
 import { AuthHandler } from "../types";
 
 export type DecafAuthModuleOptions = {
@@ -18,11 +17,6 @@ export class DecafAuthModule {
   ): DynamicModule {
     const providers: DynamicModule["providers"] = [
       AuthInterceptor,
-      DecafRequestHandlerInterceptor,
-      {
-        provide: APP_INTERCEPTOR,
-        useClass: DecafRequestHandlerInterceptor,
-      },
     ];
 
     if (options.handler) {

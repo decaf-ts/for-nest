@@ -15,7 +15,13 @@ import { Logging } from "@decaf-ts/logging";
 import { Adapter } from "@decaf-ts/core";
 import { RequestToContextTransformer } from "@decaf-ts/for-http/server";
 
-import { AUTH_HANDLER, AUTH_META_KEY, IS_PUBLIC_KEY, REQUIRED_ROLES_KEY, SKIP_MODEL_ROLES_KEY } from "./constants";
+import {
+  AUTH_HANDLER,
+  AUTH_META_KEY,
+  IS_PUBLIC_KEY,
+  REQUIRED_ROLES_KEY,
+  SKIP_MODEL_ROLES_KEY,
+} from "./constants";
 import type { AuthHandler } from "../types";
 import { DecafRequestContext } from "../request/DecafRequestContext";
 
@@ -78,7 +84,9 @@ export class AuthInterceptor implements NestInterceptor {
     await this.applyTransformers();
 
     const user = this.requestContext.getOrUndefined("user" as any);
-    const organization = this.requestContext.getOrUndefined("organization" as any);
+    const organization = this.requestContext.getOrUndefined(
+      "organization" as any
+    );
     if (user || organization) {
       const currentLog = this.requestContext.get("logger" as any);
       const childLog = currentLog.for({ user, organization });
@@ -97,7 +105,10 @@ export class AuthInterceptor implements NestInterceptor {
         flavour
       ) as RequestToContextTransformer<any>;
       if (!transformer) continue;
-      const from = await transformer.from(this.requestContext);
+      const instance = (transformer as any).from
+        ? transformer
+        : new (transformer as any)();
+      const from = await instance.from(this.requestContext);
       if (from) this.requestContext.accumulate(from);
     }
   }

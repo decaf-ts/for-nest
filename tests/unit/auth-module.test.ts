@@ -1,7 +1,6 @@
 import { APP_INTERCEPTOR } from "@nestjs/core";
 
 import { AuthInterceptor, DecafAuthModule } from "../../src/auth";
-import { DecafRequestHandlerInterceptor } from "../../src/interceptors/DecafRequestHandlerInterceptor";
 
 describe("DecafAuthModule", () => {
   it("registers AuthInterceptor globally when requested", () => {
@@ -11,7 +10,6 @@ describe("DecafAuthModule", () => {
     expect(mod.providers).toEqual(
       expect.arrayContaining([
         AuthInterceptor,
-        DecafRequestHandlerInterceptor,
         expect.objectContaining({ provide: APP_INTERCEPTOR, useExisting: AuthInterceptor }),
       ])
     );
@@ -32,16 +30,16 @@ describe("DecafAuthModule", () => {
     ).toBe(false);
   });
 
-  it("always ensures DecafRequestHandlerInterceptor as APP_INTERCEPTOR", () => {
+  it("does not register DecafRequestHandlerInterceptor (handled by DecafCoreModule)", () => {
     const mod = DecafAuthModule.forRoot({ global: false });
 
     expect(
       (mod.providers ?? []).some(
         (provider: any) =>
           provider?.provide === APP_INTERCEPTOR &&
-          provider?.useClass === DecafRequestHandlerInterceptor
+          provider?.useClass?.name === "DecafRequestHandlerInterceptor"
       )
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("accepts a handler option and registers it via AUTH_HANDLER", () => {
