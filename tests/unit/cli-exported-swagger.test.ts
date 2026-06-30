@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { InternalError } from "@decaf-ts/db-decorators";
 import { Metadata } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Product } from "./Product";
@@ -31,7 +32,7 @@ describe.skip("CLI-exported Swagger spec", () => {
 
   beforeAll(() => {
     if (!fs.existsSync(specPath)) {
-      throw new Error(
+      throw new InternalError(
         "Multi-level Swagger JSON not found. Run `WRITE_MULTI_SWAGGER=true npx jest --watchman=false --runInBand tests/unit/DtoFor.swagger.test.ts` to regenerate it."
       );
     }

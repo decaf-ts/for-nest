@@ -10,7 +10,7 @@ import {
 } from "@decaf-ts/core/migrations";
 import { RamAdapter } from "@decaf-ts/core/ram";
 import { TaskEngine, TaskService } from "@decaf-ts/core/tasks";
-import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+import { ConflictError, InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { NanoAdapter, NanoFlavour } from "@decaf-ts/for-nano";
 import { TypeORMAdapter, TypeORMFlavour } from "@decaf-ts/for-typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
@@ -78,11 +78,11 @@ async function createNanoTestResources(prefix: string) {
     nanoProtocol
   );
   await NanoAdapter.createDatabase(connection, dbName).catch((e: any) => {
-    if (!(e instanceof ConflictError)) throw e;
+    if (!(e instanceof ConflictError)) throw new InternalError(String(e));
   });
   await NanoAdapter.createUser(connection, dbName, user, password).catch(
     (e: any) => {
-      if (!(e instanceof ConflictError)) throw e;
+      if (!(e instanceof ConflictError)) throw new InternalError(String(e));
     }
   );
   return {
@@ -103,7 +103,7 @@ async function cleanupNanoTestResources(resources: {
   try {
     await NanoAdapter.deleteDatabase(resources.connection, resources.dbName);
   } catch (e: any) {
-    if (!(e instanceof NotFoundError)) throw e;
+    if (!(e instanceof NotFoundError)) throw new InternalError(String(e));
   }
   await waitForCleanup(nanoCleanupDelayMs);
   try {
@@ -113,7 +113,7 @@ async function cleanupNanoTestResources(resources: {
       resources.user
     );
   } catch (e: any) {
-    if (!(e instanceof NotFoundError)) throw e;
+    if (!(e instanceof NotFoundError)) throw new InternalError(String(e));
   } finally {
     NanoAdapter.closeConnection(resources.connection);
   }
@@ -128,7 +128,7 @@ async function createTypeORMTestResources(prefix: string) {
   try {
     await TypeORMAdapter.createDatabase(adminConnection, dbName);
   } catch (e: any) {
-    if (!(e instanceof ConflictError)) throw e;
+    if (!(e instanceof ConflictError)) throw new InternalError(String(e));
   } finally {
     await adminConnection.destroy();
   }
@@ -155,13 +155,13 @@ async function cleanupTypeORMTestResources(resources: {
       resources.user
     );
   } catch (e: any) {
-    if (!(e instanceof NotFoundError)) throw e;
+    if (!(e instanceof NotFoundError)) throw new InternalError(String(e));
   }
   await waitForCleanup(cleanupDelayMs);
   try {
     await TypeORMAdapter.deleteUser(adminConnection, resources.user, adminUser);
   } catch (e: any) {
-    if (!(e instanceof NotFoundError)) throw e;
+    if (!(e instanceof NotFoundError)) throw new InternalError(String(e));
   } finally {
     await adminConnection.destroy();
   }
@@ -211,7 +211,7 @@ const failedOnce = new Set<string>();
 function failFirst(reference: string) {
   if (failedOnce.has(reference)) return;
   failedOnce.add(reference);
-  throw new Error(`intentional failure for ${reference}`);
+  throw new InternalError(`intentional failure for ${reference}`);
 }
 
 function withNanoTable(tableName: string, doc: any) {
@@ -241,7 +241,7 @@ async function addAndBackfillNonNullColumn(
     await queryRunner.commitTransaction();
   } catch (e: unknown) {
     await queryRunner.rollbackTransaction();
-    throw e;
+    throw new InternalError(String(e));
   } finally {
     await queryRunner.release();
   }
@@ -375,7 +375,7 @@ describe("for-nest live task migration across Nano + TypeORM", () => {
       const nano = adapters.find((a) => a.flavour === NANO_FLAVOUR);
       const typeorm = adapters.find((a) => a.flavour === TYPEORM_FLAVOUR);
       if (!nano || !typeorm) {
-        throw new Error(
+        throw new InternalError(
           "failed to resolve live nano/typeorm adapters from nest"
         );
       }

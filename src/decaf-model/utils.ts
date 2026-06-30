@@ -23,6 +23,7 @@ import {
 import { Model } from "@decaf-ts/decorator-validation";
 import { HttpVerbToDecorator } from "./decorators/utils";
 import { DecafModelController } from "../controllers";
+import { BaseError, InternalError } from "@decaf-ts/db-decorators";
 
 const extractPathParams = (routePath: string): string[] => {
   return routePath
@@ -37,6 +38,13 @@ const apiParamSpec = (name: string): DecafApiProperty => ({
   required: true,
   type: String,
 });
+
+function toDecafError(error: unknown, fallbackMessage: string): BaseError {
+  if (error instanceof BaseError) return error;
+  return new InternalError(
+    error instanceof Error ? `${fallbackMessage}: ${error.message}` : fallbackMessage
+  );
+}
 
 export function getApiDecorators(
   methodName: string,
@@ -113,7 +121,7 @@ export function resolvePersistenceMethod<T extends Model<boolean>>(
   if (typeof (persistence as any)[methodName] === "function")
     return (persistence as any)[methodName](...args);
 
-  throw new Error(
+  throw new InternalError(
     `Persistence method "${methodName}" not found on ${persistence?.constructor?.name}`
   );
 }
@@ -141,7 +149,7 @@ export function createRouteHandler<T>(methodName: string) {
       );
     } catch (e: any) {
       log.error(`Custom query "${methodName}" failed`, e);
-      throw e;
+      throw toDecafError(e, `Custom query "${methodName}" failed`);
     }
   };
 }

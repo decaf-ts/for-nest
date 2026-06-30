@@ -8,6 +8,7 @@ import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { DecafStreamModule } from "../../src/events-module";
 import { RamTransformer } from "@decaf-ts/for-http/server";
 import { EventSource } from "eventsource";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 @Module({
   imports: [
@@ -31,7 +32,7 @@ function waitForClients(url: string, count: number): Promise<EventSource[]> {
           const es = new EventSource(url);
           const timeout = setTimeout(() => {
             es.close();
-            reject(new Error("timeout opening eventsource"));
+            reject(new InternalError("timeout opening eventsource"));
           }, 15000);
 
           es.onopen = () => {
@@ -59,7 +60,7 @@ function collectMessages(
 
     const timeout = setTimeout(() => {
       es.close();
-      reject(new Error(`timeout waiting for ${expected} messages, got ${out.length}`));
+      reject(new InternalError(`timeout waiting for ${expected} messages, got ${out.length}`));
     }, timeoutMs);
 
     es.onmessage = (event) => {
@@ -94,7 +95,7 @@ describe("SSE concurrency regression", () => {
 
     const server = await app.listen(0);
     const address = server.address();
-    if (!address || typeof address === "string") throw new Error("No address");
+    if (!address || typeof address === "string") throw new InternalError("No address");
     serverUrl = `http://127.0.0.1:${address.port}`;
 
     repo = Repository.forModel(ProcessStep);
@@ -149,7 +150,7 @@ describe("SSE concurrency regression", () => {
     const firstEventBeforeDisconnect = new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         disconnectingClient.close();
-        reject(new Error("disconnecting client did not receive first event"));
+        reject(new InternalError("disconnecting client did not receive first event"));
       }, 20000);
 
       disconnectingClient.onmessage = () => {

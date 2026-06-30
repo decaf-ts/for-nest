@@ -9,6 +9,7 @@ import { DecafStreamModule } from "../../src/events-module";
 import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
 import { RamTransformer } from "@decaf-ts/for-http/server";
 import { OperationKeys } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 export type EventResponse = {
   model: string;
@@ -58,7 +59,7 @@ describe("Listen Rest Service Events (e2e)", () => {
       const timeout = setTimeout(() => {
         cleanup();
         response(
-          new Error(`No SSE event received within ${timeoutMs / 1000}s`)
+          new InternalError(`No SSE event received within ${timeoutMs / 1000}s`)
         );
       }, timeoutMs);
 
@@ -115,7 +116,7 @@ describe("Listen Rest Service Events (e2e)", () => {
     const server = await app.listen(0);
     const address = server.address();
     if (!address || typeof address === "string") {
-      throw new Error("Failed to resolve server address");
+      throw new InternalError("Failed to resolve server address");
     }
     const serverUrl = new URL(`http://127.0.0.1:${address.port}`).host;
     repo = Repository.forModel(ProcessStep);

@@ -14,6 +14,7 @@ import { AxiosHttpAdapter } from "@decaf-ts/for-http";
 import { RestRepository } from "@decaf-ts/for-http";
 import { RamTransformer } from "@decaf-ts/for-http/server";
 import { uses } from "@decaf-ts/decoration";
+import { InternalError } from "@decaf-ts/db-decorators";
 import { DecafExceptionFilter, DecafModule } from "../../src/index";
 
 RamAdapter.decoration();
@@ -309,5 +310,5 @@ async function waitForEvents(predicate: () => boolean, timeoutMs: number) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error("Timed out waiting for events");
+  throw new InternalError("Timed out waiting for events");
 }

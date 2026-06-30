@@ -6,6 +6,7 @@ import {
   OrderDirection,
   query,
   Repository,
+  ModelService,
   repository,
   route,
 } from "@decaf-ts/core";
@@ -17,6 +18,7 @@ import { genStr } from "./fakes/utils";
 import { Product } from "./fakes/models/Product";
 import { NestFactory } from "@nestjs/core";
 import { RamTransformer } from "@decaf-ts/for-http/server";
+import { InternalError, UnsupportedError } from "@decaf-ts/db-decorators";
 
 Adapter.setCurrent(RamFlavour);
 
@@ -35,7 +37,7 @@ class CustomProductRepository extends Repository<
   @query()
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async findByCountry(country: string) {
-    throw new Error("Should be override by @query decorator");
+    throw new UnsupportedError("Should be override by @query decorator");
   }
 
   @query()
@@ -45,7 +47,7 @@ class CustomProductRepository extends Repository<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     expyDateGt: number
   ) {
-    throw new Error("Should be override by @query decorator");
+    throw new UnsupportedError("Should be override by @query decorator");
   }
 
   @route("POST", "metadata/for-product")
@@ -55,7 +57,7 @@ class CustomProductRepository extends Repository<
 
   @route("GET", "metadata/for-product/:productCode")
   async metadata(productCode: string) {
-    if (!productCode.startsWith("00")) throw new Error("Invalid product code!");
+    if (!productCode.startsWith("00")) throw new InternalError("Invalid product code!");
 
     return { productCode, metadata: Math.random() };
   }
@@ -87,6 +89,10 @@ describe("DecafModelModule CRUD", () => {
       app.getHttpServer(),
       Product
     );
+  });
+
+  it("warms the generated ModelService before shutdown", () => {
+    expect(ModelService.getService(Product)).toBeInstanceOf(ModelService);
   });
 
   afterAll(async () => {

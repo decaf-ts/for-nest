@@ -22,6 +22,7 @@ import {
   route,
   table,
   updatedAt,
+  UnsupportedError,
 } from "@decaf-ts/core";
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { Model, ModelArg, model, required } from "@decaf-ts/decorator-validation";
@@ -30,7 +31,13 @@ import { AxiosHttpAdapter } from "@decaf-ts/for-http";
 import { RequestToContextTransformer } from "@decaf-ts/for-http/server";
 import { EventSource } from "eventsource";
 import { toKebabCase } from "@decaf-ts/logging";
-import { BlockOperations, BulkCrudOperationKeys, composed, OperationKeys } from "@decaf-ts/db-decorators";
+import {
+  BlockOperations,
+  BulkCrudOperationKeys,
+  composed,
+  InternalError,
+  OperationKeys,
+} from "@decaf-ts/db-decorators";
 
 import { DecafExceptionFilter, DecafModule } from "../../src";
 import { DecafStreamModule } from "../../src/events-module";
@@ -124,7 +131,7 @@ async function waitFor<T>(
     if (typeof value !== "undefined") return value as T;
     await new Promise((r) => setTimeout(r, intervalMs));
   }
-  throw new Error(`Timed out after ${timeoutMs}ms waiting for condition`);
+  throw new InternalError(`Timed out after ${timeoutMs}ms waiting for condition`);
 }
 
 // ─── Models ───────────────────────────────────────────────────────────────
@@ -670,7 +677,7 @@ class ConfigArticleRepository extends Repository<
 
   @query()
   async findByCategory(category: string) {
-    throw new Error("Should be overridden by @query decorator");
+    throw new UnsupportedError("Should be overridden by @query decorator");
   }
 
   @query()
@@ -678,7 +685,7 @@ class ConfigArticleRepository extends Repository<
     status: string,
     minScore: number
   ) {
-    throw new Error("Should be overridden by @query decorator");
+    throw new UnsupportedError("Should be overridden by @query decorator");
   }
 
   @route("GET", "metadata/summary")
@@ -833,7 +840,7 @@ describe("DecafModel controller-builder e2e (DECAF-10)", () => {
     const server = await app.listen(0);
     const address = server.address();
     if (!address || typeof address === "string") {
-      throw new Error("Failed to resolve server address");
+      throw new InternalError("Failed to resolve server address");
     }
     const host =
       address.address === "::"
@@ -1650,6 +1657,14 @@ describe("DecafModel controller-builder e2e (DECAF-10)", () => {
       );
       expect([200, 404]).toContain(readFallback.status);
 
+      // Middle-segment fallback: /:productCode/:leafletType/:lang/:epiMarket (batchNumber omitted)
+      const readMiddleFallback = await requestJson(
+        adapter,
+        "GET",
+        rowPath(PtpLeaflet, seed.productCode, seed.leafletType, seed.lang, seed.epiMarket)
+      );
+      expect([200, 404]).toContain(readMiddleFallback.status);
+
       // Cleanup via full route
       await requestJson(
         adapter,
@@ -1888,7 +1903,7 @@ describe("DecafModel controller-builder e2e (DECAF-10)", () => {
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
           eventSource.close();
-          reject(new Error("SSE connection timeout"));
+          reject(new InternalError("SSE connection timeout"));
         }, 15000);
 
         eventSource.onopen = () => {
@@ -1937,7 +1952,7 @@ describe("DecafModel controller-builder e2e (DECAF-10)", () => {
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
           eventSource.close();
-          reject(new Error("SSE connection timeout"));
+          reject(new InternalError("SSE connection timeout"));
         }, 15000);
 
         eventSource.onopen = () => {
@@ -1997,7 +2012,7 @@ describe("DecafModel controller-builder e2e (DECAF-10)", () => {
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
           eventSource.close();
-          reject(new Error("SSE connection timeout"));
+          reject(new InternalError("SSE connection timeout"));
         }, 15000);
 
         eventSource.onopen = () => {

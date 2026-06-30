@@ -36,6 +36,7 @@ import {
 } from "@decaf-ts/for-http/hooks";
 import { RequestToContextTransformer } from "@decaf-ts/for-http/server";
 import * as http from "http";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 NanoAdapter.decoration();
 RamAdapter.decoration();
@@ -64,7 +65,7 @@ async function waitFor(
     if (await condition()) return;
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
-  throw new Error(`Timed out after ${timeoutMs}ms waiting for condition`);
+  throw new InternalError(`Timed out after ${timeoutMs}ms waiting for condition`);
 }
 
 function makeContext(operation: OperationKeys = OperationKeys.READ) {
@@ -94,13 +95,13 @@ async function createNanoTestResources() {
 
   await NanoAdapter.createDatabase(connection, dbName).catch((e: any) => {
     if (!(e instanceof Error) || (e as any).error !== "file_exists") {
-      throw e;
+      throw new InternalError(String(e));
     }
   });
   await NanoAdapter.createUser(connection, dbName, user, password).catch(
     (e: any) => {
       if (!(e instanceof Error) || (e as any).error !== "file_exists") {
-        throw e;
+        throw new InternalError(String(e));
       }
     }
   );
@@ -120,12 +121,12 @@ async function cleanupNanoTestResources(resources: any) {
   try {
     await NanoAdapter.deleteDatabase(connection, dbName);
   } catch (e: any) {
-    if (!(e instanceof Error)) throw e;
+    if (!(e instanceof Error)) throw new InternalError(String(e));
   }
   try {
     await NanoAdapter.deleteUser(connection, dbName, user);
   } catch (e: any) {
-    if (!(e instanceof Error)) throw e;
+    if (!(e instanceof Error)) throw new InternalError(String(e));
   } finally {
     NanoAdapter.closeConnection(connection);
   }
@@ -215,7 +216,7 @@ describe("Standalone webhook module live integration", () => {
     await new Promise<void>((resolve) => receiverServer.listen(0, resolve));
     const receiverAddress = receiverServer.address();
     if (!receiverAddress || typeof receiverAddress === "string") {
-      throw new Error("Failed to bind receiver server");
+      throw new InternalError("Failed to bind receiver server");
     }
     receiverUrl = `http://127.0.0.1:${receiverAddress.port}`;
 
@@ -259,7 +260,7 @@ describe("Standalone webhook module live integration", () => {
 
     const appAddress = appServer.address();
     if (!appAddress || typeof appAddress === "string") {
-      throw new Error("Failed to bind application server");
+      throw new InternalError("Failed to bind application server");
     }
     appHttp = new AxiosHttpAdapter(
       {
@@ -278,7 +279,7 @@ describe("Standalone webhook module live integration", () => {
 
     const webhookAdapter = Adapter.get(NanoFlavour) as NanoAdapter;
     if (!webhookAdapter) {
-      throw new Error("Webhook adapter was not registered");
+      throw new InternalError("Webhook adapter was not registered");
     }
 
     deliveryService = new WebhookDeliveryService<AxiosHttpAdapter>();

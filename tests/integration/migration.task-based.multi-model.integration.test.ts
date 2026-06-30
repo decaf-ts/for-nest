@@ -12,7 +12,7 @@ import { RamAdapter } from "@decaf-ts/core/ram";
 import { TaskService } from "@decaf-ts/core/tasks";
 import { uses } from "@decaf-ts/decoration";
 import { model, Model, required } from "@decaf-ts/decorator-validation";
-import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+import { ConflictError, InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { NanoAdapter } from "@decaf-ts/for-nano";
 import { TypeORMAdapter } from "@decaf-ts/for-typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
@@ -149,11 +149,11 @@ async function createNanoTestResources(prefix: string) {
     nanoProtocol
   );
   await NanoAdapter.createDatabase(connection, dbName).catch((e: any) => {
-    if (!(e instanceof ConflictError)) throw e;
+    if (!(e instanceof ConflictError)) throw new InternalError(String(e));
   });
   await NanoAdapter.createUser(connection, dbName, user, password).catch(
     (e: any) => {
-      if (!(e instanceof ConflictError)) throw e;
+      if (!(e instanceof ConflictError)) throw new InternalError(String(e));
     }
   );
   return { connection, dbName, user, password };
@@ -164,13 +164,13 @@ async function cleanupNanoTestResources(resources: NanoResources) {
   try {
     await NanoAdapter.deleteDatabase(connection, dbName);
   } catch (e: any) {
-    if (!(e instanceof NotFoundError)) throw e;
+    if (!(e instanceof NotFoundError)) throw new InternalError(String(e));
   }
   await waitForCleanup(nanoCleanupDelayMs);
   try {
     await NanoAdapter.deleteUser(connection, dbName, user);
   } catch (e: any) {
-    if (!(e instanceof NotFoundError)) throw e;
+    if (!(e instanceof NotFoundError)) throw new InternalError(String(e));
   } finally {
     NanoAdapter.closeConnection(connection);
   }
@@ -195,7 +195,7 @@ async function createTypeORMTestResources(prefix: string) {
   try {
     await TypeORMAdapter.createDatabase(adminConnection, dbName);
   } catch (e: any) {
-    if (!(e instanceof ConflictError)) throw e;
+    if (!(e instanceof ConflictError)) throw new InternalError(String(e));
   } finally {
     await adminConnection.destroy();
   }
@@ -224,7 +224,7 @@ async function cleanupTypeORMTestResources(resources: TypeormResources) {
       resources.user
     );
   } catch (e: any) {
-    if (!(e instanceof NotFoundError)) throw e;
+    if (!(e instanceof NotFoundError)) throw new InternalError(String(e));
   }
   await waitForCleanup(pgCleanupDelayMs);
   try {
@@ -234,7 +234,7 @@ async function cleanupTypeORMTestResources(resources: TypeormResources) {
       pgAdminUser
     );
   } catch (e: any) {
-    if (!(e instanceof NotFoundError)) throw e;
+    if (!(e instanceof NotFoundError)) throw new InternalError(String(e));
   } finally {
     await adminConnection.destroy();
   }
@@ -407,7 +407,7 @@ async function addAndBackfillNonNullColumn(
     await queryRunner.commitTransaction();
   } catch (e: unknown) {
     await queryRunner.rollbackTransaction();
-    throw e;
+    throw new InternalError(String(e));
   } finally {
     await queryRunner.release();
   }
@@ -491,7 +491,7 @@ describe.skip("for-nest task-based migrations with real nano+typeorm adapters", 
 
   it("runs task-based migrations across nano and typeorm without mocks", async () => {
     if (!nanoResources || !typeormResources)
-      throw new Error("test resources are not initialized");
+      throw new InternalError("test resources are not initialized");
 
     await seedLegacyNanoState(nanoResources);
     await seedLegacyTypeormState(typeormResources);
@@ -552,7 +552,7 @@ describe.skip("for-nest task-based migrations with real nano+typeorm adapters", 
       );
 
       if (!nanoAdapter || !typeormAdapter) {
-        throw new Error(
+        throw new InternalError(
           "unable to resolve nano/typeorm adapters from Nest module"
         );
       }

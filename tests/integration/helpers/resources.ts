@@ -1,4 +1,4 @@
-import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+import { ConflictError, InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { NanoAdapter } from "@decaf-ts/for-nano";
 import { TypeORMAdapter } from "@decaf-ts/for-typeorm";
 
@@ -52,10 +52,10 @@ export async function createNanoTestResources(prefix: string): Promise<NanoResou
   const password = `${user}_pw`;
   const connection = NanoAdapter.connect(nanoAdminUser, nanoAdminPassword, nanoHost, nanoProtocol);
   await NanoAdapter.createDatabase(connection, dbName).catch((e: any) => {
-    if (!(e instanceof ConflictError)) throw e;
+    if (!(e instanceof ConflictError)) throw new InternalError(String(e));
   });
   await NanoAdapter.createUser(connection, dbName, user, password).catch((e: any) => {
-    if (!(e instanceof ConflictError)) throw e;
+    if (!(e instanceof ConflictError)) throw new InternalError(String(e));
   });
   return {
     connection,
@@ -71,13 +71,13 @@ export async function cleanupNanoTestResources(resources: NanoResources) {
   try {
     await NanoAdapter.deleteDatabase(resources.connection, resources.dbName);
   } catch (e: any) {
-    if (!(e instanceof NotFoundError)) throw e;
+    if (!(e instanceof NotFoundError)) throw new InternalError(String(e));
   }
   await waitForCleanup(nanoCleanupDelayMs);
   try {
     await NanoAdapter.deleteUser(resources.connection, resources.dbName, resources.user);
   } catch (e: any) {
-    if (!(e instanceof NotFoundError)) throw e;
+    if (!(e instanceof NotFoundError)) throw new InternalError(String(e));
   } finally {
     NanoAdapter.closeConnection(resources.connection);
   }
@@ -101,7 +101,7 @@ export async function createTypeORMTestResources(prefix: string): Promise<Typeor
   try {
     await TypeORMAdapter.createDatabase(adminConnection, dbName);
   } catch (e: any) {
-    if (!(e instanceof ConflictError)) throw e;
+    if (!(e instanceof ConflictError)) throw new InternalError(String(e));
   } finally {
     await adminConnection.destroy();
   }
@@ -123,13 +123,13 @@ export async function cleanupTypeORMTestResources(resources: TypeormResources) {
   try {
     await TypeORMAdapter.deleteDatabase(adminConnection, resources.dbName, resources.user);
   } catch (e: any) {
-    if (!(e instanceof NotFoundError)) throw e;
+    if (!(e instanceof NotFoundError)) throw new InternalError(String(e));
   }
   await waitForCleanup(pgCleanupDelayMs);
   try {
     await TypeORMAdapter.deleteUser(adminConnection, resources.user, pgAdminUser);
   } catch (e: any) {
-    if (!(e instanceof NotFoundError)) throw e;
+    if (!(e instanceof NotFoundError)) throw new InternalError(String(e));
   } finally {
     await adminConnection.destroy();
   }
@@ -194,7 +194,7 @@ export async function addAndBackfillNonNullColumn(
     await queryRunner.commitTransaction();
   } catch (e) {
     await queryRunner.rollbackTransaction();
-    throw e;
+    throw new InternalError(String(e));
   } finally {
     await queryRunner.release();
   }

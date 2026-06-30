@@ -1,5 +1,6 @@
 import { Delete, Get, Patch, Post, Put } from "@nestjs/common";
 import { HttpVerbs } from "./types";
+import { UnsupportedError } from "@decaf-ts/core";
 
 /**
  * Maps an HTTP verb to its corresponding NestJS method decorator.
@@ -24,7 +25,7 @@ export function HttpVerbToDecorator(
   const decorator = httpToCrud[verb];
 
   if (!decorator) {
-    throw new Error(
+    throw new UnsupportedError(
       `Unsupported HTTP verb "${verb}". No NestJS decorator mapping was found.`
     );
   }

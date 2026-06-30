@@ -18,6 +18,7 @@ import { AxiosHttpAdapter } from "@decaf-ts/for-http";
 import { RequestToContextTransformer } from "@decaf-ts/for-http/server";
 import { EventSource } from "eventsource";
 import { toKebabCase } from "@decaf-ts/logging";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 import { DecafExceptionFilter, DecafModule } from "../../src";
 import { DecafStreamModule } from "../../src/events-module";
@@ -66,13 +67,13 @@ async function createNanoTestResources(prefix: string) {
 
   await NanoAdapter.createDatabase(connection, dbName).catch((e: any) => {
     if (!(e instanceof Error) || (e as any).error !== "file_exists") {
-      throw e;
+      throw new InternalError(String(e));
     }
   });
   await NanoAdapter.createUser(connection, dbName, user, password).catch(
     (e: any) => {
       if (!(e instanceof Error) || (e as any).error !== "file_exists") {
-        throw e;
+        throw new InternalError(String(e));
       }
     }
   );
@@ -94,12 +95,12 @@ async function cleanupNanoTestResources(resources: Awaited<
   try {
     await NanoAdapter.deleteDatabase(connection, dbName);
   } catch (e: any) {
-    if (!(e instanceof Error)) throw e;
+    if (!(e instanceof Error)) throw new InternalError(String(e));
   }
   try {
     await NanoAdapter.deleteUser(connection, dbName, user);
   } catch (e: any) {
-    if (!(e instanceof Error)) throw e;
+    if (!(e instanceof Error)) throw new InternalError(String(e));
   } finally {
     NanoAdapter.closeConnection(connection);
   }
@@ -271,7 +272,7 @@ async function waitFor<T>(
     if (typeof value !== "undefined") return value as T;
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
-  throw new Error(`Timed out after ${timeoutMs}ms waiting for condition`);
+  throw new InternalError(`Timed out after ${timeoutMs}ms waiting for condition`);
 }
 
 describe("DecafModel exposure integration", () => {
@@ -318,7 +319,7 @@ describe("DecafModel exposure integration", () => {
     const server = await app.listen(0);
     const address = server.address();
     if (!address || typeof address === "string") {
-      throw new Error("Failed to resolve server address");
+      throw new InternalError("Failed to resolve server address");
     }
     const host =
       address.address === "::"
@@ -643,7 +644,7 @@ describe("DecafModel exposure integration", () => {
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         eventSource.close();
-        reject(new Error("Timed out waiting for SSE connection"));
+        reject(new InternalError("Timed out waiting for SSE connection"));
       }, 15000);
 
       eventSource.onopen = () => {

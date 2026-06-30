@@ -17,6 +17,7 @@ import {
   NanoResources,
   TypeormResources,
 } from "./helpers/resources";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 const CLI_FIXTURE = path.join(
   "tests",
@@ -37,6 +38,8 @@ const envKeys = [
   "NEST_CLI_TYPEORM_HOST",
   "NEST_CLI_TYPEORM_PORT",
 ];
+
+jest.setTimeout(60000);
 
 describe("nest cli migrate command (live)", () => {
   let nanoResources: NanoResources | undefined;
@@ -75,7 +78,7 @@ describe("nest cli migrate command (live)", () => {
 
   it("runs headless live migrations across nano and typeorm adapters", async () => {
     if (!nanoResources || !typeormResources) {
-      throw new Error("test resources were not initialized");
+      throw new InternalError("test resources were not initialized");
     }
 
     await seedLegacyNanoState(nanoResources);

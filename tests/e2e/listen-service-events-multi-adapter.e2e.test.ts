@@ -10,6 +10,7 @@ import { DecafStreamModule } from "../../src/events-module";
 import { AxiosHttpAdapter, RestService } from "@decaf-ts/for-http";
 import { RamTransformer } from "@decaf-ts/for-http/server";
 import { OperationKeys } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 type ReceivedEvent = {
   model: string;
@@ -66,7 +67,7 @@ function waitForEvents(
         // ignore cleanup errors in test helper
       }
       reject(
-        new Error(
+        new InternalError(
           `Timed out waiting for ${expectedCount} events, got ${events.length}`
         )
       );
@@ -94,7 +95,7 @@ async function waitForServerObserverCount(
   }
 
   const count = adapter?.observerHandler?.count?.() ?? 0;
-  throw new Error(
+  throw new InternalError(
     `Timed out waiting for ${expectedCount} server observers, got ${count}`
   );
 }
@@ -128,7 +129,7 @@ describe("Listen Service Events with multiple adapters/models (e2e)", () => {
     const server = await app.listen(0);
     const address = server.address();
     if (!address || typeof address === "string") {
-      throw new Error("Failed to resolve server address");
+      throw new InternalError("Failed to resolve server address");
     }
 
     serverHost = `127.0.0.1:${address.port}`;

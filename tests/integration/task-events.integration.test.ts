@@ -16,6 +16,7 @@ import { DecafModule, DecafExceptionFilter } from "../../src/index";
 import { RamTransformer } from "@decaf-ts/for-http/server";
 import { uses } from "@decaf-ts/decoration";
 import { OperationKeys } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 RamAdapter.decoration();
 uses(RamFlavour)(TaskModel);
@@ -226,5 +227,5 @@ async function waitForEvents(predicate: () => boolean, timeoutMs: number) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error("Timed out waiting for events");
+  throw new InternalError("Timed out waiting for events");
 }

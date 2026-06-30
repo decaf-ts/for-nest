@@ -7,6 +7,7 @@ import {
   Service as CoreService,
 } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 export type DecafFactoryProvider = {
   provide: string;
@@ -70,7 +71,7 @@ export function Service(key?: string | Constructor<any>): ParameterDecorator {
       resolved = paramTypes[parameterIndex];
     }
     if (typeof resolved === "undefined") {
-      throw new Error(
+      throw new InternalError(
         `@Service() could not determine an injection type for parameter ${parameterIndex} of ${(target as Constructor<any>).name}. Provide an explicit argument, e.g. @Service(SomeService).`
       );
     }

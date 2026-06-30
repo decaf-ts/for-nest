@@ -1,15 +1,16 @@
 const { Module } = require("@nestjs/common");
-const { DecafModule } = require("../../../lib/cjs/module.cjs");
+const { DecafModule } = require("@decaf-ts/for-nest");
 const { RamTransformer } = require("@decaf-ts/for-http/server");
 const { NanoAdapter } = require("@decaf-ts/for-nano");
 const { TypeORMAdapter } = require("@decaf-ts/for-typeorm");
 const { RamAdapter } = require("@decaf-ts/core/ram");
 const { TaskService } = require("@decaf-ts/core/tasks");
 const { service, Service, TaskModel } = require("@decaf-ts/core");
+const { InternalError } = require("@decaf-ts/db-decorators");
 
 function expectEnv(name) {
   const value = process.env[name];
-  if (!value) throw new Error(`Environment variable ${name} is required`);
+  if (!value) throw new InternalError(`Environment variable ${name} is required`);
   return value;
 }
 

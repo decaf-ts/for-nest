@@ -49,6 +49,11 @@ export function getModuleFor(flavour: string) {
         this.isExposed(model, options.controllerExposure)
       );
 
+      // Controllers always rely on a backing ModelService, even when Nest providers
+      // are not auto-registered. Warm the singleton registry here so shutdown can
+      // see the live services created for the generated controllers.
+      for (const model of trackedModels) ModelService.forModel(model as any);
+
       let modelServices: Provider[] = [];
       if (options.autoServices) {
         log.info("Auto-services enabled. Initializing service generation.");

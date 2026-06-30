@@ -6,6 +6,7 @@ import { DecafExceptionFilter, DecafModule } from "../../src";
 //  @ts-expect-error paths
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { OperationKeys } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 import { EventSource } from "eventsource";
 import { DecafStreamModule } from "../../src/events-module";
 import { RamTransformer } from "@decaf-ts/for-http/server";
@@ -47,7 +48,7 @@ function listenForEvent(
     const es = new EventSource(url);
     const timeout = setTimeout(() => {
       es.close();
-      reject(new Error(`No SSE event received within ${timeoutMs / 1000}s`));
+      reject(new InternalError(`No SSE event received within ${timeoutMs / 1000}s`));
     }, timeoutMs);
 
     es.onopen = async () => {
@@ -85,7 +86,7 @@ function listenForMultipleEvents(
     const events = [];
     const timeout = setTimeout(() => {
       es.close();
-      reject(new Error(`No SSE event received within ${timeoutMs / 1000}s`));
+      reject(new InternalError(`No SSE event received within ${timeoutMs / 1000}s`));
     }, timeoutMs);
 
     es.onopen = async () => {
@@ -128,7 +129,7 @@ describe("Listen Server Events (e2e)", () => {
     const server = await app.listen(0);
     const address = server.address();
     if (!address || typeof address === "string") {
-      throw new Error("Failed to resolve server address");
+      throw new InternalError("Failed to resolve server address");
     }
     serverUrl = `http://127.0.0.1:${address.port}`;
     repo = Repository.forModel(ProcessStep);

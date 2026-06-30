@@ -88,7 +88,7 @@ describe("DecafModelModule CRUD by HttpAdapter", () => {
           return result;
         }
         default:
-          throw new Error("Method not implemented.");
+          throw new InternalError("Method not implemented.");
       }
     });
 

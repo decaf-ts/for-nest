@@ -163,17 +163,36 @@ describe("Model controller builder parity", () => {
     // Match the factory: add composed PK fallback routes (filterEmpty)
     const pkName = Model.pk(ProductMarket) as string;
     const composed = Metadata.get(ProductMarket, Metadata.key(DBKeys.COMPOSED, pkName));
-    const composedKeys = composed?.args ?? [];
+    const composedKeys = Array.isArray(composed?.args)
+      ? Array.from(new Set(composed.args))
+      : [];
     const canOmit = (name: string) =>
       composed?.filterEmpty === true
         ? true
         : Array.isArray(composed?.filterEmpty)
-          ? composed?.filterEmpty.includes(name)
+          ? composed.filterEmpty.includes(name)
           : false;
+    const fallbackPaths = new Set<string>();
+    const walkFallbacks = (index: number, current: string[]) => {
+      if (index >= composedKeys.length) {
+        if (current.length > 0) fallbackPaths.add(`:${current.join("/:")}`);
+        return;
+      }
+
+      const segment = composedKeys[index];
+      current.push(segment);
+      walkFallbacks(index + 1, current);
+      current.pop();
+
+      if (canOmit(segment)) {
+        walkFallbacks(index + 1, current);
+      }
+    };
+
     if (composedKeys.length > 1) {
-      for (let end = composedKeys.length - 1; end >= 1; end -= 1) {
-        if (composedKeys.slice(end).every(canOmit)) {
-          const fbPath = `:${composedKeys.slice(0, end).join("/:")}`;
+      walkFallbacks(0, []);
+      for (const fbPath of fallbackPaths) {
+        if (fbPath !== `:${composedKeys.join("/:")}`) {
           builder.addReadRoute(fbPath).addUpdateRoute(fbPath).addDeleteRoute(fbPath);
         }
       }
