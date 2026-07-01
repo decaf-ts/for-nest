@@ -1,5 +1,3 @@
-import { Model } from "@decaf-ts/decorator-validation";
-
 export function normalizeEventResponse(args: any[]): unknown[] {
   const [modelConstr, operation, id, payload] = args;
 

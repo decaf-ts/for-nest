@@ -106,6 +106,7 @@ export class DecafWebhookModule {
   static async forRootAsync(
     options: DecafWebhookModuleOptions
   ): Promise<DynamicModule> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const adapters = await this.bootPersistence(options);
     const controllers = [
       FromModelController.create(WebhookSubscription),

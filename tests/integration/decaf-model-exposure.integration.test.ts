@@ -293,8 +293,8 @@ describe("DecafModel exposure integration", () => {
             [
               NanoAdapter,
               {
-                user: nanoResources.user,
-                password: nanoResources.password,
+                couchUser: nanoResources.user,
+                couchPassword: nanoResources.password,
                 host: nanoResources.host,
                 dbName: nanoResources.dbName,
                 protocol: nanoResources.protocol,

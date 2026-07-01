@@ -36,6 +36,30 @@ function waitForCleanup(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
+async function waitForNanoAccess(
+  dbName: string,
+  user: string,
+  password: string,
+  host: string,
+  protocol: "http" | "https",
+  timeoutMs = 15000,
+  intervalMs = 250
+) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const probe = NanoAdapter.connect(user, password, host, protocol);
+    try {
+      await probe.db.use(dbName).get("_security");
+      return;
+    } catch {
+      await waitForCleanup(intervalMs);
+    } finally {
+      NanoAdapter.closeConnection(probe);
+    }
+  }
+  throw new InternalError(`Timed out waiting for Nano access to ${dbName}`);
+}
+
 export type NanoResources = {
   connection: any;
   dbName: string;
@@ -57,6 +81,7 @@ export async function createNanoTestResources(prefix: string): Promise<NanoResou
   await NanoAdapter.createUser(connection, dbName, user, password).catch((e: any) => {
     if (!(e instanceof ConflictError)) throw new InternalError(String(e));
   });
+  await waitForNanoAccess(dbName, user, password, nanoHost, nanoProtocol);
   return {
     connection,
     dbName,

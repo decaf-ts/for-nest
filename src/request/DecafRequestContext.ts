@@ -7,7 +7,10 @@ import { type Request } from "express";
 import { DecafServerCtx } from "../constants";
 
 @Injectable({ scope: Scope.REQUEST })
-export class DecafRequestContext<C extends DecafServerCtx = DecafServerCtx> extends RequestContext<Request> {
+export class DecafRequestContext<
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  C extends DecafServerCtx = DecafServerCtx,
+> extends RequestContext<Request> {
   uuid = UUID.instance.generate();
   override readonly request: Request;
 
@@ -29,7 +32,6 @@ export class DecafRequestContext<C extends DecafServerCtx = DecafServerCtx> exte
     let overrides: any;
     try {
       overrides = this.get("overrides");
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {
       overrides = {};
     }

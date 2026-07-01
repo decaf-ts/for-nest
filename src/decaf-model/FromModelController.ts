@@ -1,4 +1,10 @@
-import { Controller, Param, Query, Response, SetMetadata } from "@nestjs/common";
+import {
+  Controller,
+  Param,
+  Query,
+  Response,
+  SetMetadata,
+} from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -15,7 +21,6 @@ import {
   getSchemaPath,
 } from "@nestjs/swagger";
 import {
-  type DirectionLimitOffset,
   ModelService,
   OrderDirection,
   PersistenceKeys,
@@ -27,12 +32,10 @@ import {
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Logging, toKebabCase } from "@decaf-ts/logging";
 import {
-  BulkCrudOperationKeys,
   DBKeys,
   BaseError,
   InternalError,
   OperationKeys,
-  ValidationError,
 } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import {
@@ -68,7 +71,9 @@ export class FromModelController {
   ): BaseError {
     if (error instanceof BaseError) return error;
     return new InternalError(
-      error instanceof Error ? `${fallbackMessage}: ${error.message}` : fallbackMessage
+      error instanceof Error
+        ? `${fallbackMessage}: ${error.message}`
+        : fallbackMessage
     );
   }
 
@@ -92,7 +97,6 @@ export class FromModelController {
   ): ControllerConstructor<T> {
     const repo: Repo<T> =
       persistence instanceof ModelService ? persistence.repo : persistence;
-    const ModelConstr: Constructor = repo.class;
     const queryMethods: Record<string, { fields?: string[] | undefined }> =
       Metadata.get(
         repo.constructor as Constructor,
@@ -122,23 +126,20 @@ export class FromModelController {
       const handler = FromModelController.createComplexQueryHandler(
         methodName
       ) as any;
-      FromModelController.defineMethod(
-        QueryController,
-        methodName,
-        handler
-      );
+      FromModelController.defineMethod(QueryController, methodName, handler);
 
-      const httpDecorator = HttpVerbToDecorator(params.httpMethod as HttpVerbs)(routePath || undefined);
+      const httpDecorator = HttpVerbToDecorator(params.httpMethod as HttpVerbs)(
+        routePath || undefined
+      );
       const decorators = FromModelController.getQueryDecorators(
         methodName,
         routePath,
         params.httpMethod
       );
-      FromModelController.applyDecorators(
-        QueryController,
-        methodName,
-        [httpDecorator, ...decorators]
-      );
+      FromModelController.applyDecorators(QueryController, methodName, [
+        httpDecorator,
+        ...decorators,
+      ]);
     }
 
     for (const [methodName, objValues] of Object.entries(queryMethods)) {
@@ -150,24 +151,21 @@ export class FromModelController {
       const handler = FromModelController.createComplexQueryHandler(
         methodName
       ) as any;
-      FromModelController.defineMethod(
-        QueryController,
-        methodName,
-        handler
-      );
+      FromModelController.defineMethod(QueryController, methodName, handler);
 
-      const httpDecorator = HttpVerbToDecorator("GET" as HttpVerbs)(routePath || undefined);
+      const httpDecorator = HttpVerbToDecorator("GET" as HttpVerbs)(
+        routePath || undefined
+      );
       const decorators = FromModelController.getQueryDecorators(
         methodName,
         routePath,
         "GET",
         true
       );
-      FromModelController.applyDecorators(
-        QueryController,
-        methodName,
-        [httpDecorator, ...decorators]
-      );
+      FromModelController.applyDecorators(QueryController, methodName, [
+        httpDecorator,
+        ...decorators,
+      ]);
     }
 
     return QueryController;
@@ -210,8 +208,11 @@ export class FromModelController {
       | ServerRoute[]
       | undefined;
 
-    const { getPK, apiProperties, path: pkPath } =
-      FromModelController.getRouteParametersFromModel(ModelConstr);
+    const {
+      getPK,
+      apiProperties,
+      path: pkPath,
+    } = FromModelController.getRouteParametersFromModel(ModelConstr);
 
     log.debug(
       `Creating controller for model: ${modelClazzName} with ${factoryRoutes?.length ?? 0} factory routes`
@@ -266,13 +267,13 @@ export class FromModelController {
         const bLiteralCount = bSegments.length - bParamCount;
         if (aLiteralCount !== bLiteralCount)
           return bLiteralCount - aLiteralCount;
-        if (aParamCount !== bParamCount)
-          return aParamCount - bParamCount;
+        if (aParamCount !== bParamCount) return aParamCount - bParamCount;
         return 0;
       });
 
       for (const route of sortedRoutes) {
-        const methodName = route.implementation?.name || route.method.toLowerCase();
+        const methodName =
+          route.implementation?.name || route.method.toLowerCase();
         const registration = FromModelController.matchRoute(
           methodName,
           route,
@@ -280,8 +281,7 @@ export class FromModelController {
           apiProperties,
           getPK,
           ModelConstr,
-          modelClazzName,
-          factoryPersistence
+          modelClazzName
         );
         if (!registration) continue;
 
@@ -364,10 +364,14 @@ export class FromModelController {
       .filter(Boolean)
       .flatMap((segment) => {
         if (segment.startsWith(":")) {
-          return [{ decorator: Param(segment.slice(1)) as any, index: paramIndex++ }];
+          return [
+            { decorator: Param(segment.slice(1)) as any, index: paramIndex++ },
+          ];
         }
         if (segment.startsWith("*")) {
-          return [{ decorator: Param(segment.slice(1)) as any, index: paramIndex++ }];
+          return [
+            { decorator: Param(segment.slice(1)) as any, index: paramIndex++ },
+          ];
         }
         return [];
       });
@@ -378,16 +382,12 @@ export class FromModelController {
     methodName: string,
     handler: (...args: any[]) => any
   ): PropertyDescriptor | undefined {
-    Object.defineProperty(
-      target.prototype || target,
-      methodName,
-      {
-        value: handler,
-        writable: false,
-        configurable: true,
-        enumerable: false,
-      }
-    );
+    Object.defineProperty(target.prototype || target, methodName, {
+      value: handler,
+      writable: false,
+      configurable: true,
+      enumerable: false,
+    });
 
     return Object.getOwnPropertyDescriptor(
       target.prototype || target,
@@ -399,7 +399,10 @@ export class FromModelController {
     target: any,
     methodName: string,
     methodDecorators: Array<(target: any, key: string, desc: any) => void>,
-    paramDecorators: Array<{ decorator: ParameterDecorator; index: number }> = []
+    paramDecorators: Array<{
+      decorator: ParameterDecorator;
+      index: number;
+    }> = []
   ) {
     const proto = target?.prototype ?? target;
     const descriptor = Object.getOwnPropertyDescriptor(proto, methodName);
@@ -416,14 +419,18 @@ export class FromModelController {
     apiProperties: DecafApiProperty[],
     getPK: (...p: Array<string | number>) => string,
     ModelConstr: ModelConstructor<any>,
-    modelClazzName: string,
-    persistence?: any
-  ): {
-    methodName: string;
-    handler: (...args: any[]) => any;
-    decorators: Array<(target: any, key: string, desc: any) => void>;
-    paramDecorators: Array<{ decorator: ParameterDecorator; index: number }>;
-  } | undefined {
+    modelClazzName: string
+  ):
+    | {
+        methodName: string;
+        handler: (...args: any[]) => any;
+        decorators: Array<(target: any, key: string, desc: any) => void>;
+        paramDecorators: Array<{
+          decorator: ParameterDecorator;
+          index: number;
+        }>;
+      }
+    | undefined {
     const { method, path } = route;
     const normalizedPath = path.replace(/^\/+|\/+$/g, "");
     const handler = route.implementation as (...args: any[]) => any;
@@ -433,7 +440,10 @@ export class FromModelController {
         "create",
         handler,
         FromModelController.createCreateDecorators(ModelConstr, modelClazzName),
-        [{ decorator: DecafBody() as any, index: 0 }, { decorator: Response({ passthrough: true }) as any, index: 1 }]
+        [
+          { decorator: DecafBody() as any, index: 0 },
+          { decorator: Response({ passthrough: true }) as any, index: 1 },
+        ]
       );
     }
 
@@ -442,7 +452,10 @@ export class FromModelController {
         "createAll",
         handler,
         FromModelController.bulkCreateDecorators(ModelConstr, modelClazzName),
-        [{ decorator: DecafBody() as any, index: 0 }, { decorator: Response({ passthrough: true }) as any, index: 1 }]
+        [
+          { decorator: DecafBody() as any, index: 0 },
+          { decorator: Response({ passthrough: true }) as any, index: 1 },
+        ]
       );
     }
 
@@ -459,8 +472,15 @@ export class FromModelController {
       return FromModelController.createRegistration(
         "updateAll",
         handler,
-        FromModelController.bulkUpdateDecorators(ModelConstr, modelClazzName, apiProperties),
-        [{ decorator: DecafBody() as any, index: 0 }, { decorator: Response({ passthrough: true }) as any, index: 1 }]
+        FromModelController.bulkUpdateDecorators(
+          ModelConstr,
+          modelClazzName,
+          apiProperties
+        ),
+        [
+          { decorator: DecafBody() as any, index: 0 },
+          { decorator: Response({ passthrough: true }) as any, index: 1 },
+        ]
       );
     }
 
@@ -468,8 +488,15 @@ export class FromModelController {
       return FromModelController.createRegistration(
         "deleteAll",
         handler,
-        FromModelController.bulkDeleteDecorators(ModelConstr, modelClazzName, apiProperties),
-        [{ decorator: Query("ids") as any, index: 0 }, { decorator: Response({ passthrough: true }) as any, index: 1 }]
+        FromModelController.bulkDeleteDecorators(
+          ModelConstr,
+          modelClazzName,
+          apiProperties
+        ),
+        [
+          { decorator: Query("ids") as any, index: 0 },
+          { decorator: Response({ passthrough: true }) as any, index: 1 },
+        ]
       );
     }
 
@@ -477,17 +504,28 @@ export class FromModelController {
       return FromModelController.createRegistration(
         "read",
         handler,
-        FromModelController.readDecorators(ModelConstr, modelClazzName, apiProperties, pkPath),
+        FromModelController.readDecorators(
+          ModelConstr,
+          modelClazzName,
+          apiProperties,
+          pkPath
+        ),
         FromModelController.routeParamDecorators(normalizedPath)
       );
     }
 
     if (method === "PUT" && normalizedPath === pkPath) {
-      const routeParams = FromModelController.routeParamDecorators(normalizedPath);
+      const routeParams =
+        FromModelController.routeParamDecorators(normalizedPath);
       return FromModelController.createRegistration(
         "update",
         handler,
-        FromModelController.updateDecorators(ModelConstr, modelClazzName, apiProperties, pkPath),
+        FromModelController.updateDecorators(
+          ModelConstr,
+          modelClazzName,
+          apiProperties,
+          pkPath
+        ),
         [
           { decorator: DecafBody() as any, index: 0 },
           ...routeParams.map(({ decorator, index }) => ({
@@ -499,32 +537,48 @@ export class FromModelController {
     }
 
     if (method === "DELETE" && normalizedPath === pkPath) {
-      const routeParams = FromModelController.routeParamDecorators(normalizedPath);
+      const routeParams =
+        FromModelController.routeParamDecorators(normalizedPath);
       return FromModelController.createRegistration(
         "delete",
         handler,
-        FromModelController.deleteDecorators(ModelConstr, modelClazzName, apiProperties, pkPath),
+        FromModelController.deleteDecorators(
+          ModelConstr,
+          modelClazzName,
+          apiProperties,
+          pkPath
+        ),
         routeParams
       );
     }
 
     // Composed PK fallback routes (filterEmpty) — path differs from pkPath
     const fallbackSegments = normalizedPath.split("/").filter(Boolean);
-    const isAllParams = fallbackSegments.length > 0 && fallbackSegments.every((s) => s.startsWith(":"));
+    const isAllParams =
+      fallbackSegments.length > 0 &&
+      fallbackSegments.every((s) => s.startsWith(":"));
     if (isAllParams && normalizedPath !== pkPath) {
-      const fallbackApiProps = fallbackSegments.map((s) => s.slice(1)).map((name) => ({
-        name,
-        description: `${name} parameter`,
-        required: true,
-        type: String,
-      }));
+      const fallbackApiProps = fallbackSegments
+        .map((s) => s.slice(1))
+        .map((name) => ({
+          name,
+          description: `${name} parameter`,
+          required: true,
+          type: String,
+        }));
       const suffix = fallbackSegments.map((s) => s.slice(1)).join("And");
-      const routeParams = FromModelController.routeParamDecorators(normalizedPath);
+      const routeParams =
+        FromModelController.routeParamDecorators(normalizedPath);
       if (method === "GET") {
         return FromModelController.createRegistration(
           `readBy${suffix}`,
           handler,
-          FromModelController.readDecorators(ModelConstr, modelClazzName, fallbackApiProps, normalizedPath),
+          FromModelController.readDecorators(
+            ModelConstr,
+            modelClazzName,
+            fallbackApiProps,
+            normalizedPath
+          ),
           routeParams
         );
       }
@@ -532,7 +586,12 @@ export class FromModelController {
         return FromModelController.createRegistration(
           `updateBy${suffix}`,
           handler,
-          FromModelController.updateDecorators(ModelConstr, modelClazzName, fallbackApiProps, normalizedPath),
+          FromModelController.updateDecorators(
+            ModelConstr,
+            modelClazzName,
+            fallbackApiProps,
+            normalizedPath
+          ),
           [
             { decorator: DecafBody() as any, index: 0 },
             ...routeParams.map(({ decorator, index }) => ({
@@ -546,7 +605,12 @@ export class FromModelController {
         return FromModelController.createRegistration(
           `deleteBy${suffix}`,
           handler,
-          FromModelController.deleteDecorators(ModelConstr, modelClazzName, fallbackApiProps, normalizedPath),
+          FromModelController.deleteDecorators(
+            ModelConstr,
+            modelClazzName,
+            fallbackApiProps,
+            normalizedPath
+          ),
           routeParams
         );
       }
@@ -600,7 +664,12 @@ export class FromModelController {
       return FromModelController.createRegistration(
         FromModelController.statementMethodName(normalizedPath),
         handler,
-        FromModelController.statementShortcutDecorators(ModelConstr, modelClazzName, normalizedPath, statementKey),
+        FromModelController.statementShortcutDecorators(
+          ModelConstr,
+          modelClazzName,
+          normalizedPath,
+          statementKey
+        ),
         FromModelController.statementShortcutParams(normalizedPath)
       );
     }
@@ -610,16 +679,35 @@ export class FromModelController {
       return FromModelController.createRegistration(
         queryMethod,
         handler,
-        FromModelController.getQueryDecorators(queryMethod, normalizedPath, "GET", true),
+        FromModelController.getQueryDecorators(
+          queryMethod,
+          normalizedPath,
+          "GET",
+          true
+        ),
         FromModelController.complexQueryParams(normalizedPath)
       );
     }
 
     const pathSegments = normalizedPath.split("/").filter(Boolean);
     const knownPrefixes = new Set<string>([
-      "listBy", "findBy", "findByPaginate", "findOneBy", "paginateBy",
-      "find", "page", "countOf", "maxOf", "minOf", "avgOf", "sumOf",
-      "distinctOf", "groupOf", "statement", "bulk", "query",
+      "listBy",
+      "findBy",
+      "findByPaginate",
+      "findOneBy",
+      "paginateBy",
+      "find",
+      "page",
+      "countOf",
+      "maxOf",
+      "minOf",
+      "avgOf",
+      "sumOf",
+      "distinctOf",
+      "groupOf",
+      "statement",
+      "bulk",
+      "query",
     ]);
     if (
       pathSegments.length > 0 &&
@@ -644,7 +732,9 @@ export class FromModelController {
           ...apiPathParams.map((p) => ApiParam(p)),
           ApiOperation({ summary: `Retrieve records using "${methodName}".` }),
           ApiOkResponse({ description: "Result successfully retrieved." }),
-          ApiNoContentResponse({ description: "No content returned by the method." }),
+          ApiNoContentResponse({
+            description: "No content returned by the method.",
+          }),
         ],
         FromModelController.routeParamDecorators(normalizedPath)
       );
@@ -702,376 +792,6 @@ export class FromModelController {
     return params;
   }
 
-  private static createCreateHandler(
-    ModelConstr: ModelConstructor<any>,
-    modelClazzName: string
-  ) {
-    return async function create(
-      this: any,
-      data: any,
-      resp?: any
-    ): Promise<Model<any>> {
-      const { ctx, log } = (
-        await this.logCtx([], OperationKeys.CREATE, true)
-      ).for(create);
-      log.verbose(`creating new ${modelClazzName}`);
-      let created: Model;
-      try {
-        created = await this.persistence(ctx).create(data, ctx);
-      } catch (e: unknown) {
-        log.error(`Failed to create new ${modelClazzName}`, e as Error);
-        throw FromModelController.toDecafError(
-          e,
-          `Failed to create new ${modelClazzName}`
-        );
-      }
-      log.info(`created new ${modelClazzName} with id ${(created as any)[this.pk]}`);
-      if (resp) ctx.toResponse(resp);
-      return created;
-    };
-  }
-
-  private static createBulkCreateHandler(
-    ModelConstr: ModelConstructor<any>,
-    modelClazzName: string
-  ) {
-    return async function createAll(
-      this: any,
-      data: any[],
-      resp?: any
-    ): Promise<Model[]> {
-      const { ctx, log } = (
-        await this.logCtx([], BulkCrudOperationKeys.CREATE_ALL, true)
-      ).for(createAll);
-      log.verbose(`creating new ${modelClazzName}`);
-      let created: any[];
-      try {
-        created = await this.persistence(ctx).createAll(
-          data.map((d) => new ModelConstr(d)),
-          ctx
-        );
-      } catch (e: unknown) {
-        log.error(`Failed to create new ${modelClazzName}`, e as Error);
-        throw FromModelController.toDecafError(
-          e,
-          `Failed to create new ${modelClazzName}`
-        );
-      }
-      log.info(`created new ${modelClazzName} with id ${(created as any)[this.pk]}`);
-      if (resp) ctx.toResponse(resp);
-      return created;
-    };
-  }
-
-  private static createBulkReadHandler(modelClazzName: string) {
-    return async function readAll(
-      this: any,
-      ids: string[]
-    ): Promise<Model[]> {
-      const { ctx, log } = (
-        await this.logCtx([], BulkCrudOperationKeys.READ_ALL, true)
-      ).for(readAll);
-      const normalizedIds = Array.isArray(ids) ? ids : [ids];
-      let read: Model[];
-      try {
-        log.debug(`reading ${normalizedIds} ${modelClazzName}`);
-        read = await this.persistence(ctx).readAll(normalizedIds as any, ctx);
-      } catch (e: unknown) {
-        log.error(`Failed to read ${modelClazzName}`, e as Error);
-        throw FromModelController.toDecafError(
-          e,
-          `Failed to read ${modelClazzName}`
-        );
-      }
-      log.info(`read ${read.length} ${modelClazzName}`);
-      return read;
-    };
-  }
-
-  private static createBulkUpdateHandler(modelClazzName: string) {
-    return async function updateAll(
-      this: any,
-      body: any[],
-      resp?: any
-    ): Promise<any[]> {
-      const { ctx, log } = (
-        await this.logCtx([], BulkCrudOperationKeys.UPDATE_ALL, true)
-      ).for(updateAll);
-      let updated: any[];
-      try {
-        log.info(`updating ${body.length} ${modelClazzName}`);
-        updated = await this.persistence(ctx).updateAll(body, ctx);
-      } catch (e: unknown) {
-        log.error(e as Error);
-        throw FromModelController.toDecafError(
-          e,
-          `Failed to update ${modelClazzName}`
-        );
-      }
-      if (resp) ctx.toResponse(resp);
-      return updated;
-    };
-  }
-
-  private static createBulkDeleteHandler(modelClazzName: string) {
-    return async function deleteAll(
-      this: any,
-      ids: string[],
-      resp?: any
-    ): Promise<Model[]> {
-      const { ctx, log } = (
-        await this.logCtx([], BulkCrudOperationKeys.DELETE_ALL, true)
-      ).for(deleteAll);
-      const normalizedIds = Array.isArray(ids) ? ids : [ids];
-      let read: Model[];
-      try {
-        log.debug(`deleting ${normalizedIds.length} ${modelClazzName}`);
-        read = await this.persistence(ctx).deleteAll(normalizedIds, ctx);
-      } catch (e: unknown) {
-        log.error(`Failed to delete ${modelClazzName}`, e as Error);
-        throw FromModelController.toDecafError(
-          e,
-          `Failed to delete ${modelClazzName}`
-        );
-      }
-      log.info(`deleted ${read.length} ${modelClazzName}`);
-      if (resp) ctx.toResponse(resp);
-      return read;
-    };
-  }
-
-  private static createReadHandler(
-    getPK: (...p: Array<string | number>) => string,
-    modelClazzName: string
-  ) {
-    return async function read(
-      this: any,
-      routeParams: any
-    ): Promise<Model> {
-      const { ctx, log } = (
-        await this.logCtx([], OperationKeys.READ, true)
-      ).for(read);
-      const id = getPK(...routeParams.valuesInOrder);
-      if (typeof id === "undefined")
-        throw new ValidationError(`No ${this.pk} provided`);
-      let readResult: Model;
-      try {
-        log.debug(`reading ${modelClazzName} with ${this.pk} ${id}`);
-        readResult = await this.persistence(ctx).read(id, ctx);
-      } catch (e: unknown) {
-        log.error(`Failed to read ${modelClazzName} with id ${id}`, e as Error);
-        throw FromModelController.toDecafError(
-          e,
-          `Failed to read ${modelClazzName} with id ${id}`
-        );
-      }
-      log.info(`read ${modelClazzName} with id ${(readResult as any)[this.pk]}`);
-      return readResult;
-    };
-  }
-
-  private static createUpdateHandler(
-    getPK: (...p: Array<string | number>) => string,
-    ModelConstr: ModelConstructor<any>,
-    modelClazzName: string
-  ) {
-    return async function update(
-      this: any,
-      routeParams: any,
-      body: any,
-      resp?: any
-    ): Promise<any> {
-      const { ctx, log } = (
-        await this.logCtx([], OperationKeys.UPDATE, true)
-      ).for(update);
-      const id = getPK(...routeParams.valuesInOrder);
-      if (typeof id === "undefined")
-        throw new ValidationError(`No ${this.pk} provided`);
-      let updated: any;
-      try {
-        log.info(`updating ${modelClazzName} with ${this.pk} ${id}`);
-        const payload = JSON.parse(JSON.stringify(body));
-        updated = await this.persistence(ctx).update(
-          new ModelConstr({ ...payload, [this.pk]: id }),
-          ctx
-        );
-      } catch (e: unknown) {
-        log.error(e as Error);
-        throw FromModelController.toDecafError(
-          e,
-          `Failed to update ${modelClazzName} with id ${id}`
-        );
-      }
-      if (resp) ctx.toResponse(resp);
-      return updated;
-    };
-  }
-
-  private static createDeleteHandler(
-    getPK: (...p: Array<string | number>) => string,
-    modelClazzName: string
-  ) {
-    return async function remove(
-      this: any,
-      routeParams: any,
-      resp?: any
-    ): Promise<Model> {
-      const { ctx, log } = (
-        await this.logCtx([], OperationKeys.DELETE, true)
-      ).for(remove);
-      const id = getPK(...routeParams.valuesInOrder);
-      if (typeof id === "undefined")
-        throw new ValidationError(`No ${this.pk} provided`);
-      let del: Model;
-      try {
-        log.debug(`deleting ${modelClazzName} with ${this.pk} ${id}`);
-        del = await this.persistence(ctx).delete(id, ctx);
-      } catch (e: unknown) {
-        log.error(`Failed to delete ${modelClazzName} with id ${id}`, e as Error);
-        throw FromModelController.toDecafError(
-          e,
-          `Failed to delete ${modelClazzName} with id ${id}`
-        );
-      }
-      log.info(`deleted ${modelClazzName} with id ${id}`);
-      if (resp) ctx.toResponse(resp);
-      return del;
-    };
-  }
-
-  private static createStatementHandler(modelClazzName: string) {
-    return async function statement(
-      this: any,
-      name: string,
-      args: (string | number)[],
-      details: DirectionLimitOffset
-    ): Promise<any> {
-      const { ctx } = (
-        await this.logCtx([], PersistenceKeys.STATEMENT, true)
-      ).for(statement);
-      const { direction, offset, limit, bookmark } = details;
-      args = args.map(
-        (a) => (typeof a === "string" ? parseInt(a as string) : a) || a
-      ) as any[];
-      const pathDirection = args.length > 1 ? args[1] : undefined;
-      const resolvedDirection = (direction ?? pathDirection) as
-        | string
-        | undefined;
-      if (resolvedDirection && args.length > 1) args[1] = resolvedDirection;
-      switch (name) {
-        case PreparedStatementKeys.FIND:
-        case PreparedStatementKeys.FIND_BY:
-          break;
-        case PreparedStatementKeys.LIST_BY:
-          args.push(direction as string);
-          break;
-        case PreparedStatementKeys.PAGE:
-        case PreparedStatementKeys.PAGE_BY:
-          args = [
-            args[0],
-            resolvedDirection as any,
-            { limit, offset, bookmark },
-          ];
-          break;
-        case PreparedStatementKeys.FIND_ONE_BY:
-          break;
-        case PreparedStatementKeys.COUNT_OF:
-        case PreparedStatementKeys.MAX_OF:
-        case PreparedStatementKeys.MIN_OF:
-        case PreparedStatementKeys.AVG_OF:
-        case PreparedStatementKeys.SUM_OF:
-        case PreparedStatementKeys.DISTINCT_OF:
-        case PreparedStatementKeys.GROUP_OF:
-          break;
-      }
-      return this.persistence(ctx).statement(name, ...args, ctx);
-    };
-  }
-
-  private static createStatementShortcutHandler(
-    statementKey: string,
-    modelClazzName: string
-  ) {
-    return async function statementShortcut(
-      this: any,
-      ...args: any[]
-    ): Promise<any> {
-      const { ctx } = (
-        await this.logCtx([], statementKey, true)
-      ).for(statementShortcut);
-
-      switch (statementKey) {
-        case PreparedStatementKeys.LIST_BY: {
-          const [key, details] = args;
-          return this.persistence(ctx).listBy(
-            key,
-            (details as any)?.direction as OrderDirection,
-            ctx
-          );
-        }
-        case PreparedStatementKeys.PAGE_BY: {
-          const [key, page, details] = args;
-          return this.persistence(ctx).paginateBy(
-            key,
-            (details as any)?.direction as OrderDirection,
-            {
-              limit: (details as any)?.limit,
-              offset: (details as any)?.offset,
-              page,
-            } as any,
-            ctx
-          );
-        }
-        case PreparedStatementKeys.FIND: {
-          const [value, details] = args;
-          const direction =
-            (details as any)?.direction ?? OrderDirection.ASC;
-          const persistence = this.persistence(ctx);
-          if (typeof persistence.find === "function")
-            return persistence.find(value, direction, ctx);
-          return persistence.statement(PreparedStatementKeys.FIND, value, direction, ctx);
-        }
-        case PreparedStatementKeys.PAGE: {
-          const [value, details] = args;
-          const ref = {
-            offset: (details as any)?.offset ?? 1,
-            limit: (details as any)?.limit ?? 10,
-            bookmark: (details as any)?.bookmark,
-          };
-          const persistence = this.persistence(ctx);
-          const direction = (details as any)?.direction ?? OrderDirection.ASC;
-          if (typeof persistence.page === "function")
-            return persistence.page(value, direction, ref, ctx);
-          return persistence.statement(PreparedStatementKeys.PAGE, value, direction, ref, ctx);
-        }
-        case PreparedStatementKeys.FIND_ONE_BY: {
-          const [key, value] = args;
-          return this.persistence(ctx).findOneBy(key, value, ctx);
-        }
-        case PreparedStatementKeys.FIND_BY: {
-          const [key, value] = args;
-          return this.persistence(ctx)
-            .for(ctx.toOverrides())
-            .findBy(key, value, ctx);
-        }
-        default:
-          if (
-            statementKey === PreparedStatementKeys.COUNT_OF ||
-            statementKey === PreparedStatementKeys.MAX_OF ||
-            statementKey === PreparedStatementKeys.MIN_OF ||
-            statementKey === PreparedStatementKeys.AVG_OF ||
-            statementKey === PreparedStatementKeys.SUM_OF ||
-            statementKey === PreparedStatementKeys.DISTINCT_OF ||
-            statementKey === PreparedStatementKeys.GROUP_OF
-          ) {
-            const [field] = args;
-            return this.persistence(ctx).statement(statementKey, field, ctx);
-          }
-          throw new InternalError(`Unknown statement: ${statementKey}`);
-      }
-    };
-  }
-
   private static createComplexQueryHandler(methodName: string) {
     return async function complexQuery(
       this: any,
@@ -1080,12 +800,15 @@ export class FromModelController {
       const log: any = this.log?.for?.(complexQuery);
       try {
         if (log) log.debug(`Invoking custom query "${methodName}"`);
-        const { ctx } = (
-          await this.logCtx([], methodName, true)
-        ).for(complexQuery);
+        const { ctx } = (await this.logCtx([], methodName, true)).for(
+          complexQuery
+        );
         const persistence = this.persistence(ctx);
         const spreadArgs = FromModelController.normalizeQueryArgs(args);
-        if (persistence?.repo && typeof persistence.repo[methodName] === "function") {
+        if (
+          persistence?.repo &&
+          typeof persistence.repo[methodName] === "function"
+        ) {
           return persistence.repo[methodName](...spreadArgs);
         }
         if (typeof persistence[methodName] === "function") {
@@ -1110,43 +833,10 @@ export class FromModelController {
     };
   }
 
-  private static createCustomRouteHandler(methodName: string) {
-    return async function customRoute(
-      this: any,
-      ...args: any[]
-    ): Promise<any> {
-      const log: any = this.log?.for?.(customRoute);
-      const { ctx } = (
-        await this.logCtx([], methodName, true)
-      ).for(customRoute);
-      const persistence = this.persistence(ctx);
-      const spreadArgs = FromModelController.normalizeQueryArgs(args);
-
-      // Try the persistence directly (works when it's a custom Repository)
-      if (persistence?.repo && typeof persistence.repo[methodName] === "function") {
-        return persistence.repo[methodName](...spreadArgs);
-      }
-      if (typeof persistence[methodName] === "function") {
-        return persistence[methodName](...spreadArgs);
-      }
-      // Fall back to statement gateway
-      if (typeof persistence.statement === "function") {
-        return persistence.statement(methodName, ...spreadArgs, ctx);
-      }
-      throw new InternalError(
-        `Method "${methodName}" not found on ${persistence?.constructor?.name} or its repo`
-      );
-    };
-  }
-
   private static extractQueryArgs(args: any[]): any[] {
     if (args.length === 0) return args;
     const last = args[args.length - 1];
-    if (
-      last &&
-      typeof last === "object" &&
-      !Array.isArray(last)
-    ) {
+    if (last && typeof last === "object" && !Array.isArray(last)) {
       const queryObj = args.pop();
       const hasDirection = queryObj.direction !== undefined;
       const hasLimit = queryObj.limit !== undefined;
@@ -1393,10 +1083,14 @@ export class FromModelController {
       ApiOperation({
         summary: `Executes a prepared statement on ${modelClazzName}.`,
       }),
-      ApiParam({ name: "method", description: "the prepared statement to execute" }),
+      ApiParam({
+        name: "method",
+        description: "the prepared statement to execute",
+      }),
       ApiParam({
         name: "args",
-        description: "concatenated list of arguments the prepared statement can accept",
+        description:
+          "concatenated list of arguments the prepared statement can accept",
       }),
       ApiQuery({
         name: "direction",
@@ -1404,8 +1098,16 @@ export class FromModelController {
         enum: OrderDirection,
         description: "the sort order when applicable",
       }),
-      ApiQuery({ name: "limit", required: true, description: "limit or page size when applicable" }),
-      ApiQuery({ name: "offset", required: true, description: "offset or bookmark when applicable" }),
+      ApiQuery({
+        name: "limit",
+        required: true,
+        description: "limit or page size when applicable",
+      }),
+      ApiQuery({
+        name: "offset",
+        required: true,
+        description: "offset or bookmark when applicable",
+      }),
       ApiOkResponse({ description: `${modelClazzName} listed found.` }),
       ApiNotFoundResponse({
         description: `No ${modelClazzName} record matches the provided identifier.`,
@@ -1422,7 +1124,9 @@ export class FromModelController {
     const base: Array<(target: any, key: string, desc: any) => void> = [
       ApiOperationFromModel(ModelConstr, "GET", path),
       ApiOperation({ summary: `Retrieve ${modelClazzName} records.` }),
-      ApiOkResponse({ description: `${modelClazzName} retrieved successfully.` }),
+      ApiOkResponse({
+        description: `${modelClazzName} retrieved successfully.`,
+      }),
     ];
 
     const segments = path.split("/").filter((s) => s.startsWith(":"));
@@ -1449,8 +1153,16 @@ export class FromModelController {
     if (path.startsWith("paginateBy/") || path.startsWith("page/")) {
       base.push(
         ApiQuery({ name: "limit", required: false, description: "page size" }),
-        ApiQuery({ name: "offset", required: false, description: "page number" }),
-        ApiQuery({ name: "bookmark", required: false, description: "bookmark for cursor pagination" })
+        ApiQuery({
+          name: "offset",
+          required: false,
+          description: "page number",
+        }),
+        ApiQuery({
+          name: "bookmark",
+          required: false,
+          description: "bookmark for cursor pagination",
+        })
       );
     }
 
@@ -1467,10 +1179,20 @@ export class FromModelController {
       statementKey === PreparedStatementKeys.AVG_OF ||
       statementKey === PreparedStatementKeys.SUM_OF
     ) {
-      base.push(ApiOkResponse({ description: `Result for ${modelClazzName}.`, type: Number }));
+      base.push(
+        ApiOkResponse({
+          description: `Result for ${modelClazzName}.`,
+          type: Number,
+        })
+      );
     }
     if (statementKey === PreparedStatementKeys.DISTINCT_OF) {
-      base.push(ApiOkResponse({ description: `Distinct values for ${modelClazzName}.`, type: [String] }));
+      base.push(
+        ApiOkResponse({
+          description: `Distinct values for ${modelClazzName}.`,
+          type: [String],
+        })
+      );
     }
 
     return base;
@@ -1483,7 +1205,10 @@ export class FromModelController {
     includeQueryParams: boolean = false
   ): Array<(target: any, key: string, desc: any) => void> {
     const extractPathParams = (p: string): string[] =>
-      p.split("/").filter((s) => s.startsWith(":")).map((s) => s.slice(1));
+      p
+        .split("/")
+        .filter((s) => s.startsWith(":"))
+        .map((s) => s.slice(1));
 
     const apiPathParams = extractPathParams(routePath).map((name) => ({
       name,
@@ -1496,7 +1221,9 @@ export class FromModelController {
       ...apiPathParams.map((p) => ApiParam(p)),
       ApiOperation({ summary: `Retrieve records using "${methodName}".` }),
       ApiOkResponse({ description: "Result successfully retrieved." }),
-      ApiNoContentResponse({ description: "No content returned by the method." }),
+      ApiNoContentResponse({
+        description: "No content returned by the method.",
+      }),
     ];
 
     if (httpVerb === "GET" && includeQueryParams) {
@@ -1507,8 +1234,16 @@ export class FromModelController {
           enum: OrderDirection,
           description: "the sort order when applicable",
         }),
-        ApiQuery({ name: "limit", required: false, description: "limit or page size" }),
-        ApiQuery({ name: "offset", required: false, description: "offset or bookmark" })
+        ApiQuery({
+          name: "limit",
+          required: false,
+          description: "limit or page size",
+        }),
+        ApiQuery({
+          name: "offset",
+          required: false,
+          description: "offset or bookmark",
+        })
       );
     }
 

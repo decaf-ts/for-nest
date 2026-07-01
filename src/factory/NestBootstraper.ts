@@ -217,8 +217,7 @@ export class NestBootstraper {
       const helmet = require("helmet"); // Dynamic import to avoid hard dependency
       this.app.use(helmet(options));
       this.logger.log("Helmet middleware enabled successfully.");
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (e: any) {
+    } catch {
       this.logger.warn("Helmet not installed. Skipping middleware.");
     }
 

@@ -328,8 +328,8 @@ describe("for-nest live task migration across Nano + TypeORM", () => {
           [
             NanoAdapter as any,
             {
-              user: nanoResources.user,
-              password: nanoResources.password,
+              couchUser: nanoResources.user,
+              couchPassword: nanoResources.password,
               host: nanoResources.host,
               dbName: nanoResources.dbName,
               protocol: nanoResources.protocol,

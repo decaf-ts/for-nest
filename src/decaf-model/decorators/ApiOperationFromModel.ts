@@ -1,4 +1,4 @@
-import { apply, Metadata } from "@decaf-ts/decoration";
+import { apply } from "@decaf-ts/decoration";
 import { ApiExcludeEndpoint } from "@nestjs/swagger";
 import {
   BulkCrudOperationKeys,
@@ -51,8 +51,8 @@ export function ApiOperationFromModel(
       ? apply(ApiExcludeEndpoint())
       : apply(HttpMethodDecorator(path))
     : coreIsOperationBlocked(ModelConstructor, crudOp)
-    ? apply(ApiExcludeEndpoint())
-    : apply(HttpMethodDecorator(path));
+      ? apply(ApiExcludeEndpoint())
+      : apply(HttpMethodDecorator(path));
 }
 /**
  * @description Conditionally applies an HTTP method decorator for a given model and verb, hiding the endpoint in Swagger (and not registering the route) when the model blocks that CRUD operation.
@@ -85,13 +85,15 @@ export function BulkApiOperationFromModel(
       ? apply(ApiExcludeEndpoint())
       : apply(HttpMethodDecorator(path))
     : coreIsOperationBlocked(ModelConstructor, "bulk" as any, crudOp as any)
-    ? apply(ApiExcludeEndpoint())
-    : apply(HttpMethodDecorator(path));
+      ? apply(ApiExcludeEndpoint())
+      : apply(HttpMethodDecorator(path));
 }
 function resolveBlockTarget(
   verb: HttpVerbs,
   path?: string
-): { kind: "crud" | "statement" | "query" | "bulk"; value: string } | undefined {
+):
+  | { kind: "crud" | "statement" | "query" | "bulk"; value: string }
+  | undefined {
   if (!path) return undefined;
 
   const normalized = path.replace(/^\/+|\/+$/g, "");

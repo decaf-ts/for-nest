@@ -13,6 +13,7 @@ import { DecafServerCtx } from "./constants";
 import { DecafRequestContext } from "./request/DecafRequestContext";
 
 export abstract class DecafController<
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   CONTEXT extends DecafServerCtx = DecafServerCtx,
 > extends HttpDecafController<Request, any, DecafRequestContext> {
   protected constructor(
@@ -42,14 +43,12 @@ export abstract class DecafModelController<
     if (!this._persistence)
       try {
         this._persistence = Service.get<ModelService<M>>(this.class);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (e: unknown) {
+      } catch {
         try {
           this._persistence = ModelService.getService(
             this.class
           ) as ModelService<M>;
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (e: unknown) {
+        } catch {
           this._persistence = Repository.forModel(this.class) as Repo<M>;
         }
       }

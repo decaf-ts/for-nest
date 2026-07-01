@@ -1,4 +1,4 @@
-import { Adapter, ConfigOf, ContextOf, Context } from "@decaf-ts/core";
+import { Adapter, ConfigOf, ContextOf } from "@decaf-ts/core";
 import { Constructor } from "@decaf-ts/decoration";
 import { ExecutionContext, Type } from "@nestjs/common";
 import {

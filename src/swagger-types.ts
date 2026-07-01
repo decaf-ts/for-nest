@@ -62,13 +62,15 @@ type SchemaObjectCommonMetadata = Omit<
   pattern?: string | RegExp;
   enum?: EnumAllowedTypes;
   [key: string]: any;
-  };
+};
 
 export type SchemaObjectMetadata =
   | (SchemaObjectCommonMetadata & {
       type?:
         | Type<unknown>
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
         | Function
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
         | [Function]
         | "array"
         | "string"
@@ -80,6 +82,7 @@ export type SchemaObjectMetadata =
       required?: boolean;
     })
   | (SchemaObjectCommonMetadata & {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
       type?: Type<unknown> | Function | [Function] | Record<string, any>;
       required?: boolean;
       enumName: string;

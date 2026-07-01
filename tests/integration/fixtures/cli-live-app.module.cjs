@@ -16,8 +16,8 @@ function expectEnv(name) {
 
 function resolveNanoConfig() {
   return {
-    user: expectEnv("NEST_CLI_NANO_USER"),
-    password: expectEnv("NEST_CLI_NANO_PASSWORD"),
+    couchUser: expectEnv("NEST_CLI_NANO_USER"),
+    couchPassword: expectEnv("NEST_CLI_NANO_PASSWORD"),
     host: process.env.NEST_CLI_NANO_HOST || "localhost:10010",
     protocol:
       process.env.NEST_CLI_NANO_PROTOCOL === "https" ? "https" : "http",

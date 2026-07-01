@@ -15,6 +15,7 @@ export class DecafResponseInterceptor implements NestInterceptor {
     let response = context.switchToHttp().getResponse();
 
     return next.handle().pipe(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       tap((data) => {
         response = this.ctx.toResponse(response);
       })

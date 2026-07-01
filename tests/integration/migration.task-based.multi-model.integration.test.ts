@@ -514,8 +514,8 @@ describe.skip("for-nest task-based migrations with real nano+typeorm adapters", 
         [
           NanoAdapter as any,
           {
-            user: nanoResources.user,
-            password: nanoResources.password,
+            couchUser: nanoResources.user,
+            couchPassword: nanoResources.password,
             host: nanoHost,
             protocol: nanoProtocol,
             dbName: nanoResources.dbName,
