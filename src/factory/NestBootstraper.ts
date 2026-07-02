@@ -4,6 +4,7 @@ import {
   NestInterceptor,
   PipeTransform,
 } from "@nestjs/common";
+import { ModuleRef } from "@nestjs/core";
 import { DecafExceptionFilter } from "./exceptions";
 import { SwaggerBuilder } from "./openapi";
 import { CorsOptions } from "@nestjs/common/interfaces/external/cors-options.interface";
@@ -280,11 +281,18 @@ export class NestBootstraper {
    * set of standard exception filters for common error types like
    * `HttpException`, `ValidationException`, `ConflictException`, and others.
    *
+   * The default `DecafExceptionFilter` is constructed with the application's
+   * `ModuleRef` so it can resolve the request-scoped `DecafRequestContext` (and
+   * its client-bound logger) for the request that threw, instead of logging
+   * through the generic global logger.
+   *
    * @param {...ExceptionFilter[]} filters - Optional filters to apply globally.
    */
   static useGlobalFilters(...filters: any[]) {
     this.app.useGlobalFilters(
-      ...(filters.length > 0 ? filters : [new DecafExceptionFilter()])
+      ...(filters.length > 0
+        ? filters
+        : [new DecafExceptionFilter(this.app.get(ModuleRef, { strict: false }))])
     );
     return this;
   }

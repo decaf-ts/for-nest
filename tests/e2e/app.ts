@@ -2,7 +2,7 @@ import "../../src/decoration";
 import "../../src/overrides";
 
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import { NestFactory } from "@nestjs/core";
+import { NestFactory, ModuleRef } from "@nestjs/core";
 import {
   DecafExceptionFilter,
   DecafModule,
@@ -28,7 +28,9 @@ export async function getApp() {
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("api", app, documentFactory);
 
-  app.useGlobalFilters(new DecafExceptionFilter());
+  app.useGlobalFilters(
+    new DecafExceptionFilter(app.get(ModuleRef, { strict: false }))
+  );
   await app.init();
   return app;
 }
