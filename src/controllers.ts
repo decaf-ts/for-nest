@@ -53,7 +53,8 @@ export abstract class DecafModelController<
         }
       }
 
-    const overrides = this.clientContext.toOverrides();
+    const activeCtx = ctx ?? this.clientContext;
+    const overrides = activeCtx.toOverrides();
 
     return ctx
       ? this._persistence instanceof Repository

@@ -140,7 +140,7 @@ export function createRouteHandler<T>(methodName: string) {
       );
       const { direction, limit, offset } = queryParams;
       return await resolvePersistenceMethod(
-        this.persistence(),
+        this.persistence(this.ctx),
         methodName,
         ...pathParams.valuesInOrder,
         direction,
