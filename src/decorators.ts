@@ -49,7 +49,8 @@ function modelRepositoryToken(
 /**
  * @description Constructor parameter decorator that injects a decaf service.
  * @summary Translates decaf's service resolution APIs into a Nest `@Inject()` call:
- * - `@Service(SomeModel)` injects the `ModelService<SomeModel>` singleton for that model
+ * - `@Service(SomeModel)` injects the matching `@service(SomeModel)` decaf service when one is
+ *   registered; otherwise it falls back to the `ModelService<SomeModel>` singleton
  *   (via {@link ModelService.forModel}).
  * - `@Service(SomeServiceClass)` or `@Service("alias")` injects the matching `@service()`-decorated
  *   decaf {@link CoreService} (via {@link CoreService.get}).
@@ -82,7 +83,13 @@ export function Service(key?: string | Constructor<any>): ParameterDecorator {
       : injectableServiceKey(resolved as string | Constructor<any>);
 
     registerProvider(token, () => {
-      if (asModel) return ModelService.forModel(resolved as Constructor<any>);
+      if (asModel) {
+        try {
+          return CoreService.get(resolved as Constructor<any>);
+        } catch {
+          return ModelService.forModel(resolved as Constructor<any>);
+        }
+      }
       return typeof resolved === "string"
         ? CoreService.get(resolved)
         : CoreService.get(resolved as Constructor<any>);
