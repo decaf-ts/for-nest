@@ -1,6 +1,6 @@
 {
   "name": "@decaf-ts/for-nest",
-  "version": "0.11.2-refactor.9",
+  "version": "0.12.0",
   "description": "NestJS decaf integration",
   "type": "module",
   "exports": {
