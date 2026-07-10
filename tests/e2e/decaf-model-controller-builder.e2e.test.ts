@@ -997,6 +997,51 @@ describe("DecafModel controller-builder e2e (DECAF-10)", () => {
       expect(missing.status).toBe(404);
     });
 
+    it("accepts single ids query params for bulk read and bulk delete", async () => {
+      const base = basePath(ConfigArticle);
+      const bulk = await requestJson(adapter, "POST", `${base}/bulk`, [
+        buildArticle(20, { category: "single-id-a" }),
+        buildArticle(21, { category: "single-id-b" }),
+      ]);
+      expect(bulk.status).toBe(201);
+      expect(bulk.data).toHaveLength(2);
+
+      const firstId = bulk.data[0].id;
+      const secondId = bulk.data[1].id;
+
+      const bulkRead = await requestJson(
+        adapter,
+        "GET",
+        `${base}/bulk${idsQuery([firstId])}`
+      );
+      expect(bulkRead.status).toBe(200);
+      expect(bulkRead.data).toHaveLength(1);
+      expect(bulkRead.data[0].id).toBe(firstId);
+
+      const bulkDelete = await requestJson(
+        adapter,
+        "DELETE",
+        `${base}/bulk${idsQuery([firstId])}`
+      );
+      expect(bulkDelete.status).toBe(200);
+      expect(bulkDelete.data).toHaveLength(1);
+      expect(bulkDelete.data[0].id).toBe(firstId);
+
+      const missing = await requestJson(adapter, "GET", rowPath(ConfigArticle, firstId));
+      expect(missing.status).toBe(404);
+
+      const remaining = await requestJson(
+        adapter,
+        "GET",
+        `${base}/bulk${idsQuery([secondId])}`
+      );
+      expect(remaining.status).toBe(200);
+      expect(remaining.data).toHaveLength(1);
+      expect(remaining.data[0].id).toBe(secondId);
+
+      await requestJson(adapter, "DELETE", `${base}/bulk${idsQuery([secondId])}`);
+    });
+
     it("allows non-blocked statement shortcuts", async () => {
       const base = basePath(ConfigArticle);
       const a1 = buildArticle(10, { category: "alpha", title: "findme" });
