@@ -49,8 +49,16 @@ import { HttpVerbToDecorator } from "./decorators/utils";
 import type { HttpVerbs } from "./decorators/types";
 import { DecafRequestContext } from "../request";
 import { DECAF_CONTROLLER_CONFIG, DECAF_ROUTE } from "../constants";
-import { SKIP_MODEL_ROLES_KEY } from "../auth/constants";
-import { Auth, Public, RequireRoles } from "../auth/decorators";
+import {
+  SKIP_MODEL_NAMESPACES_KEY,
+  SKIP_MODEL_ROLES_KEY,
+} from "../auth/constants";
+import {
+  Auth,
+  Public,
+  RequireNamespaces,
+  RequireRoles,
+} from "../auth/decorators";
 import { ControllerConstructor } from "./types";
 import { DecafModelController } from "../controllers";
 import { DtoFor } from "../factory/openapi/DtoBuilder";
@@ -228,8 +236,14 @@ export class FromModelController {
       } else {
         Auth(ModelConstr)(target);
       }
+      if (authConfig?.namespaces?.length) {
+        RequireNamespaces(...authConfig.namespaces)(target);
+      }
       if (authConfig?.skipModelRoles) {
         SetMetadata(SKIP_MODEL_ROLES_KEY, true)(target);
+      }
+      if (authConfig?.skipModelNamespaces) {
+        SetMetadata(SKIP_MODEL_NAMESPACES_KEY, true)(target);
       }
     }
 

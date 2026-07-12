@@ -1,5 +1,6 @@
 export * from "./constants";
 export * from "./AuthInterceptor";
+export * from "./AuthMiddleware";
 export * from "./DecafAuthHandler";
 export * from "./decorators";
 export * from "./DecafAuthModule";

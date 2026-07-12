@@ -127,7 +127,9 @@ Applied at the **class level** to every auto-generated controller for that model
 |---|---|---|---|
 | `public` | `boolean` | `false` | When `true`, applies `@Public()` — the `AuthInterceptor` skips authorization entirely. |
 | `roles` | `string[]` | — | When provided, applies `@RequireRoles(...roles)` — the auth handler validates the user has all listed roles. |
+| `namespaces` | `string[]` | — | When provided, applies `@RequireNamespaces(...namespaces)` — the auth handler validates the user has all listed namespace scopes. |
 | `skipModelRoles` | `boolean` | `false` | When `true`, sets `SKIP_MODEL_ROLES_KEY` metadata — the `AuthInterceptor` passes `undefined` as the model to `authHandler.authorize()`, so model-level `@roles()` checks are skipped. Route-level roles (if set) still apply. |
+| `skipModelNamespaces` | `boolean` | `false` | When `true`, sets `SKIP_MODEL_NAMESPACES_KEY` metadata — the `AuthInterceptor` skips model-level `@namespace()` checks while still enforcing route-level namespaces. |
 
 If `auth` is omitted, `@Auth(Model)` is applied by default (requires authentication + model-level role checks).
 
@@ -226,6 +228,16 @@ Requires the user to have all listed roles. Applies `ApiSecurity("bearer")`, `Se
 update() {}
 ```
 
+### `@RequireNamespaces(...namespaces)`
+
+Namespace-scope counterpart to `@RequireRoles(...)`. Requires the user to have all listed namespace scopes. Applies `ApiSecurity("bearer")`, `SetMetadata(REQUIRED_NAMESPACES_KEY, namespaces)`, and `UseInterceptors(AuthInterceptor)`.
+
+```ts
+@RequireNamespaces("tenant:acme", "org:engineering")
+@Get("tenant-data")
+listTenantData() {}
+```
+
 ### `@SkipFabricIdentity()` *(application-specific)*
 
 Application-level decorator (e.g. in ew-backend) that sets metadata to skip Fabric identity re-enrollment for specific routes. Not part of `for-nest`.
@@ -242,7 +254,7 @@ Abstract base class from `@decaf-ts/for-http/server`. Concrete handlers extend i
 |---|---|---|
 | `extractFromAuth(ctx: EC): D \| Promise<D>` | Yes | Pulls auth data (user, roles, organization) from the platform execution context. MUST throw `AuthorizationError` when unauthenticated. |
 | `bindToContext(ctx: C, data: D)` | Yes* | Binds auth data to the request context. Default implementation calls `ctx.accumulate(data)`. Override to add adapter-specific keys (e.g. `UUID`, `organization`). |
-| `validate(data, routeRoles, model, ...args)` | No | Default validates route roles then model-level roles (from `@roles()`). Override for custom logic. |
+| `validate(data, routeRoles, routeNamespaces, skipModelNamespaces, model, ...args)` | No | Default validates route roles, route namespaces, model-level roles, and model-level namespaces (from `@namespace()`). Override for custom logic. |
 
 \* The default `bindToContext` exists but every concrete handler typically overrides it.
 
@@ -264,12 +276,26 @@ class CustomAuthHandler extends AuthHandler {
 }
 ```
 
+## Namespace authorization
+
+Use the `namespace(...)` decorator exported from `@decaf-ts/integrations/nest` on models to attach namespace scopes in the same way `@roles(...)` attaches model roles. The `AuthInterceptor` forwards those scopes to `AuthHandler.authorize(...)`, and the base auth handler checks them against the authenticated principal.
+
+```ts
+import { namespace } from "@decaf-ts/integrations/nest";
+
+@namespace(["tenant:acme", "org:engineering"])
+class Product extends Model {}
+```
+
+Route-level namespace guards can be layered with `@RequireNamespaces(...)` and skipped at the model level with `skipModelNamespaces: true` in `AuthConfig`.
+
 ### `AuthData` / `UserData`
 
 | Field | Type | Description |
 |---|---|---|
 | `user` | `string` | Authenticated user identifier. |
 | `roles` | `string[]` | Roles granted to the user. |
+| `namespaces` | `string[]` | Namespace scopes granted to the user. |
 | `organization` | `string` | Organization / tenant / MSP. |
 
 ---
@@ -282,9 +308,9 @@ Request → AuthInterceptor → DecafRequestHandlerInterceptor → Controller
 
 1. **`AuthInterceptor`** (request-scoped):
    - Reads `IS_PUBLIC_KEY` — if `true`, skips auth.
-   - Reads `AUTH_META_KEY` (model name) and `REQUIRED_ROLES_KEY` (route roles).
-   - Reads `SKIP_MODEL_ROLES_KEY` — if `true`, passes `undefined` as model (skips model-level role checks).
-   - Calls `authHandler.authorize(ctx, effectiveModel, requiredRoles, requestContext)`.
+   - Reads `AUTH_META_KEY` (model name), `REQUIRED_ROLES_KEY` (route roles), and `REQUIRED_NAMESPACES_KEY` (route namespaces).
+   - Reads `SKIP_MODEL_ROLES_KEY` and `SKIP_MODEL_NAMESPACES_KEY` to selectively skip model-level role or namespace checks.
+   - Calls `authHandler.authorize(ctx, effectiveModel, requiredRoles, requiredNamespaces, skipModelNamespaces, requestContext)`.
    - Runs `applyTransformers()` — iterates `Adapter.flavoursToTransform()`, instantiates each `RequestToContextTransformer` if needed, calls `transformer.from(requestContext)`, and accumulates the result.
    - Enriches the logger with `user` / `organization` if present.
 

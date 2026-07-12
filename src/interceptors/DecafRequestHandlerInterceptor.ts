@@ -6,10 +6,9 @@ import {
   Scope,
 } from "@nestjs/common";
 import { DecafHandlerExecutor, DecafRequestContext } from "../request";
-import { DefaultAdapterFlags } from "@decaf-ts/core";
-import { DecafServerFlags } from "../constants";
-import "../overrides";
+import { contextualizeRequestContext } from "../request/contextualize";
 import { Logging } from "@decaf-ts/logging";
+import "../overrides";
 
 /**
  * @description
@@ -65,27 +64,7 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
   ) {}
 
   protected async contextualize(req: any): Promise<void> {
-    const headers = req.headers;
-    const flags: DecafServerFlags = {
-      headers: headers,
-      overrides: {},
-    } as any;
-
-    const ip = extractIp(req);
-    const logger = Logging.get().for({ ip });
-
-    this.requestContext.accumulate(
-      Object.assign(
-        {},
-        DefaultAdapterFlags,
-        {
-          logger,
-          timestamp: new Date(),
-          operation: `${req.method} ${req.url}`,
-        },
-        flags
-      )
-    );
+    contextualizeRequestContext(this.requestContext, req);
   }
 
   async intercept(context: ExecutionContext, next: CallHandler) {
@@ -106,23 +85,4 @@ export class DecafRequestHandlerInterceptor implements NestInterceptor {
     );
     return next.handle();
   }
-}
-
-function extractIp(req: any): string | undefined {
-  const headers = req.headers;
-  function parseIpHeader(value?: string | string[]): string | undefined {
-    if (!value) return undefined;
-    const candidate = Array.isArray(value) ? value[0] : value;
-    return candidate
-      .split(",")
-      .map((segment) => segment.trim())
-      .filter(Boolean)[0];
-  }
-  return (
-    parseIpHeader(headers?.["x-forwarded-for"]) ??
-    parseIpHeader(headers?.["x-real-ip"]) ??
-    parseIpHeader(headers?.["X-Forwarded-For"]) ??
-    parseIpHeader(headers?.["X-Real-IP"]) ??
-    req.ip
-  );
 }

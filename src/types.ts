@@ -69,11 +69,11 @@ export type DecafModuleOptions<
  * `@decaf-ts/for-http/server`, specializing the execution context to
  * `ExecutionContext` and the request context to {@link DecafRequestContext}.
  *
- * Concrete handlers extend this class and override `extractFromAuth`.
+ * Concrete handlers extend this class and override `extractFromRequest`.
  *
  * @example
  * export class CustomAuthHandler extends AuthHandler {
- *   protected extractFromAuth(ctx: ExecutionContext) {
+ *   protected extractFromRequest(request: any) {
  *     const req = ctx.switchToHttp().getRequest();
  *     const userRole = req.headers.authorization?.split(" ")[1] as string;
  *     if (!userRole) throw new AuthorizationError("Unauthenticated");

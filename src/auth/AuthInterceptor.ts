@@ -19,8 +19,10 @@ import {
   AUTH_HANDLER,
   AUTH_META_KEY,
   IS_PUBLIC_KEY,
+  REQUIRED_NAMESPACES_KEY,
   REQUIRED_ROLES_KEY,
   SKIP_MODEL_ROLES_KEY,
+  SKIP_MODEL_NAMESPACES_KEY,
 } from "./constants";
 import type { AuthHandler } from "../types";
 import { DecafRequestContext } from "../request/DecafRequestContext";
@@ -56,8 +58,18 @@ export class AuthInterceptor implements NestInterceptor {
       [ctx.getHandler(), ctx.getClass()]
     );
 
+    const requiredNamespaces = this.reflector.getAllAndOverride<string[]>(
+      REQUIRED_NAMESPACES_KEY,
+      [ctx.getHandler(), ctx.getClass()]
+    );
+
     const skipModelRoles = this.reflector.getAllAndOverride<boolean>(
       SKIP_MODEL_ROLES_KEY,
+      [ctx.getHandler(), ctx.getClass()]
+    );
+
+    const skipModelNamespaces = this.reflector.getAllAndOverride<boolean>(
+      SKIP_MODEL_NAMESPACES_KEY,
       [ctx.getHandler(), ctx.getClass()]
     );
 
@@ -72,26 +84,15 @@ export class AuthInterceptor implements NestInterceptor {
         ctx,
         effectiveModel as string | Constructor,
         requiredRoles,
+        requiredNamespaces,
+        skipModelNamespaces,
         this.requestContext
       );
     } else {
       log.debug(`No auth handler registered`);
     }
 
-    // Transformers run AFTER auth so they can read auth-populated fields
-    // (e.g. `user`) from the context and map them to adapter-specific keys
-    // (e.g. `UUID` for RamAdapter's @createdBy/@updatedBy handlers).
     await this.applyTransformers();
-
-    const user = this.requestContext.getOrUndefined("user" as any);
-    const organization = this.requestContext.getOrUndefined(
-      "organization" as any
-    );
-    if (user || organization) {
-      const currentLog = this.requestContext.get("logger" as any);
-      const childLog = currentLog.for({ user, organization });
-      this.requestContext.accumulate({ logger: childLog } as any);
-    }
 
     return next.handle();
   }
