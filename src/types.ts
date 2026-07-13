@@ -21,6 +21,12 @@ export interface ObserverEventsOptions {
   enableObserverEvents?: boolean;
 
   /**
+   * Enables explicit subscription registration and per-subscriber filtering.
+   * Broadcast remains the default when omitted or false.
+   */
+  subscriptionMode?: boolean;
+
+  /**
    * List of adapter flavours that will emit stream events
    * If omitted, all registered flavours may be used
    */

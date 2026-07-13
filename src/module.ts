@@ -29,22 +29,24 @@ export class DecafModule {
       | undefined = [DecafCoreModule.forRoot(options)];
 
     if (autoControllers) {
-        flavours.forEach((flavour) => {
-          imports.push(
-            getModuleFor(flavour).forRoot(flavour, {
-              autoServices,
-              controllerExposure: options.controllerExposure,
-              controllerConfig: options.controllerConfig,
-              aggregations: options.aggregations,
-            })
-          );
-        });
-      }
+      flavours.forEach((flavour) => {
+        imports.push(
+          getModuleFor(flavour).forRoot(flavour, {
+            autoServices,
+            controllerExposure: options.controllerExposure,
+            controllerConfig: options.controllerConfig,
+            aggregations: options.aggregations,
+          })
+        );
+      });
+    }
 
     if (options.observerOptions?.enableObserverEvents) {
       imports.push(
         DecafStreamModule.forFlavours(
-          options.observerOptions.observerFlavours || flavours
+          options.observerOptions.observerFlavours || flavours,
+          options.observerOptions.observerApiPath ?? "/events",
+          options.observerOptions
         )
       );
     }

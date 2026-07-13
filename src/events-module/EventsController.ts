@@ -1,13 +1,25 @@
 import { DecafController } from "../controllers";
 import { DecafRequestContext } from "../request";
-import { Adapter, Observer } from "@decaf-ts/core";
-import { Controller, Inject, MessageEvent, Query, Sse } from "@nestjs/common";
+import { Adapter, Observer, ObserverFilter } from "@decaf-ts/core";
+import {
+  BadRequestException,
+  Controller,
+  Inject,
+  MessageEvent,
+  Query,
+  Sse,
+} from "@nestjs/common";
 import { interval, merge, Observable } from "rxjs";
 import { Logging } from "@decaf-ts/logging";
-import { LISTENING_ADAPTERS_FLAVOURS } from "./constant";
+import {
+  LISTENING_ADAPTERS_FLAVOURS,
+  OBSERVER_EVENTS_OPTIONS,
+} from "./constant";
 import { DecafServerCtx } from "../constants";
 import { normalizeEventResponse } from "./utils";
 import { map, tap } from "rxjs/operators";
+import { ObserverSubscriptionRegistry } from "./ObserverSubscriptionRegistry";
+import type { ObserverEventsOptions } from "../types";
 
 @Controller()
 export class EventsController extends DecafController<DecafServerCtx> {
@@ -15,15 +27,24 @@ export class EventsController extends DecafController<DecafServerCtx> {
 
   constructor(
     clientContext: DecafRequestContext,
-    @Inject(LISTENING_ADAPTERS_FLAVOURS) flavours: string[]
+    @Inject(LISTENING_ADAPTERS_FLAVOURS) flavours: string[],
+    @Inject(OBSERVER_EVENTS_OPTIONS) private readonly options: ObserverEventsOptions,
+    private readonly registry: ObserverSubscriptionRegistry
   ) {
     super(clientContext, EventsController.name);
     this.adapters = flavours.map((flavour) => (Adapter as any).get(flavour)); // change to Adapter.cache("")
   }
 
   @Sse()
-  listen(): Observable<MessageEvent> {
+  listen(@Query("subscriberId") subscriberId?: string): Observable<MessageEvent> {
     const logger = Logging.for(EventsController.name);
+    const subscriptionMode = Boolean(this.options.subscriptionMode);
+    if (subscriptionMode && !subscriberId) {
+      throw new BadRequestException(
+        "subscriberId is required when subscriptionMode is enabled"
+      );
+    }
+    const activeSubscriberId = subscriberId ?? "";
 
     const events$ = new Observable<MessageEvent>((observer) => {
       const observerId =
@@ -47,6 +68,16 @@ export class EventsController extends DecafController<DecafServerCtx> {
           });
         }
       })();
+      const filter: ObserverFilter | undefined = subscriptionMode
+        ? (model: string | Function, ..._args: any[]) => {
+            const topic =
+              typeof model === "string"
+                ? model
+                : (model as any)?.name ?? (model as any)?.constructor?.name;
+            if (!topic) return false;
+            return this.registry.matches(activeSubscriberId, topic);
+          }
+        : undefined;
 
       logger.verbose(
         `Registering observer ${observerId} across ${this.adapters.length} adapter(s)`
@@ -57,7 +88,7 @@ export class EventsController extends DecafController<DecafServerCtx> {
           logger.debug(
             `Registering observer ${observerId} in adapter ${adapterName}`
           );
-          adapter.observe(cb);
+          adapter.observe(cb, filter);
         } catch (e: any) {
           logger.debug(
             `Failed to register observer ${observerId} in adapter ${adapterName}: ${e?.message || e}`
@@ -82,6 +113,9 @@ export class EventsController extends DecafController<DecafServerCtx> {
             );
             logger.error(e);
           }
+        }
+        if (subscriptionMode) {
+          this.registry.remove(activeSubscriberId);
         }
       };
     });
