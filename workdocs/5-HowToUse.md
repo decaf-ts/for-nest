@@ -340,6 +340,14 @@ npx decaf nest migrate \
   --dry-run=false
 ```
 
+The application bootstrap path is exposed as `npx decaf nest boot`. It delegates
+to `lib/main`, so a Docker image can keep the CLI as the single entrypoint while
+still reusing the same binary for `migrate` and `export-api`.
+
+```bash
+npx decaf nest boot --help
+```
+
 `DecafCoreModule.migrate` consults the migration handlers you registered per flavour (`retrieveLastVersion`/`setCurrentVersion`) so it always knows the current persisted head before building the execution plan. When `taskMode` is enabled each version is enqueued as a tracked `CompositeTask`; immediately after each task resolves `MigrationService.track()` calls `setCurrentVersion` for that version so the stored `currentVersion` equals the last fully applied hop. Failed tasks leave the version untouched, allowing `MigrationService.retry(taskId)` (optionally observed via `taskService.track(id)`) to reset the `TaskModel` to `PENDING`, clear its error/lease metadata, and replay only the incomplete version before proceeding.
 
 In inline (non-task) mode the version marker updates only once after the entire batch completes, whereas task mode updates after each version so the next run always resumes at the correct semantic boundary even if an earlier version already succeeded. Specify `toVersion` (CLI `--to`) to define your goal; `MigrationService` filters migrations to those whose normalized versions fall strictly between the persisted `currentVersion` and the requested target so every run progressively walks the system through its lifecycle.

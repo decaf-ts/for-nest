@@ -3,6 +3,7 @@ import { Logging } from "@decaf-ts/logging";
 const logger = Logging.for("for-nest");
 
 import { Command } from "commander";
+import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import { Adapter, normalizeImport, Service, TaskModel } from "@decaf-ts/core";
@@ -18,6 +19,8 @@ const defaultInputCandidates = [
   "./lib/app.module.js",
   "./src/app.module.ts",
 ];
+
+const bootInputCandidates = ["./lib/main", "./lib/main.cjs", "./lib/main.js"];
 
 function defaultCandidateExists(candidate: string): boolean {
   return fs.existsSync(path.join(process.cwd(), candidate));
@@ -84,6 +87,56 @@ function unique(values: string[]): string[] {
   return [...new Set(values)];
 }
 
+function resolveBootInputPath(
+  input?: string,
+  exists: (candidate: string) => boolean = defaultCandidateExists,
+  candidates = bootInputCandidates
+): string {
+  if (input) return input;
+  const found = candidates.find((candidate) => exists(candidate));
+  return found || "./lib/main";
+}
+
+function runEntrypoint(script: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [script], {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: "inherit",
+    });
+
+    const signals: NodeJS.Signals[] = ["SIGINT", "SIGTERM", "SIGHUP"];
+    const forwardSignal = (signal: NodeJS.Signals) => {
+      if (!child.killed) child.kill(signal);
+    };
+    signals.forEach((signal) => process.once(signal, forwardSignal));
+
+    const cleanup = () => {
+      signals.forEach((signal) =>
+        process.removeListener(signal, forwardSignal)
+      );
+    };
+
+    child.once("error", (error) => {
+      cleanup();
+      reject(error);
+    });
+
+    child.once("close", (code, signal) => {
+      cleanup();
+      if (signal) {
+        reject(new InternalError(`Boot process terminated by ${signal}`));
+        return;
+      }
+      if (code && code !== 0) {
+        reject(new InternalError(`Boot process exited with code ${code}`));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
 export function resolveMigrateCommandConfig(
   options: Record<string, unknown> = {},
   pkg: any = {}
@@ -112,10 +165,13 @@ export function resolveMigrateCommandConfig(
   const packageFlavours = parseList(
     packageMigration.flavour ?? packageMigration.flavours
   );
-  const flavours = cliFlavours.length > 0 ? unique(cliFlavours) : unique(packageFlavours);
+  const flavours =
+    cliFlavours.length > 0 ? unique(cliFlavours) : unique(packageFlavours);
   const versionDir =
     (options.versionDir as string | undefined) || packageMigration.versionDir;
-  const references = parseList(options.reference ?? packageMigration.references);
+  const references = parseList(
+    options.reference ?? packageMigration.references
+  );
 
   return {
     input,
@@ -151,7 +207,11 @@ export function buildFileVersionHandlers(
         }
         return undefined;
       },
-      setCurrentVersion: async (version: string, _adapter?: any, ..._args: any[]) => {
+      setCurrentVersion: async (
+        version: string,
+        _adapter?: any,
+        ..._args: any[]
+      ) => {
         fs.mkdirSync(versionDir, { recursive: true });
         fs.writeFileSync(file, version, "utf-8");
       },
@@ -159,6 +219,16 @@ export function buildFileVersionHandlers(
   }
   return handlers;
 }
+
+const bootCommand = new Command()
+  .name("boot")
+  .description("boots the app entrypoint by delegating to node lib/main")
+  .action(async () => {
+    const input = resolveBootInputPath();
+    const log = logger.for("boot");
+    log.info(`Booting entrypoint from ${input}`);
+    await runEntrypoint(input);
+  });
 
 const migrateCommand = new Command()
   .name("migrate")
@@ -201,13 +271,18 @@ const migrateCommand = new Command()
     let app: INestApplication | undefined;
     try {
       app = await NestFactory.create(
-        resolveNestModule(await normalizeImport(import(path.join(process.cwd(), input)))),
+        resolveNestModule(
+          await normalizeImport(import(path.join(process.cwd(), input)))
+        ),
         { logger: false }
       );
       await app.init();
       log.info(`App booted`);
 
-      const cache = (Adapter as any)["_cache"] as Record<string, Adapter<any, any, any, any>>;
+      const cache = (Adapter as any)["_cache"] as Record<
+        string,
+        Adapter<any, any, any, any>
+      >;
       const seen = new Set<string>();
       const adapters = Object.values(cache).filter((a) => {
         if (seen.has(a.alias)) return false;
@@ -234,7 +309,10 @@ const migrateCommand = new Command()
         (taskService as any)?.client?.adapter?.alias ||
         (taskService as any)?.client?.adapter?.flavour;
       const migrateAdapters = taskAdapterAlias
-        ? adapters.filter((a) => a.alias !== taskAdapterAlias && a.flavour !== taskAdapterAlias)
+        ? adapters.filter(
+            (a) =>
+              a.alias !== taskAdapterAlias && a.flavour !== taskAdapterAlias
+          )
         : adapters;
 
       const handlers = config.versionDir
@@ -244,7 +322,9 @@ const migrateCommand = new Command()
       if (config.versionDir)
         log.info(`Version tracking: ${path.resolve(config.versionDir)}`);
       else
-        log.warn(`No --version-dir set — every run will re-apply all migrations up to ${config.toVersion}`);
+        log.warn(
+          `No --version-dir set — every run will re-apply all migrations up to ${config.toVersion}`
+        );
 
       if (config.references.length)
         log.info(`Running only references: ${config.references.join(", ")}`);
@@ -278,7 +358,7 @@ const migrateCommand = new Command()
     }
   });
 
-export { migrateCommand };
+export { migrateCommand, bootCommand };
 
 function resolveNestModule(mod: any): any {
   if (typeof mod === "function") return mod;
@@ -300,10 +380,22 @@ const exportApiCommand = new Command()
     "boots the app context headlessly, extracts the OpenAPI spec, and writes it to a JSON file"
   )
   .option("--input <String>", "path to app module (ts or compiled)")
-  .option("--output <String>", "output directory for the OpenAPI JSON file", "./")
-  .option("--fileName <String>", "output file name (without extension)", "openapi")
+  .option(
+    "--output <String>",
+    "output directory for the OpenAPI JSON file",
+    "./"
+  )
+  .option(
+    "--fileName <String>",
+    "output file name (without extension)",
+    "openapi"
+  )
   .option("--title <String>", "OpenAPI document title", "DECAF API")
-  .option("--description <String>", "OpenAPI document description", "Auto-generated OpenAPI specification")
+  .option(
+    "--description <String>",
+    "OpenAPI document description",
+    "Auto-generated OpenAPI specification"
+  )
   .option("--version <String>", "OpenAPI document version")
   .action(async (options: any) => {
     const log = logger.for("export-api");
@@ -311,7 +403,9 @@ const exportApiCommand = new Command()
     let app: INestApplication | undefined;
     try {
       app = await NestFactory.create(
-        resolveNestModule(await normalizeImport(import(path.join(process.cwd(), input)))),
+        resolveNestModule(
+          await normalizeImport(import(path.join(process.cwd(), input)))
+        ),
         { logger: false }
       );
       await app.init();
@@ -332,8 +426,12 @@ const exportApiCommand = new Command()
       fs.writeFileSync(outputFile, JSON.stringify(document, null, 2), "utf-8");
 
       const pathCount = Object.keys(document.paths || {}).length;
-      const schemaCount = Object.keys(document.components?.schemas || {}).length;
-      log.info(`OpenAPI spec written to ${outputFile} (${pathCount} paths, ${schemaCount} schemas)`);
+      const schemaCount = Object.keys(
+        document.components?.schemas || {}
+      ).length;
+      log.info(
+        `OpenAPI spec written to ${outputFile} (${pathCount} paths, ${schemaCount} schemas)`
+      );
     } catch (e: unknown) {
       throw new InternalError(e as Error);
     } finally {
@@ -345,6 +443,7 @@ const nestCmd = new Command()
   .name("nest")
   .description("exposes various commands to help manage the nest integration");
 
+nestCmd.addCommand(bootCommand);
 nestCmd.addCommand(migrateCommand);
 nestCmd.addCommand(exportApiCommand);
 
