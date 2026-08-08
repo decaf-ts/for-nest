@@ -570,7 +570,7 @@ describe.skip("for-nest task-based migrations with real nano+typeorm adapters", 
         "type-orm": "14.7.9",
       };
 
-      const migrations = await MigrationService.migrateAdapters(
+      const migrationService = await MigrationService.migrateAdapters(
         [nanoAdapter as any, typeormAdapter as any],
         {
           taskMode: true,
@@ -616,9 +616,7 @@ describe.skip("for-nest task-based migrations with real nano+typeorm adapters", 
         ].sort()
       );
 
-      for (const migration of migrations) {
-        await migration.track();
-      }
+      await migrationService.track();
 
       expect(executedSteps.sort()).toEqual(
         ["nano-alpha", "nano-beta", "typeorm-alpha", "typeorm-beta"].sort()

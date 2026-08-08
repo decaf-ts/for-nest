@@ -411,7 +411,7 @@ if (!postgresAvailable) {
         ["tc-1", "cfg"]
       );
 
-      const services = await MigrationService.migrateAdapters(
+      const migrationService = await MigrationService.migrateAdapters(
         [nano as any, typeorm as any],
         {
           taskMode: true,
@@ -440,11 +440,11 @@ if (!postgresAvailable) {
       );
       expect(migrationTasks).toHaveLength(4);
 
-      for (const service of services) {
-        await expect(service.track()).rejects.toThrow("intentional failure");
-        await service.retry();
-        await service.track();
-      }
+      await expect(migrationService.track()).rejects.toThrow(
+        "intentional failure"
+      );
+      await migrationService.retry();
+      await migrationService.track();
 
       expect(versions[NANO_FLAVOUR]).toBe(TARGET_VERSION);
       expect(versions[TYPEORM_FLAVOUR]).toBe(TARGET_VERSION);

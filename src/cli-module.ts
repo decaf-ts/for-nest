@@ -329,7 +329,7 @@ const migrateCommand = new Command()
       if (config.references.length)
         log.info(`Running only references: ${config.references.join(", ")}`);
 
-      const migrations = await MigrationService.migrateAdapters(
+      const migrationService = await MigrationService.migrateAdapters(
         migrateAdapters,
         {
           toVersion: config.toVersion,
@@ -344,9 +344,7 @@ const migrateCommand = new Command()
         }
       );
 
-      for (const migrationService of migrations || []) {
-        await migrationService.track();
-      }
+      await migrationService.track();
 
       log.info(
         `Migration completed${options.to || pkg.version ? ` up to ${options.to || pkg.version}` : ""}`
