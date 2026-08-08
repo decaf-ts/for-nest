@@ -11,6 +11,7 @@ import {
   cleanupTypeORMTestResources,
   seedLegacyNanoState,
   seedLegacyTypeormState,
+  isPostgresReachableSync,
   LIVE_MIGRATION_VERSION,
   NANO_COLLECTION,
   TYPEORM_TABLE,
@@ -18,6 +19,16 @@ import {
   TypeormResources,
 } from "./helpers/resources";
 import { InternalError } from "@decaf-ts/db-decorators";
+
+const postgresAvailable = isPostgresReachableSync();
+if (!postgresAvailable) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[cli-migrate.multi-adapter.integration.test.ts] Skipping: Postgres is not reachable at " +
+      `${process.env.TYPEORM_HOST || "localhost"}:${process.env.TYPEORM_PORT || "5432"}. ` +
+      "This suite requires a live Postgres instance (see for-typeorm's sibling ticket for docker-compose setup)."
+  );
+}
 
 const CLI_FIXTURE = path.join(
   "tests",
@@ -41,7 +52,7 @@ const envKeys = [
 
 jest.setTimeout(60000);
 
-describe("nest cli migrate command (live)", () => {
+(postgresAvailable ? describe : describe.skip)("nest cli migrate command (live)", () => {
   let nanoResources: NanoResources | undefined;
   let typeormResources: TypeormResources | undefined;
 

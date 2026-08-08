@@ -17,6 +17,7 @@ import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { DecafModule } from "../../src";
 import { DECAF_ADAPTER_ID } from "../../src/constants";
 import { RequestToContextTransformer } from "@decaf-ts/for-http/server";
+import { isPostgresReachableSync } from "./helpers/resources";
 
 class NoopTransformer extends RequestToContextTransformer<any> {
   async from(): Promise<any> {
@@ -307,7 +308,16 @@ class TypeormConfigMigration102 extends AbsMigration<any> {
   }
 }
 
-describe("for-nest live task migration across Nano + TypeORM", () => {
+const postgresAvailable = isPostgresReachableSync(host, port);
+if (!postgresAvailable) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[migration.multi-adapter.integration.test.ts] Skipping: Postgres is not reachable at ${host}:${port}. ` +
+      "This suite requires a live Postgres instance (see for-typeorm's sibling ticket for docker-compose setup)."
+  );
+}
+
+(postgresAvailable ? describe : describe.skip)("for-nest live task migration across Nano + TypeORM", () => {
   it("boots nest with 4 models and runs task-mode migration hops with retry+track", async () => {
     failedOnce.clear();
     const nanoResources = await createNanoTestResources(

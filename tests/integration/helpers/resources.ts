@@ -1,3 +1,4 @@
+import { spawnSync } from "child_process";
 import { ConflictError, InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { NanoAdapter } from "@decaf-ts/for-nano";
 import { TypeORMAdapter } from "@decaf-ts/for-typeorm";
@@ -34,6 +35,40 @@ function randomSuffix() {
 
 function waitForCleanup(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Synchronous TCP reachability probe, run in a child process so it can be
+ * used to gate `describe`/`describe.skip` at module-load time (Jest's
+ * `describe` callback must run synchronously, so an async check can't be
+ * awaited here).
+ */
+export function isPostgresReachableSync(
+  host: string = pgHost,
+  port: number = pgPort,
+  timeoutMs = 1500
+): boolean {
+  const probeScript = `
+    const net = require("net");
+    const socket = net.createConnection({
+      host: process.env.PG_PROBE_HOST,
+      port: Number(process.env.PG_PROBE_PORT),
+      timeout: Number(process.env.PG_PROBE_TIMEOUT),
+    });
+    socket.on("connect", () => { socket.destroy(); process.exit(0); });
+    socket.on("error", () => process.exit(1));
+    socket.on("timeout", () => { socket.destroy(); process.exit(1); });
+  `;
+  const result = spawnSync(process.execPath, ["-e", probeScript], {
+    env: {
+      ...process.env,
+      PG_PROBE_HOST: host,
+      PG_PROBE_PORT: String(port),
+      PG_PROBE_TIMEOUT: String(timeoutMs),
+    },
+    stdio: "ignore",
+  });
+  return result.status === 0;
 }
 
 async function waitForNanoAccess(
