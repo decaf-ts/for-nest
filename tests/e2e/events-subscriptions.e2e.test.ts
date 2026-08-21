@@ -201,12 +201,12 @@ describe("Events SSE observables fan-out", () => {
     const subscribeResponse = await fetch(`http://${serverHost}/events/subscribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subscriberId: "manual-subscribe",
-        topics: [ProcessStep.name],
-      }),
+      body: JSON.stringify({ topics: [ProcessStep.name] }),
     });
     expect(subscribeResponse.status).toBe(201);
+    const subscribeBody = await subscribeResponse.json();
+    expect(subscribeBody.topics).toEqual([ProcessStep.name]);
+    expect(subscribeBody.fingerprint).toBeDefined();
 
     const processRepo: Repo<ProcessStep> = Repository.forModel(ProcessStep);
     const fakeRepo: Repo<Fake> = Repository.forModel(Fake);
@@ -286,7 +286,7 @@ describe("Events SSE observables fan-out", () => {
     );
   });
 
-  it("does not deliver private-mode events when an HttpAdapter never subscribes", async () => {
+  it("does not deliver private-mode events when a client never subscribes", async () => {
     app = await createBackend(true);
     const server = app.getHttpServer().address();
     if (!server || typeof server === "string") {
@@ -294,9 +294,12 @@ describe("Events SSE observables fan-out", () => {
     }
     serverHost = `127.0.0.1:${server.port}`;
 
-    const subscriberId = `raw-${Math.random().toString(36).slice(2)}`;
+    // Stable requester fingerprint via the correlation-id header (no auth).
+    // In private mode a requester that never subscribes must receive nothing.
+    const correlationId = `raw-${Math.random().toString(36).slice(2)}`;
     const source = new EventSource(
-      `http://${serverHost}/events?subscriberId=${subscriberId}`
+      `http://${serverHost}/events`,
+      { headers: { "x-correlation-id": correlationId } }
     );
     const rawEvents: any[] = [];
     source.onmessage = (event) => {
