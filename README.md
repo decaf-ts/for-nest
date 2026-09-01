@@ -28,7 +28,7 @@ This repository is meant to provide an enterprise template for any standard Type
 
 Documentation available [here](https://decaf-ts.github.io/for-nest/)
 
-Minimal size: ##PACKAGE_SIZE## kb gzipped
+Minimal size: 15.3 KB kb gzipped
 
 
 ### Description

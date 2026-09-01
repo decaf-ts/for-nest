@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { matchesTopic } from "@decaf-ts/for-http/hooks";
+import { matchesTopic } from "@decaf-ts/for-http/hooks/utils";
 import { sanitizeTopics } from "./utils";
 
 /**

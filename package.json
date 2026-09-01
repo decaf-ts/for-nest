@@ -155,8 +155,6 @@
     "@decaf-ts/logging": "latest",
     "@decaf-ts/transactional-decorators": "latest",
     "@nestjs/common": "^11.1.14",
-    "better-docs": "^2.7.3",
-    "taffydb": "^2.7.3",
     "yaml": "^2.8.3"
   },
   "overrides": {
