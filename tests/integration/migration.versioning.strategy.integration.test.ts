@@ -1,5 +1,5 @@
 import { MigrationService } from "@decaf-ts/core/migrations";
-import { SemverMigrationVersioning } from "../../../core/src/migrations/SemverMigrationVersioning";
+import { SemverMigrationVersioning } from "@decaf-ts/core/migrations/SemverMigrationVersioning";
 
 function resolved(reference: string, version: string, flavour = "nest") {
   return {
