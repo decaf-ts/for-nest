@@ -9,6 +9,12 @@ import { AuthHandler } from "../types";
 export type DecafAuthModuleOptions = {
   global?: boolean;
   handler?: Type<AuthHandler>;
+  /**
+   * When enabled, the registered auth handler emits OCSF-style action logs
+   * (class_uid 3001 auth attempts / 3002 session boundaries) via the logger's
+   * `action()` API so they can be indexed for BI.
+   */
+  logAccess?: boolean;
 };
 
 @Module({})
@@ -23,10 +29,21 @@ export class DecafAuthModule implements NestModule {
 
     if (options.handler) {
       providers.push(options.handler);
-      providers.push({
-        provide: AUTH_HANDLER,
-        useClass: options.handler,
-      });
+      if (options.logAccess) {
+        providers.push({
+          provide: AUTH_HANDLER,
+          useFactory: (): AuthHandler => {
+            const handler = new (options.handler as any)();
+            handler.logAccess = true;
+            return handler;
+          },
+        });
+      } else {
+        providers.push({
+          provide: AUTH_HANDLER,
+          useClass: options.handler,
+        });
+      }
     }
 
     if (options.global) {

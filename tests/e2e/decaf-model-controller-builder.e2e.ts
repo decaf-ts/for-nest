@@ -49,7 +49,7 @@ import { DecafModuleOptions } from "../../src/types";
 // manual testing of the server, Swagger UI, and OpenAPI spec validation.
 //
 // Usage:
-//   MANUAL_INSPECT=true npx jest tests/e2e/decaf-model-controller-builder.e2e.test.ts
+//   MANUAL_INSPECT=true npx jest tests/e2e/decaf-model-controller-builder.e2e.ts
 //
 // The test will:
 //   - Boot the NestJS app with Swagger UI at /docs
