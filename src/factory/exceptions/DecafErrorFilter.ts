@@ -22,7 +22,12 @@ import {
   ValidationError,
 } from "@decaf-ts/db-decorators";
 import { LoggedEnvironment, Logging } from "@decaf-ts/logging";
-import { AuthorizationError, ForbiddenError, UnsupportedError } from "@decaf-ts/core";
+import {
+  AuthorizationError,
+  ForbiddenError,
+  PersistenceKeys,
+  UnsupportedError,
+} from "@decaf-ts/core";
 import { ToManyRequestsError } from "../errors/throttling";
 import { DecafRequestContext } from "../../request/DecafRequestContext";
 import type { RequestLogger } from "@decaf-ts/for-http/server";
@@ -80,6 +85,9 @@ export class DecafExceptionFilter implements ExceptionFilter {
     }
 
     await this.logError(request, exception);
+    if (exception instanceof AuthorizationError) {
+      await this.logAuthAction(request, exception);
+    }
 
     response.status((exception as BaseError).code || statusCode).json({
       status: (exception as BaseError).code || statusCode,
@@ -130,32 +138,66 @@ export class DecafExceptionFilter implements ExceptionFilter {
   }
 
   /**
-   * @description Resolves the logger bound to the originating request's decaf-ts Context.
+   * @description Resolves the originating request's decaf-ts request-scoped Context, if any.
    * @summary Global filters are singletons, so the request-scoped {@link DecafRequestContext}
-   * (and the client/user-bound logger it carries) can't be constructor-injected. Instead, this
-   * looks up the same request's context id and re-resolves the already-accumulated instance
-   * through `ModuleRef`. Falls back to the generic `Logging.get()` logger when the filter wasn't
-   * constructed with a `ModuleRef` (e.g. manually `new`'d) or no request-scoped context exists
-   * for this request (e.g. the error happened before any decaf-aware provider ran, as is the
-   * case when a guard rejects the request before interceptors get to bind the client-scoped
-   * logger onto the Context).
+   * can't be constructor-injected. Instead, this looks up the same request's context id and
+   * re-resolves the already-accumulated instance through `ModuleRef`. Returns `undefined` when
+   * the filter wasn't constructed with a `ModuleRef` (e.g. manually `new`'d) or no request-scoped
+   * context exists for this request (e.g. the error happened before any decaf-aware provider ran,
+   * as is the case when a guard rejects the request before interceptors get to bind context).
+   */
+  protected async resolveRequestContext(
+    request: Record<string, any>
+  ): Promise<DecafRequestContext | undefined> {
+    if (!this.moduleRef) return undefined;
+    try {
+      const contextId = ContextIdFactory.getByRequest(request);
+      return await this.moduleRef.resolve(DecafRequestContext, contextId, {
+        strict: false,
+      });
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * @description Resolves the logger bound to the originating request's decaf-ts Context.
+   * @summary Falls back to the generic `Logging.get()` logger when no request-scoped context
+   * could be resolved for this request.
    */
   protected async resolveLogger(
     request: Record<string, any>
   ): Promise<RequestLogger> {
-    if (this.moduleRef) {
-      try {
-        const contextId = ContextIdFactory.getByRequest(request);
-        const requestContext = await this.moduleRef.resolve(
-          DecafRequestContext,
-          contextId,
-          { strict: false }
-        );
-        if (requestContext?.logger) return requestContext.logger;
-      } catch {
-        // no request-scoped context bound for this request — fall back below
-      }
-    }
+    const requestContext = await this.resolveRequestContext(request);
+    if (requestContext?.logger) return requestContext.logger;
     return Logging.get() as unknown as RequestLogger;
+  }
+
+  /**
+   * @description Action-logs every `AuthorizationError` that reaches this filter, regardless of
+   * where it originated (an `AuthHandler.authorize()` failure, a guard throwing
+   * `UnauthorizedException` directly, or business logic in a controller/service).
+   * @summary Reads the in-flight operation off the request-scoped Context (set by
+   * `contextualizeRequestContext` as `"<method> <url>"`) when available, falling back to
+   * building the same shape directly from the raw request. Never lets a logging failure block
+   * the error response already handled by `logError`/`catch`.
+   */
+  protected async logAuthAction(
+    request: Record<string, any>,
+    exception: AuthorizationError
+  ): Promise<void> {
+    try {
+      const requestContext = await this.resolveRequestContext(request);
+      const log = requestContext?.logger ?? (Logging.get() as unknown as RequestLogger);
+      const operation =
+        requestContext?.getOrUndefined("operation" as any) ??
+        `${request?.method} ${request?.url}`;
+      log.action(PersistenceKeys.FORBIDDEN, exception.code, {
+        operation,
+        error: exception.message,
+      });
+    } catch {
+      // logging is unavailable — the response is still sent by the caller
+    }
   }
 }

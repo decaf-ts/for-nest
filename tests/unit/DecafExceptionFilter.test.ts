@@ -210,3 +210,62 @@ describe("DecafExceptionFilter guard/pipe exception mapping", () => {
     );
   });
 });
+
+describe("DecafExceptionFilter auth action logging", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("action-logs an AuthorizationError with the operation from the request-scoped context", async () => {
+    const requestLogger = { error: jest.fn(), action: jest.fn() };
+    const moduleRef = {
+      resolve: jest.fn().mockResolvedValue({
+        logger: requestLogger,
+        getOrUndefined: jest.fn(() => "GET /product/123"),
+      } as unknown as DecafRequestContext),
+    };
+
+    const filter = new DecafExceptionFilter(moduleRef as any);
+    const request = { method: "GET", url: "/product/123" };
+
+    await filter.catch(new UnauthorizedException("nope"), hostFor(request));
+
+    expect(requestLogger.action).toHaveBeenCalledWith(
+      "forbidden",
+      401,
+      expect.objectContaining({ operation: "GET /product/123" })
+    );
+  });
+
+  it("falls back to '<method> <url>' as the operation when no context is resolved", async () => {
+    const globalActionSpy = jest.spyOn(Logging.get(), "action");
+
+    const filter = new DecafExceptionFilter();
+    const request = { method: "GET", url: "/product/123" };
+
+    await filter.catch(new UnauthorizedException("nope"), hostFor(request));
+
+    expect(globalActionSpy).toHaveBeenCalledWith(
+      "forbidden",
+      401,
+      expect.objectContaining({ operation: "GET /product/123" })
+    );
+  });
+
+  it("does not action-log non-authorization errors", async () => {
+    const requestLogger = { error: jest.fn(), action: jest.fn() };
+    const moduleRef = {
+      resolve: jest.fn().mockResolvedValue({
+        logger: requestLogger,
+        getOrUndefined: jest.fn(() => undefined),
+      } as unknown as DecafRequestContext),
+    };
+
+    const filter = new DecafExceptionFilter(moduleRef as any);
+    const request = { method: "GET", url: "/x" };
+
+    await filter.catch(new BadRequestException("nope"), hostFor(request));
+
+    expect(requestLogger.action).not.toHaveBeenCalled();
+  });
+});
