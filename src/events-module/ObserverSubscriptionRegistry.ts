@@ -21,12 +21,40 @@ export type ObserverSubscriptionRecord = {
 };
 
 /**
+ * @description The claim a stream holds on its requester fingerprint
+ * @summary Returned by {@link ObserverSubscriptionRegistry.claimConnection}. A newer
+ * claim for the same fingerprint supersedes it; `release()` only frees the
+ * fingerprint while the claim is still the current one.
+ * @typedef {Object} ConnectionClaim
+ * @property {string} fingerprint - The claimed requester fingerprint
+ * @property {function(): boolean} isCurrent - Whether no newer claim superseded this one
+ * @property {function(): boolean} release - Frees the fingerprint if still current; returns whether it did
+ * @memberOf module:for-nest.events
+ */
+export type ConnectionClaim = {
+  readonly fingerprint: string;
+  isCurrent(): boolean;
+  release(): boolean;
+};
+
+type ActiveConnection = {
+  claim: ConnectionClaim;
+  evict?: () => void;
+};
+
+/** records with no stream are dropped after this long (subscribe without connecting) */
+const UNCONNECTED_RECORD_TTL_MS = 10 * 60 * 1000;
+
+/**
  * @description Graph-agnostic registry for observer topic subscriptions
  * @summary Tracks which requester fingerprint is subscribed to which webhook-style
- * topics and enforces a single SSE client per fingerprint. Topics follow the webhook
- * syntax: `<model>.*` (default) or the enhanced `<model>.<action|*>.<item id/pk>`
- * form, matched with {@link matchesTopic}. The registry is the server-side state
- * backing the SSE {@link EventsController} and {@link EventsSubscriptionController}.
+ * topics and keeps a single SSE stream per fingerprint: a new stream for a
+ * fingerprint takes over (and ends) the previous one, as happens when a client
+ * reconnects before the server noticed its previous connection dropped. Topics
+ * follow the webhook syntax: `<model>.*` (default) or the enhanced
+ * `<model>.<action|*>.<item id/pk>` form, matched with {@link matchesTopic}. The
+ * registry is the server-side state backing the SSE {@link EventsController} and
+ * {@link EventsSubscriptionController}.
  * @class ObserverSubscriptionRegistry
  * @memberOf module:for-nest.events
  * @mermaid
@@ -35,22 +63,24 @@ export type ObserverSubscriptionRecord = {
  *   participant Registry as ObserverSubscriptionRegistry
  *   Client->>Registry: upsert(fingerprint, topics)
  *   Registry-->>Client: record
- *   Client->>Registry: claimConnection(fingerprint)
- *   Registry-->>Client: true (or false if already active)
+ *   Client->>Registry: claimConnection(fingerprint, evict)
+ *   Registry->>Registry: evict() the previous stream, if any
+ *   Registry-->>Client: claim
  *   Client->>Registry: matches(fingerprint, eventTopic)
  *   Registry-->>Client: true/false
- *   Client->>Registry: releaseConnection(fingerprint)
+ *   Client->>Registry: claim.release()
  */
 @Injectable()
 export class ObserverSubscriptionRegistry {
   private readonly records = new Map<string, ObserverSubscriptionRecord>();
 
-  private readonly activeFingerprints = new Set<string>();
+  private readonly connections = new Map<string, ActiveConnection>();
 
   /**
    * @description Creates or replaces the subscription record for a fingerprint
    * @summary Sanitizes the requested topics and stores them against the requester
-   * fingerprint, stamping the record with the current time.
+   * fingerprint, stamping the record with the current time. Records of clients
+   * that subscribed but never connected are pruned along the way.
    * @param {string} fingerprint - The requester fingerprint to upsert subscriptions for
    * @param {string[]} [topics=[]] - The requested webhook topics (sanitized on write)
    * @returns {ObserverSubscriptionRecord} The stored subscription record
@@ -59,6 +89,7 @@ export class ObserverSubscriptionRegistry {
     fingerprint: string,
     topics: string[] = []
   ): ObserverSubscriptionRecord {
+    this.pruneUnconnected();
     const record: ObserverSubscriptionRecord = {
       fingerprint,
       topics: sanitizeTopics(topics),
@@ -115,25 +146,57 @@ export class ObserverSubscriptionRegistry {
 
   /**
    * @description Claims the right to stream events to a client
-   * @summary Enforces a single SSE connection per fingerprint: claims succeed only
-   * once per fingerprint and fail while a previous connection is still active.
+   * @summary Registers the stream as the fingerprint's single connection. When
+   * the fingerprint already holds one, the new claim supersedes it and the
+   * previous stream's `evict` callback is invoked so it can end.
    * @param {string} fingerprint - The requester fingerprint to claim
-   * @returns {boolean} Whether the connection was claimed for this fingerprint
+   * @param {function(): void} [evict] - Ends this stream when a newer one takes over
+   * @returns {ConnectionClaim|undefined} The claim, or undefined for an empty fingerprint
    */
-  claimConnection(fingerprint: string): boolean {
-    if (!fingerprint) return false;
-    if (this.activeFingerprints.has(fingerprint)) return false;
-    this.activeFingerprints.add(fingerprint);
-    return true;
+  claimConnection(
+    fingerprint: string,
+    evict?: () => void
+  ): ConnectionClaim | undefined {
+    if (!fingerprint) return undefined;
+    const claim: ConnectionClaim = {
+      fingerprint,
+      isCurrent: () => this.connections.get(fingerprint)?.claim === claim,
+      release: () => {
+        if (!claim.isCurrent()) return false;
+        this.connections.delete(fingerprint);
+        return true;
+      },
+    };
+    const previous = this.connections.get(fingerprint);
+    this.connections.set(fingerprint, { claim, evict });
+    previous?.evict?.();
+    return claim;
   }
 
   /**
-   * @description Releases an active connection claim for a fingerprint
-   * @summary Removes the fingerprint from the active set so a new SSE connection
-   * can be claimed for it.
+   * @description Whether a fingerprint currently holds a stream
+   * @param {string} fingerprint - The requester fingerprint to check
+   * @returns {boolean} Whether a stream is connected for the fingerprint
+   */
+  hasConnection(fingerprint: string): boolean {
+    return this.connections.has(fingerprint);
+  }
+
+  /**
+   * @description Releases a fingerprint's connection
+   * @summary Frees the fingerprint regardless of which stream holds it; streams
+   * should prefer `claim.release()`, which cannot free a newer stream's claim.
    * @param {string} fingerprint - The requester fingerprint to release
    */
   releaseConnection(fingerprint: string): void {
-    this.activeFingerprints.delete(fingerprint);
+    this.connections.delete(fingerprint);
+  }
+
+  private pruneUnconnected(now = Date.now()): void {
+    for (const [fingerprint, record] of this.records) {
+      if (this.connections.has(fingerprint)) continue;
+      if (now - record.updatedAt.getTime() > UNCONNECTED_RECORD_TTL_MS)
+        this.records.delete(fingerprint);
+    }
   }
 }

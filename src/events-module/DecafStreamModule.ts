@@ -1,4 +1,4 @@
-import { DynamicModule, Module } from "@nestjs/common";
+import { Controller, DynamicModule, Module, Type } from "@nestjs/common";
 import { EventsController } from "./EventsController";
 import { RouterModule } from "@nestjs/core";
 import {
@@ -8,6 +8,24 @@ import {
 import { ObserverSubscriptionRegistry } from "./ObserverSubscriptionRegistry";
 import { ObserverEventsOptions } from "../types";
 import { EventsSubscriptionController } from "./EventsSubscriptionController";
+import { Auth } from "../auth/decorators";
+
+/**
+ * @description Returns an authenticated variant of an events controller
+ * @summary Subclasses the controller with {@link Auth} (AuthInterceptor), leaving
+ * the shared class untouched so apps with and without authentication can coexist.
+ * @param {Type} controller - The controller to authenticate
+ * @returns {Type} The authenticated controller
+ */
+function authenticated<T extends Type<any>>(controller: T): T {
+  @Auth()
+  @Controller()
+  class AuthenticatedEventsController extends controller {}
+  Object.defineProperty(AuthenticatedEventsController, "name", {
+    value: `Authenticated${controller.name}`,
+  });
+  return AuthenticatedEventsController;
+}
 
 /**
  * @description NestJS dynamic module wiring the SSE events stack into an application
@@ -48,9 +66,11 @@ export class DecafStreamModule {
     path: string = "events",
     options: ObserverEventsOptions = {}
   ): DynamicModule {
-    const controllers: any[] = [EventsController];
+    const secure = <T extends Type<any>>(controller: T): T =>
+      options.authenticate ? authenticated(controller) : controller;
+    const controllers: Type<any>[] = [secure(EventsController)];
     if (options.subscriptionMode) {
-      controllers.push(EventsSubscriptionController);
+      controllers.push(secure(EventsSubscriptionController));
     }
     return {
       module: DecafStreamModule,

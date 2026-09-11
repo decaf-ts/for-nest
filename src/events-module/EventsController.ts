@@ -2,14 +2,8 @@ import { DecafController } from "../controllers";
 import { DecafRequestContext } from "../request";
 import { Adapter, Observer, ObserverFilter, UUID } from "@decaf-ts/core";
 import type { Constructor } from "@decaf-ts/decoration";
-import {
-  Controller,
-  Inject,
-  MessageEvent,
-  Query,
-  Sse,
-} from "@nestjs/common";
-import { interval, merge, Observable } from "rxjs";
+import { Controller, Inject, MessageEvent, Param, Sse } from "@nestjs/common";
+import { interval, merge, Observable, Subject } from "rxjs";
 import { Logging } from "@decaf-ts/logging";
 import {
   LISTENING_ADAPTERS_FLAVOURS,
@@ -22,19 +16,21 @@ import {
   normalizeEventResponse,
   resolveRequesterFingerprint,
 } from "./utils";
-import { map, tap } from "rxjs/operators";
+import { map, takeUntil, tap } from "rxjs/operators";
 import { ObserverSubscriptionRegistry } from "./ObserverSubscriptionRegistry";
 import type { ObserverEventsOptions } from "../types";
-import { ConflictError } from "@decaf-ts/db-decorators";
+
+const HEARTBEAT_INTERVAL_MS = 15000;
 
 /**
  * @description SSE controller exposing Decaf observer events as a Server-Sent Events stream
  * @summary Registers observers against all listening adapters and streams the events they
- * emit back to the client over SSE. A single requester (identified by fingerprint) may hold
- * only one SSE connection: claiming a connection when one is already active throws a
- * {@link ConflictError}. When {@link ObserverEventsOptions.subscriptionMode} is enabled,
- * events are filtered by the requester's topic subscriptions held in the
- * {@link ObserverSubscriptionRegistry}.
+ * emit back to the client over SSE. In broadcast mode (the default) every stream gets
+ * every event and a requester may open any number of streams (tabs, devices). When
+ * {@link ObserverEventsOptions.subscriptionMode} is enabled, events are filtered by the
+ * requester's topic subscriptions held in the {@link ObserverSubscriptionRegistry}, and a
+ * requester (one client, see {@link resolveRequesterFingerprint}) holds a single stream:
+ * a newer stream takes over and ends the previous one.
  * @class EventsController
  * @param {DecafRequestContext} clientContext - The active request context
  * @param {string[]} flavours - The adapter flavours to observe events on (injected via {@link LISTENING_ADAPTERS_FLAVOURS})
@@ -49,15 +45,18 @@ import { ConflictError } from "@decaf-ts/db-decorators";
  *   participant Adapters
  *   Client->>Controller: listen()
  *   Controller->>Controller: resolveFingerprint()
- *   Controller->>Registry: claimConnection(fingerprint)
- *   Registry-->>Controller: claimed
+ *   opt subscription mode
+ *     Controller->>Registry: claimConnection(fingerprint, evict)
+ *   end
  *   loop for each adapter
  *     Controller->>Adapters: observe(observer, filter)
  *   end
  *   Adapters-->>Controller: refresh(args)
  *   Controller->>Client: SSE message
  *   Client->>Controller: disconnect
- *   Controller->>Registry: releaseConnection(fingerprint)
+ *   opt subscription mode and claim still current
+ *     Controller->>Registry: claim.release(), remove(fingerprint)
+ *   end
  */
 @Controller()
 export class EventsController extends DecafController<DecafServerCtx> {
@@ -91,65 +90,70 @@ export class EventsController extends DecafController<DecafServerCtx> {
   }
 
   /**
-   * @description Claims the right to stream events for a fingerprint
-   * @summary Enforces the one-SSE-connection-per-client invariant, throwing a
-   * {@link ConflictError} when the fingerprint already holds an active connection.
-   * @param {string} fingerprint - The requester fingerprint to claim
-   * @returns {string} The claimed fingerprint
-   * @throws {ConflictError} When the fingerprint already holds an active SSE connection
-   */
-  private claim(fingerprint: string): string {
-    if (!this.registry.claimConnection(fingerprint)) {
-      throw new ConflictError(
-        "Only one SSE connection is allowed per client; the previous connection must be closed first"
-      );
-    }
-    return fingerprint;
-  }
-
-  /**
    * @description Streams observer events for all models over SSE
    * @summary Opens the heartbeat-augmented SSE stream for the requesting client.
-   * Claims the requester's fingerprint (one connection per client) and, when
-   * subscription mode is enabled, registers an observer whose {@link ObserverFilter}
-   * only forwards events whose topic matches the requester's subscriptions. A
-   * `heartbeat` message is emitted every 15 seconds to keep the connection alive.
-   * On disconnect, the observer is unregistered and the fingerprint released.
+   * See {@link EventsController} for the broadcast and subscription semantics.
    * @returns {Observable<MessageEvent>} The merged event and heartbeat SSE stream
-   * @throws {ConflictError} When the requester already holds an active SSE connection
-   * @mermaid
-   * sequenceDiagram
-   *   participant Client
-   *   participant Controller as EventsController
-   *   participant Registry as ObserverSubscriptionRegistry
-   *   participant Adapters
-   *   Client->>Controller: GET (SSE)
-   *   Controller->>Registry: claimConnection(fingerprint)
-   *   Registry-->>Controller: claimed / ConflictError
-   *   loop for each adapter
-   *     Controller->>Adapters: observe(observer, filter)
-   *   end
-   *   Adapters-->>Controller: refresh([model, operation, id, payload])
-   *   Controller->>Controller: normalizeEventResponse()
-   *   Controller->>Client: event message
-   *   Controller-->>Client: heartbeat every 15s
-   *   Client-->>Controller: disconnect
-   *   Controller->>Adapters: unObserve(observer)
-   *   Controller->>Registry: releaseConnection(fingerprint)
    */
   @Sse()
   listen(): Observable<MessageEvent> {
+    return this.stream({ heartbeat: true });
+  }
+
+  /**
+   * @description Streams observer events for a single model over SSE
+   * @summary Streams the raw observer arguments, without heartbeat. In
+   * subscription mode only events whose topic targets the given model (or topic
+   * prefix) and match the requester's subscriptions are sent; in broadcast mode
+   * the stream is not filtered.
+   * @param {string} model - The model name (or topic prefix) to observe events for
+   * @returns {Observable<MessageEvent>} The SSE stream for the model
+   */
+  @Sse("/:model")
+  listenForModel(@Param("model") model: string): Observable<MessageEvent> {
+    return this.stream({ scope: model, raw: true });
+  }
+
+  /**
+   * @description Builds the SSE stream for the requesting client
+   * @summary Registers an observer on every listening adapter and, optionally,
+   * merges its events with a `heartbeat` every 15 seconds. In subscription mode
+   * events are filtered to the `scope` model and to the requester's subscriptions,
+   * and the stream claims the requester's fingerprint: a newer stream from the
+   * same client ends this one, and closing the current stream drops the client's
+   * subscriptions (a reconnecting client subscribes again).
+   * @param {Object} [options] - Stream options
+   * @param {string} [options.scope] - Model (or topic prefix) the stream is restricted to in subscription mode
+   * @param {boolean} [options.raw] - Send the raw observer arguments instead of the normalized event
+   * @param {boolean} [options.heartbeat] - Emit a heartbeat every 15 seconds
+   * @returns {Observable<MessageEvent>} The SSE stream
+   */
+  private stream(
+    options: { scope?: string; raw?: boolean; heartbeat?: boolean } = {}
+  ): Observable<MessageEvent> {
+    const { scope, raw, heartbeat } = options;
     const logger = Logging.for(EventsController.name);
     const subscriptionMode = Boolean(this.options.subscriptionMode);
-    const fingerprint = this.claim(this.resolveFingerprint());
+    const fingerprint = this.resolveFingerprint();
+    const ended$ = new Subject<void>();
 
-    const events$ = new Observable<MessageEvent>((observer) => {
+    const events$ = new Observable<MessageEvent>((subscriber) => {
       const observerId =
         `B-${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
 
       logger.info(
         `Creating SSE observer: ${observerId} for client ${this.clientContext.uuid} (fingerprint ${fingerprintLabel(fingerprint)})`
       );
+      const claim = subscriptionMode
+        ? this.registry.claimConnection(fingerprint, () => {
+            logger.info(
+              `SSE observer ${observerId} superseded by a newer stream of the same client (fingerprint ${fingerprintLabel(fingerprint)})`
+            );
+            ended$.next();
+            subscriber.complete();
+          })
+        : undefined;
+
       const cb = new (class implements Observer {
         observerId = observerId;
         refresh(...args: any[]): Promise<void> {
@@ -157,18 +161,25 @@ export class EventsController extends DecafController<DecafServerCtx> {
             `SSE observer ${this.observerId} received refresh event`
           );
           return Promise.resolve().then(() => {
+            if (raw) {
+              subscriber.next({ data: args } as MessageEvent);
+              return;
+            }
             const data = normalizeEventResponse(args);
-            observer.next({ type: "message", data });
+            subscriber.next({ type: "message", data });
             logger.debug(
               `SSE observer ${this.observerId} event pushed to client`
             );
           });
         }
       })();
+
       const filter: ObserverFilter | undefined = subscriptionMode
         ? (model: string | Constructor, event: any, id: any, ..._rest: any[]) => {
             const topic = eventTopicFor(model, event, id);
             if (!topic) return false;
+            if (scope && topic !== scope && !topic.startsWith(`${scope}.`))
+              return false;
             return this.registry.matches(fingerprint, topic);
           }
         : undefined;
@@ -208,12 +219,15 @@ export class EventsController extends DecafController<DecafServerCtx> {
             logger.error(e);
           }
         }
-        this.registry.releaseConnection(fingerprint);
+        // a superseded stream leaves the newer stream's claim and subscriptions alone
+        if (claim?.release()) this.registry.remove(fingerprint);
+        ended$.next();
+        ended$.complete();
       };
     });
 
-    const HEARTBEAT_INTERVAL_MS = 15000;
     const heartbeat$ = interval(HEARTBEAT_INTERVAL_MS).pipe(
+      takeUntil(ended$),
       tap(() => {
         logger.debug("Sending heartbeat");
       }),
@@ -227,81 +241,6 @@ export class EventsController extends DecafController<DecafServerCtx> {
       )
     );
 
-    return merge(events$, heartbeat$);
-  }
-
-  /**
-   * @description Streams observer events for a single model over SSE
-   * @summary Opens an SSE stream restricted to events whose topic targets the given
-   * model. When subscription mode is enabled, events are additionally filtered by
-   * the requester's topic subscriptions. Observers are registered against all
-   * listening adapters and released on disconnect, together with the claimed
-   * fingerprint.
-   * @param {string} model - The model name (or topic prefix) to observe events for
-   * @returns {Observable<MessageEvent>} The SSE stream for the model
-   * @throws {ConflictError} When the requester already holds an active SSE connection
-   * @mermaid
-   * sequenceDiagram
-   *   participant Client
-   *   participant Controller as EventsController
-   *   participant Registry as ObserverSubscriptionRegistry
-   *   participant Adapters
-   *   Client->>Controller: GET /:model (SSE)
-   *   Controller->>Registry: claimConnection(fingerprint)
-   *   Registry-->>Controller: claimed / ConflictError
-   *   loop for each adapter
-   *     Controller->>Adapters: observe(observer, model-filter)
-   *   end
-   *   Adapters-->>Controller: refresh([model, operation, id, payload])
-   *   alt topic targets the model AND matches subscriptions
-   *     Controller->>Client: event message
-   *   end
-   *   Client-->>Controller: disconnect
-   *   Controller->>Adapters: unObserve(observer)
-   *   Controller->>Registry: releaseConnection(fingerprint)
-   */
-  @Sse("/:model")
-  listenForModel(@Query("model") model: string): Observable<MessageEvent> {
-    const logger = Logging.for(EventsController.name);
-    const subscriptionMode = Boolean(this.options.subscriptionMode);
-    const fingerprint = this.claim(this.resolveFingerprint());
-
-    return new Observable<MessageEvent>((observer) => {
-      const cb = new (class implements Observer {
-        refresh(...args: any[]): Promise<void> {
-          return Promise.resolve().then(() => {
-            observer.next({ data: args } as any);
-          });
-        }
-      })();
-
-      const filter: ObserverFilter | undefined = subscriptionMode
-        ? (modelConstr: string | Constructor, event: any, id: any, ..._rest: any[]) => {
-            const topic = eventTopicFor(modelConstr, event, id);
-            if (!topic) return false;
-            const withinModel = model ? topic === model || topic.startsWith(`${model}.`) : true;
-            return withinModel && this.registry.matches(fingerprint, topic);
-          }
-        : undefined;
-
-      try {
-        for (const adapter of this.adapters) {
-          adapter.observe(cb, filter as any);
-        }
-      } catch (e: any) {
-        observer.error(`Failed to observe event: ${e.message || e}`);
-      }
-
-      return () => {
-        try {
-          for (const adapter of this.adapters) {
-            adapter.unObserve(cb);
-          }
-        } catch (e: any) {
-          logger.error(e);
-        }
-        this.registry.releaseConnection(fingerprint);
-      };
-    });
+    return heartbeat ? merge(events$, heartbeat$) : events$;
   }
 }

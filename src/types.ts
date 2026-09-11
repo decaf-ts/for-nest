@@ -27,6 +27,14 @@ export interface ObserverEventsOptions {
   subscriptionMode?: boolean;
 
   /**
+   * Runs the registered auth handler (AuthInterceptor) on the SSE stream and on
+   * the subscribe/unsubscribe endpoints. The authenticated user then scopes the
+   * requester fingerprint (`user:<user>:<x-correlation-id>`). A rejected stream
+   * gets the auth handler's HTTP error (e.g. 401).
+   */
+  authenticate?: boolean;
+
+  /**
    * List of adapter flavours that will emit stream events
    * If omitted, all registered flavours may be used
    */

@@ -1,4 +1,5 @@
 import type { Constructor } from "@decaf-ts/decoration";
+import { Logging } from "@decaf-ts/logging";
 
 /**
  * @description Normalizes an observer refresh payload for SSE delivery
@@ -29,18 +30,19 @@ export function normalizeEventResponse(args: any[]): unknown[] {
   const [modelConstr, operation, id, payload] = args;
 
   const modelName = modelConstr?.name ?? modelConstr;
+  const log = Logging.for(normalizeEventResponse);
 
   const serializedPayload = Array.isArray(payload)
     ? payload.map((e) => {
         try {
           if (typeof e.serialize === "function") return e.serialize();
 
-          console.warn(
-            `Payload item for ${modelName} does not have serialize method and is an ${typeof e}, attempting to stringify directly. Item: ${e}`
+          log.verbose(
+            `Payload item for ${modelName} has no serialize method (${typeof e}); stringifying it`
           );
           return typeof e === "string" ? e : JSON.stringify(e);
         } catch (err: unknown) {
-          console.warn(`Failed to serialize payload for ${modelName}: ${err}`);
+          log.warn(`Failed to serialize payload for ${modelName}: ${err}`);
           return undefined;
         }
       })
@@ -50,9 +52,8 @@ export function normalizeEventResponse(args: any[]): unknown[] {
         ? payload
         : JSON.stringify(payload);
 
-  console.debug(
-    `Normalized event response for model ${modelName}, operation ${operation}, id ${id}:`,
-    serializedPayload
+  log.silly(
+    `Normalized event response for model ${modelName}, operation ${operation}, id ${id}`
   );
 
   return [modelName, operation, id, serializedPayload];
@@ -105,18 +106,34 @@ export function eventTopicFor(
 
 /**
  * @description Identity resolved for a requester for topic-scoped SSE
- * @summary Carries the value that identifies a requester, together with how that
- * value was resolved: an authenticated user, the `x-correlation-id` header, or a
- * fallback connection id.
+ * @summary Carries the value that identifies a requester (one SSE client), together
+ * with how that value was resolved: an authenticated user's client (user scoped by
+ * its `x-correlation-id`), an authenticated user without correlation id, the
+ * `x-correlation-id` header alone, or a fallback connection id.
  * @typedef {Object} RequesterFingerprint
  * @property {string} value - The resolved fingerprint value
- * @property {'user'|'correlationId'|'connection'} kind - How the fingerprint was resolved
+ * @property {'userClient'|'user'|'correlationId'|'connection'} kind - How the fingerprint was resolved
  * @memberOf module:for-nest.events
  */
 export type RequesterFingerprint = {
   value: string;
-  kind: "user" | "correlationId" | "connection";
+  kind: "userClient" | "user" | "correlationId" | "connection";
 };
+
+/**
+ * @description Builds a fingerprint value that cannot collide across kinds
+ * @summary Prefixes the value with its kind and URI-encodes every part, so e.g. a
+ * correlation id sent without credentials can never equal an authenticated
+ * user's client fingerprint.
+ * @param {string} kind - The fingerprint namespace (`user`, `cid` or `conn`)
+ * @param {...string} parts - The identifying parts
+ * @returns {string} The namespaced fingerprint
+ * @function fingerprintOf
+ * @memberOf module:for-nest.events
+ */
+export function fingerprintOf(kind: string, ...parts: string[]): string {
+  return [kind, ...parts.map((part) => encodeURIComponent(part))].join(":");
+}
 
 /**
  * @description Extracts a fingerprint from an authenticated user identity
@@ -185,9 +202,13 @@ export function sanitizeTopics(topics: Iterable<string>): string[] {
 
 /**
  * @description Resolves the requester fingerprint for an incoming request
- * @summary Resolves the caller identity in priority order: an authenticated user,
- * then the `x-correlation-id` header, and finally the supplied fallback (typically
- * a freshly generated id) which is classified as a connection fingerprint.
+ * @summary Identifies the SSE client behind a request. An authenticated user's
+ * client is `user:<user>:<x-correlation-id>` — several tabs/devices of one user
+ * are distinct clients, while the user part keeps another user from acting on
+ * them by replaying their correlation id. Without a correlation id the user alone
+ * is used (`user:<user>`); without a user, the header (`cid:<id>`); and finally
+ * the supplied fallback (typically a freshly generated id) as `conn:<id>`. Parts
+ * are URI-encoded, so fingerprints of different kinds never collide.
  * @param {Object} context - The request context used for resolution
  * @param {function(string): unknown} [context.getOrUndefined] - Context lookup keyed by name (e.g. `user`)
  * @param {Object} [context.headers] - Raw request headers
@@ -199,7 +220,9 @@ export function sanitizeTopics(topics: Iterable<string>): string[] {
  *   participant Caller
  *   participant resolve as resolveRequesterFingerprint
  *   Caller->>resolve: context, fallback
- *   alt authenticated user present
+ *   alt authenticated user and x-correlation-id
+ *     resolve-->>Caller: { kind: userClient, value: user:<user>:<correlationId> }
+ *   else authenticated user
  *     resolve-->>Caller: { kind: user }
  *   else x-correlation-id header present
  *     resolve-->>Caller: { kind: correlationId }
@@ -215,18 +238,24 @@ export function resolveRequesterFingerprint(
   },
   fallback: string
 ): RequesterFingerprint {
+  const rawHeaders = context.headers ?? {};
+  const header = rawHeaders["x-correlation-id"] ?? rawHeaders["X-Correlation-ID"];
+  const correlationId = (Array.isArray(header) ? header[0] : header)?.trim();
+
   const authenticated = context.getOrUndefined?.("user");
   const userFingerprint = fingerprintOfUser(authenticated);
   if (userFingerprint) {
-    return { value: userFingerprint, kind: "user" };
+    return correlationId
+      ? {
+          value: fingerprintOf("user", userFingerprint, correlationId),
+          kind: "userClient",
+        }
+      : { value: fingerprintOf("user", userFingerprint), kind: "user" };
   }
 
-  const rawHeaders = context.headers ?? {};
-  const header = rawHeaders["x-correlation-id"] ?? rawHeaders["X-Correlation-ID"];
-  const correlationId = Array.isArray(header) ? header[0] : header;
   if (correlationId) {
-    return { value: correlationId, kind: "correlationId" };
+    return { value: fingerprintOf("cid", correlationId), kind: "correlationId" };
   }
 
-  return { value: fallback, kind: "connection" };
+  return { value: fingerprintOf("conn", fallback), kind: "connection" };
 }

@@ -77,20 +77,53 @@ describe("ObserverSubscriptionRegistry — agnostic webhook topics and fingerpri
   });
 
   describe("single connection per client fingerprint", () => {
-    it("claims a fingerprint and refuses a second claim for the same one", () => {
-      expect(registry.claimConnection("client-a")).toBe(true);
-      expect(registry.claimConnection("client-a")).toBe(false);
-      expect(registry.claimConnection("client-b")).toBe(true);
+    it("a newer claim for the same fingerprint takes over and evicts the previous stream", () => {
+      const evicted: string[] = [];
+      const first = registry.claimConnection("client-a", () => evicted.push("first"));
+      const second = registry.claimConnection("client-a", () => evicted.push("second"));
+      const other = registry.claimConnection("client-b");
+
+      expect(evicted).toEqual(["first"]);
+      expect(first?.isCurrent()).toBe(false);
+      expect(second?.isCurrent()).toBe(true);
+      expect(other?.isCurrent()).toBe(true);
+    });
+
+    it("only the current claim releases the fingerprint", () => {
+      const first = registry.claimConnection("client-a");
+      const second = registry.claimConnection("client-a");
+
+      expect(first?.release()).toBe(false);
+      expect(registry.hasConnection("client-a")).toBe(true);
+      expect(second?.release()).toBe(true);
+      expect(registry.hasConnection("client-a")).toBe(false);
     });
 
     it("releases the claim so a client may reconnect after disconnect", () => {
-      expect(registry.claimConnection("client-a")).toBe(true);
-      registry.releaseConnection("client-a");
-      expect(registry.claimConnection("client-a")).toBe(true);
+      registry.claimConnection("client-a")?.release();
+      expect(registry.claimConnection("client-a")?.isCurrent()).toBe(true);
     });
 
     it("refuses an empty fingerprint", () => {
-      expect(registry.claimConnection("")).toBe(false);
+      expect(registry.claimConnection("")).toBeUndefined();
+    });
+  });
+
+  describe("records of clients that never connect", () => {
+    afterEach(() => jest.useRealTimers());
+
+    it("are pruned after 10 minutes, while connected clients keep theirs", () => {
+      jest.useFakeTimers({ now: new Date("2026-01-01T00:00:00Z") });
+      registry.upsert("idle", ["ProcessStep.*"]);
+      registry.upsert("connected", ["ProcessStep.*"]);
+      registry.claimConnection("connected");
+
+      jest.setSystemTime(new Date("2026-01-01T00:11:00Z"));
+      registry.upsert("new", ["Fake.*"]);
+
+      expect(registry.get("idle")).toBeUndefined();
+      expect(registry.get("connected")).toBeDefined();
+      expect(registry.get("new")).toBeDefined();
     });
   });
 
@@ -202,25 +235,43 @@ describe("resolveRequesterFingerprint — requester identification (2.3)", () =>
         : {},
   });
 
-  it("prefers the authenticated user identity", () => {
+  it("identifies an authenticated user's client by user and correlation id", () => {
+    const { value, kind } = resolveRequesterFingerprint(
+      ctx({ user: "alice", correlationId: "tab-1" }),
+      "fallback"
+    );
+    expect(kind).toBe("userClient");
+    expect(value).toBe("user:alice:tab-1");
+  });
+
+  it("keeps the clients (tabs/devices) of one user apart", () => {
+    const tab1 = resolveRequesterFingerprint(ctx({ user: "alice", correlationId: "tab-1" }), "f");
+    const tab2 = resolveRequesterFingerprint(ctx({ user: "alice", correlationId: "tab-2" }), "f");
+    expect(tab1.value).not.toBe(tab2.value);
+  });
+
+  it("scopes a correlation id to the authenticated user, so another user cannot reuse it", () => {
+    const alice = resolveRequesterFingerprint(ctx({ user: "alice", correlationId: "cid" }), "f");
+    const mallory = resolveRequesterFingerprint(ctx({ user: "mallory", correlationId: "cid" }), "f");
+    const anonymous = resolveRequesterFingerprint(ctx({ correlationId: "cid" }), "f");
+    expect(new Set([alice.value, mallory.value, anonymous.value]).size).toBe(3);
+  });
+
+  it("cannot be forged across kinds through the correlation id", () => {
+    const alice = resolveRequesterFingerprint(ctx({ user: "alice", correlationId: "tab-1" }), "f");
+    const forged = resolveRequesterFingerprint(ctx({ correlationId: alice.value }), "f");
+    const forgedUser = resolveRequesterFingerprint(ctx({ user: "alice:tab-1" }), "f");
+    expect(forged.value).not.toBe(alice.value);
+    expect(forgedUser.value).not.toBe(alice.value);
+  });
+
+  it("uses the authenticated user alone when there is no correlation id", () => {
     const { value, kind } = resolveRequesterFingerprint(
       ctx({ user: "alice" }),
       "fallback"
     );
     expect(kind).toBe("user");
-    expect(value).toBe("alice");
-  });
-
-  it("authenticated user wins over a conflicting x-correlation-id header", () => {
-    const { value, kind } = resolveRequesterFingerprint(
-      {
-        getOrUndefined: () => "alice",
-        headers: { "x-correlation-id": "evil-cid" },
-      },
-      "fallback"
-    );
-    expect(kind).toBe("user");
-    expect(value).toBe("alice");
+    expect(value).toBe("user:alice");
   });
 
   it("extracts a user identity object via its id/uuid/user property", () => {
@@ -229,7 +280,7 @@ describe("resolveRequesterFingerprint — requester identification (2.3)", () =>
       "fallback"
     );
     expect(kind).toBe("user");
-    expect(value).toBe("alice-42");
+    expect(value).toBe("user:alice-42");
   });
 
   it("falls back to the x-correlation-id header when not authenticated", () => {
@@ -238,12 +289,12 @@ describe("resolveRequesterFingerprint — requester identification (2.3)", () =>
       "fallback"
     );
     expect(kind).toBe("correlationId");
-    expect(value).toBe("corr-42");
+    expect(value).toBe("cid:corr-42");
   });
 
   it("falls back to the connection-based unique id last", () => {
     const { value, kind } = resolveRequesterFingerprint(ctx(), "conn-1");
     expect(kind).toBe("connection");
-    expect(value).toBe("conn-1");
+    expect(value).toBe("conn:conn-1");
   });
 });
