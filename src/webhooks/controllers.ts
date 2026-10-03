@@ -1,5 +1,5 @@
 import { Controller, Param, Post } from "@nestjs/common";
-import { Repository, type Repo, OrderDirection } from "@decaf-ts/core";
+import { AuthorizationError, Repository, type Repo, OrderDirection } from "@decaf-ts/core";
 import { DecafController } from "../controllers";
 import { DecafRequestContext } from "../request";
 import { DecafServerCtx } from "../constants";
@@ -10,6 +10,51 @@ import {
   WebhookSubscription,
   collectPagedResults,
 } from "@decaf-ts/for-http/hooks";
+
+/**
+ * @description Resolves the authenticated principal from the request context.
+ * @summary Returns the `user` identity bound to the request when present, else
+ * throws an {@link AuthorizationError} so the webhook lifecycle / action routes
+ * cannot be invoked anonymously.
+ * @param {DecafRequestContext} clientContext - The active request context
+ * @returns {string} The authenticated principal
+ * @throws {AuthorizationError} When no authenticated user is bound to the request
+ */
+export function resolvePrincipal(clientContext: DecafRequestContext): string {
+  const user = (clientContext as any).getOrUndefined?.("user") as
+    | string
+    | undefined;
+  if (!user || typeof user !== "string") {
+    throw new AuthorizationError(
+      "Webhook lifecycle actions require an authenticated principal"
+    );
+  }
+  return user;
+}
+
+/**
+ * @description Enforces ownership of a resource against the authenticated principal.
+ * @summary A resource is owned by the principal when it records an `owner` equal to
+ * the caller. Complaints about another principal's resource (IDOR) throw an
+ * {@link AuthorizationError}. Resources without an `owner` (created before ownership
+ * tracking, or by an unauthenticated flow) are treated as unowned and allowed, so
+ * legacy resources remain operable while the caller is still authenticated.
+ * @param {string} principal - The authenticated principal
+ * @param {{owner?: string}} resource - The resource being operated on
+ * @param {string} kind - A human label for the resource (e.g. "subscription")
+ * @throws {AuthorizationError} When the resource is owned by a different principal
+ */
+export function assertOwnership(
+  principal: string,
+  resource: { owner?: string },
+  kind: string
+): void {
+  if (resource?.owner && resource.owner !== principal) {
+    throw new AuthorizationError(
+      `Cannot operate on a ${kind} owned by a different principal`
+    );
+  }
+}
 
 @Controller("webhook-subscriptions")
 export class WebhookSubscriptionActionsController extends DecafController<DecafServerCtx> {
@@ -22,11 +67,13 @@ export class WebhookSubscriptionActionsController extends DecafController<DecafS
     const { ctx } = (await this.logCtx([], "deactivate", true)).for(
       this.deactivate
     );
+    const principal = resolvePrincipal(this.clientContext);
     const repo = Repository.forModel<
       WebhookSubscription,
       Repo<WebhookSubscription>
     >(WebhookSubscription);
     const current = await repo.read(id, ctx);
+    assertOwnership(principal, current, "subscription");
     current.active = false;
     return repo.update(current, ctx);
   }
@@ -36,11 +83,13 @@ export class WebhookSubscriptionActionsController extends DecafController<DecafS
     const { ctx } = (await this.logCtx([], "reactivate", true)).for(
       this.reactivate
     );
+    const principal = resolvePrincipal(this.clientContext);
     const repo = Repository.forModel<
       WebhookSubscription,
       Repo<WebhookSubscription>
     >(WebhookSubscription);
     const current = await repo.read(id, ctx);
+    assertOwnership(principal, current, "subscription");
     current.active = true;
     return repo.update(current, ctx);
   }
@@ -55,6 +104,7 @@ export class WebhookEventActionsController extends DecafController<DecafServerCt
   @Post(":id/replay")
   async replay(@Param("id") id: string) {
     const { ctx } = (await this.logCtx([], "replay", true)).for(this.replay);
+    const principal = resolvePrincipal(this.clientContext);
     const eventRepo = Repository.forModel<
       WebhookEventRecord,
       Repo<WebhookEventRecord>
@@ -75,6 +125,7 @@ export class WebhookEventActionsController extends DecafController<DecafServerCt
       if (!events.length) throw error;
       event = events[0];
     }
+    assertOwnership(principal, event, "event");
     let deliveries: any[] = [];
     try {
       deliveries = await collectPagedResults(

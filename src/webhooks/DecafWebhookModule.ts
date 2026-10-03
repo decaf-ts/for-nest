@@ -108,10 +108,19 @@ export class DecafWebhookModule {
   ): Promise<DynamicModule> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const adapters = await this.bootPersistence(options);
+    const webhookModelConfig = {
+      ownerScopedField: "owner",
+    } as const;
     const controllers = [
-      FromModelController.create(WebhookSubscription),
-      FromModelController.create(WebhookEventRecord),
-      FromModelController.create(WebhookDelivery),
+      FromModelController.create(WebhookSubscription, {
+        WebhookSubscription: webhookModelConfig,
+      }),
+      FromModelController.create(WebhookEventRecord, {
+        WebhookEventRecord: webhookModelConfig,
+      }),
+      FromModelController.create(WebhookDelivery, {
+        WebhookDelivery: webhookModelConfig,
+      }),
       WebhookSubscriptionActionsController,
       WebhookEventActionsController,
     ];

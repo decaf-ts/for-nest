@@ -1,6 +1,12 @@
 import { DecafController } from "../controllers";
 import { DecafRequestContext } from "../request";
-import { Adapter, Observer, ObserverFilter, UUID } from "@decaf-ts/core";
+import {
+  Adapter,
+  AuthorizationError,
+  Observer,
+  ObserverFilter,
+  UUID,
+} from "@decaf-ts/core";
 import type { Constructor } from "@decaf-ts/decoration";
 import {
   Controller,
@@ -74,20 +80,45 @@ export class EventsController extends DecafController<DecafServerCtx> {
   }
 
   /**
-   * @description Resolves the request's requester fingerprint
-   * @summary Delegates to {@link resolveRequesterFingerprint}, falling back to a
-   * freshly generated id so every anonymous SSE connection still gets a stable key.
+   * @description Resolves the request's requester fingerprint and enforces auth
+   * @summary Delegates to {@link resolveRequesterFingerprint}. When
+   * {@link ObserverEventsOptions.requireAuthenticated} is not explicitly disabled
+   * (the secure default) and the requester is not an authenticated user, an
+   * {@link AuthorizationError} is thrown so an unauthenticated client cannot open
+   * an SSE stream or claim a subscription.
    * @returns {string} The resolved fingerprint value
+   * @throws {AuthorizationError} When auth is required and no authenticated user is present
    */
   private resolveFingerprint(): string {
-    const { value } = resolveRequesterFingerprint(
+    const { value, kind } = resolveRequesterFingerprint(
       {
         getOrUndefined: (key: string) => this.clientContext.getOrUndefined(key as any),
         headers: this.clientContext.headers,
       },
       `${UUID.instance.generate()}`
     );
+    this.assertAuthenticated(kind);
     return value;
+  }
+
+  /**
+   * @description Enforces the authenticated-identity requirement for SSE access
+   * @summary When {@link ObserverEventsOptions.requireAuthenticated} is not
+   * explicitly set to `false` and the resolved fingerprint is not a `user`
+   * identity, raises an {@link AuthorizationError}. This closes the default
+   * unauthenticated broadcast and binds the subscription identity to an
+   * authenticated principal; anonymous broadcast is strictly opt-in.
+   * @param {"user"|"correlationId"|"connection"} kind - The resolved fingerprint kind
+   * @throws {AuthorizationError} When auth is required and the requester is anonymous
+   */
+  private assertAuthenticated(
+    kind: "user" | "correlationId" | "connection"
+  ): void {
+    if (this.options.requireAuthenticated !== false && kind !== "user") {
+      throw new AuthorizationError(
+        "SSE events require an authenticated identity; anonymous broadcast is disabled by default"
+      );
+    }
   }
 
   /**

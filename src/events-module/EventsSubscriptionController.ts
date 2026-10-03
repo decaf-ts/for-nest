@@ -1,5 +1,5 @@
 import { Body, Controller, Inject, Post } from "@nestjs/common";
-import { UUID } from "@decaf-ts/core";
+import { AuthorizationError, UUID } from "@decaf-ts/core";
 import { DecafRequestContext } from "../request";
 import { DecafController } from "../controllers";
 import { DecafServerCtx } from "../constants";
@@ -42,19 +42,28 @@ export class EventsSubscriptionController extends DecafController<DecafServerCtx
   }
 
   /**
-   * @description Resolves the request's requester fingerprint
-   * @summary Delegates to {@link resolveRequesterFingerprint}, falling back to a
-   * freshly generated id so every anonymous request still gets a stable key.
+   * @description Resolves the request's requester fingerprint and enforces auth
+   * @summary Delegates to {@link resolveRequesterFingerprint}. When
+   * {@link ObserverEventsOptions.requireAuthenticated} is not explicitly disabled
+   * (the secure default) and the requester is not an authenticated user, an
+   * {@link AuthorizationError} is thrown so an unauthenticated client cannot
+   * register topic subscriptions.
    * @returns {string} The resolved fingerprint value
+   * @throws {AuthorizationError} When auth is required and no authenticated user is present
    */
   private resolveFingerprint(): string {
-    const { value } = resolveRequesterFingerprint(
+    const { value, kind } = resolveRequesterFingerprint(
       {
         getOrUndefined: (key: string) => this.clientContext.getOrUndefined(key as any),
         headers: this.clientContext.headers,
       },
       `${UUID.instance.generate()}`
     );
+    if (this.options.requireAuthenticated !== false && kind !== "user") {
+      throw new AuthorizationError(
+        "SSE topic subscriptions require an authenticated identity; anonymous broadcast is disabled by default"
+      );
+    }
     return value;
   }
 

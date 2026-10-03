@@ -25,7 +25,9 @@ export type EventResponse = {
       autoControllers: true,
       autoServices: false,
     } as any),
-    DecafStreamModule.forFlavours([RamFlavour], "/events"),
+    DecafStreamModule.forFlavours([RamFlavour], "/events", {
+      requireAuthenticated: false,
+    }),
   ],
 })
 class AppModule {

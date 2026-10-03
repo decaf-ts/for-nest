@@ -309,7 +309,9 @@ describe("DecafModel exposure integration", () => {
             [LiveSwitchRecord.name]: ["nano"],
           },
         } as DecafModuleOptions),
-        DecafStreamModule.forFlavours([RamFlavour, NanoFlavour], "/sse"),
+        DecafStreamModule.forFlavours([RamFlavour, NanoFlavour], "/sse", {
+          requireAuthenticated: false,
+        }),
       ],
     }).compile();
 

@@ -132,11 +132,21 @@ async function cleanupNanoTestResources(resources: any) {
   }
 }
 
+function userFromAuthorization(req: any): string | undefined {
+  const auth = req?.headers?.authorization;
+  if (typeof auth === "string" && auth.startsWith("Bearer ")) {
+    const token = auth.slice("Bearer ".length).trim();
+    return token || undefined;
+  }
+  return undefined;
+}
+
 class NanoWebhookTransformer extends RequestToContextTransformer<any> {
   async from(req: any): Promise<any> {
     return {
       headers: req?.headers || {},
       overrides: {},
+      user: userFromAuthorization(req),
     };
   }
 }
@@ -148,6 +158,7 @@ class WebhookRamTransformer extends RequestToContextTransformer<any> {
       overrides: {
         observeFullResult: true,
       },
+      user: userFromAuthorization(req),
     };
   }
 }
@@ -231,6 +242,7 @@ describe("Standalone webhook module live integration", () => {
           observerOptions: {
             enableObserverEvents: true,
             observerFlavours: [RamFlavour],
+            requireAuthenticated: false,
           },
         }),
         await DecafWebhookModule.forRootAsync({

@@ -62,6 +62,7 @@ import {
 import { ControllerConstructor } from "./types";
 import { DecafModelController } from "../controllers";
 import { DtoFor } from "../factory/openapi/DtoBuilder";
+import { scopeHandler } from "./scoping";
 import "../overrides";
 import {
   ModelControllerFactory,
@@ -306,10 +307,18 @@ export class FromModelController {
           paramDecorators,
         } = registration;
 
+        const scopedHandler = scopeHandler(
+          handler,
+          registeredMethodName,
+          ModelConstr,
+          mergedConfig,
+          getPK
+        );
+
         const descriptor = FromModelController.defineMethod(
           DynamicModelController,
           registeredMethodName,
-          handler
+          scopedHandler
         );
 
         if (descriptor) {

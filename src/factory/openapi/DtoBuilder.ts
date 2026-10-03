@@ -9,6 +9,7 @@ import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
 import { TransactionOperationKeys } from "@decaf-ts/core";
 import { toPascalCase } from "@decaf-ts/logging";
 import { DECORATORS } from "../../overrides/constants";
+import { writeOnlyFieldsOf } from "../../decaf-model/scoping";
 
 const dtoCache = new Map<
   OperationKeys,
@@ -91,9 +92,14 @@ export function DtoFor<M extends Model>(
   const relations = new Set<string>((Model.relations(model) as string[]) || []);
   const scalarProps: string[] = [];
 
+  // Write-only fields (e.g. a subscription secret) are settable on create but
+  // never exposed on the UPDATE DTO / read-back.
+  const writeOnly = new Set(writeOnlyFieldsOf(model));
+
   for (const prop of allProps) {
     if (!prop) continue;
     if (relations.has(prop)) continue;
+    if (writeOnly.has(prop) && isUpdateOp) continue;
 
     if (prop === pkProp && !isUpdateOp && pkIsGenerated) continue;
     if (prop !== pkProp && isPropertyGeneratedAcrossInheritance(model, prop))

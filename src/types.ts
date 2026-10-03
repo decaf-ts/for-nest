@@ -27,6 +27,17 @@ export interface ObserverEventsOptions {
   subscriptionMode?: boolean;
 
   /**
+   * Requires an authenticated identity for SSE connections and topic
+   * subscriptions. Defaults to `true` (secure): an unauthenticated request —
+   * one with no authenticated `user` bound to the request context — is rejected
+   * with an {@link AuthorizationError}` before any event can stream. Set this to
+   * `false` to explicitly opt in to anonymous broadcast (legacy behaviour),
+   * where the requester fingerprint falls back to the `x-correlation-id` header
+   * or a connection-based id.
+   */
+  requireAuthenticated?: boolean;
+
+  /**
    * List of adapter flavours that will emit stream events
    * If omitted, all registered flavours may be used
    */

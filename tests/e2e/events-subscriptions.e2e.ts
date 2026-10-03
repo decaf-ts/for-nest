@@ -75,6 +75,7 @@ async function createBackend(subscriptionMode: boolean): Promise<INestApplicatio
         observerOptions: {
           enableObserverEvents: true,
           subscriptionMode,
+          requireAuthenticated: false,
         },
       } as any),
     ],

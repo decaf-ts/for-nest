@@ -54,7 +54,7 @@ describe.skip("TaskModel HTTP integration with SSE", () => {
         conf: [[RamAdapter, { UUID: "user" }, new RamTransformer()]],
         autoControllers: true,
         autoServices: true,
-        observerOptions: { enableObserverEvents: true },
+        observerOptions: { enableObserverEvents: true, requireAuthenticated: false },
       })
     );
     app.use((req, res, next) => {

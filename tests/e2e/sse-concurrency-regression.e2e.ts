@@ -17,7 +17,9 @@ import { InternalError } from "@decaf-ts/db-decorators";
       autoControllers: true,
       autoServices: false,
     } as any),
-    DecafStreamModule.forFlavours([RamFlavour], "/events"),
+    DecafStreamModule.forFlavours([RamFlavour], "/events", {
+      requireAuthenticated: false,
+    }),
   ],
 })
 class AppModule {}

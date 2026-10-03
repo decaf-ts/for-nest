@@ -830,7 +830,9 @@ describe("DecafModel controller-builder e2e (DECAF-10)", () => {
             [ConfigArticle.name]: { allowGroupingQueries: false },
           },
         } as DecafModuleOptions),
-        DecafStreamModule.forFlavours([RamFlavour], "/sse"),
+        DecafStreamModule.forFlavours([RamFlavour], "/sse", {
+          requireAuthenticated: false,
+        }),
       ],
     }).compile();
 

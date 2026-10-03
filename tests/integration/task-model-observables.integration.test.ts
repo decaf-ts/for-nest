@@ -67,7 +67,7 @@ describe.skip("TaskModel/TaskEventModel HTTP observables integration", () => {
         conf: [[RamAdapter, { UUID: "user" }, new RamTransformer()]],
         autoControllers: true,
         autoServices: true,
-        observerOptions: { enableObserverEvents: true },
+        observerOptions: { enableObserverEvents: true, requireAuthenticated: false },
       })
     );
     app.useGlobalFilters(new DecafExceptionFilter());
