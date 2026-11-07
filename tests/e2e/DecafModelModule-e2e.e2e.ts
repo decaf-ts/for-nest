@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import request from "supertest";
 import { INestApplication } from "@nestjs/common";
 import { DecafExceptionFilter, DecafModule } from "../../src";
@@ -18,7 +20,7 @@ import { genStr } from "./fakes/utils";
 import { Product } from "./fakes/models/Product";
 import { NestFactory } from "@nestjs/core";
 import { RamTransformer } from "@decaf-ts/for-http/server";
-import { InternalError, UnsupportedError } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 Adapter.setCurrent(RamFlavour);
 

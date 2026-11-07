@@ -2,7 +2,7 @@ import { uses } from "@decaf-ts/decoration";
 import { BaseModel, column, pk, roles, table } from "@decaf-ts/core";
 // @ts-expect-error ram
 import { RamFlavour } from "@decaf-ts/core/ram";
-import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
+import { model, type ModelArg, required } from "@decaf-ts/decorator-validation";
 
 
 @uses(RamFlavour)

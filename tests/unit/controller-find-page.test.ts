@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import "../../src/decoration";
 import "../../src/overrides";
 
@@ -14,7 +15,7 @@ import { Logging } from "@decaf-ts/logging";
 import { DecafRequestContext } from "../../src/request/DecafRequestContext";
 import { FromModelController } from "../../src/decaf-model/FromModelController";
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
-import { model, Model, ModelArg, required } from "@decaf-ts/decorator-validation";
+import { model, Model, type ModelArg, required } from "@decaf-ts/decorator-validation";
 import { uses } from "@decaf-ts/decoration";
 
 RamAdapter.decoration();

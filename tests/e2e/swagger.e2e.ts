@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import "../../src";
 import { INestApplication } from "@nestjs/common";
 import { Product } from "./fakes/models/Product";

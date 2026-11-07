@@ -1,7 +1,7 @@
 import { uses } from "@decaf-ts/decoration";
 import { column, pk, table } from "@decaf-ts/core";
 import { RamFlavour } from "@decaf-ts/core/ram";
-import { Model, model, ModelArg } from "@decaf-ts/decorator-validation";
+import { Model, model, type ModelArg } from "@decaf-ts/decorator-validation";
 
 @uses(RamFlavour)
 @table("process_step")

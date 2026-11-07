@@ -1,15 +1,16 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import fs from "fs";
 import path from "path";
 import { EventEmitter } from "events";
-import { spawn } from "child_process";
 
-import nest from "../../src/cli-module";
+const spawnMock = jest.fn();
 
-jest.mock("child_process", () => ({
-  spawn: jest.fn(),
+await jest.unstable_mockModule("node:child_process", () => ({
+  default: { spawn: spawnMock },
+  spawn: spawnMock,
 }));
-
-const spawnMock = spawn as jest.MockedFunction<typeof spawn>;
+const { default: nest } = await import("../../src/cli-module");
 
 describe("nest cli boot command", () => {
   afterEach(() => {

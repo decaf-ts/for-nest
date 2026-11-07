@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import "../../src/decoration";
 import "../../src/overrides";
 

@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import "../../src/decoration";
 import "../../src/overrides";
 
@@ -6,7 +7,7 @@ import { METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants";
 import { RequestMethod } from "@nestjs/common";
 import { ModelControllerBuilder } from "@decaf-ts/for-http/server";
 import { FromModelController } from "../../src/decaf-model/FromModelController";
-import { ModelArg, model, required, Model } from "@decaf-ts/decorator-validation";
+import { type ModelArg, model, required, Model } from "@decaf-ts/decorator-validation";
 import { PreparedStatementKeys, column, pk, query, route, table } from "@decaf-ts/core";
 import { Metadata } from "@decaf-ts/decoration";
 import { Product } from "./Product";

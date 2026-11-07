@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import {
   Adapter,
   Repository as CoreRepository,
@@ -11,7 +13,7 @@ import {
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
 import { INestApplication, Controller, Get } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import { Model, ModelArg, model } from "@decaf-ts/decorator-validation";
+import { Model, type ModelArg, model } from "@decaf-ts/decorator-validation";
 import { uses } from "@decaf-ts/decoration";
 import { Logging, MiniLogger } from "@decaf-ts/logging";
 import request from "supertest";

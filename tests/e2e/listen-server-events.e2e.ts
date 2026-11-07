@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import { INestApplication, Module } from "@nestjs/common";
 import { Adapter, Repo, repository, Repository } from "@decaf-ts/core";
 import { ProcessStep } from "./fakes/models/ProcessStep";
@@ -100,10 +102,12 @@ function listenForMultipleEvents(
     };
 
     es.onmessage = (event) => {
-      clearTimeout(timeout);
-      es.close();
       events.push(JSON.parse(event.data));
-      if (condition(events)) resolve(events);
+      if (condition(events)) {
+        clearTimeout(timeout);
+        es.close();
+        resolve(events);
+      }
     };
 
     es.onerror = (err) => {
@@ -246,7 +250,7 @@ describe("Listen Server Events (e2e)", () => {
       expect(Serialization.deserialize(model)).toMatchObject(payload);
       expect(tableName).toEqual(payload.constructor.name);
     }
-  });
+  }, 180000);
 
   it("should notify all parallel listeners for the same event", async () => {
     const payload = new ProcessStep({

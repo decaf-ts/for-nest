@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import { Test } from "@nestjs/testing";
 import { Controller, Get, INestApplication } from "@nestjs/common";
 import { NestBootstraper } from "../../src/index";

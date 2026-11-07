@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { APP_INTERCEPTOR } from "@nestjs/core";
 
 import { AuthInterceptor, DecafAuthModule } from "../../src/auth";

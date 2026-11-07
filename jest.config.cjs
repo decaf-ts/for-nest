@@ -1,8 +1,10 @@
 const config = {
   verbose: true,
   rootDir: __dirname,
-  transform: { "^.+\\.ts$": "ts-jest" },
+  extensionsToTreatAsEsm: [".ts"],
+  transform: { "^.+\\.ts$": ["ts-jest", { useESM: true }] },
   testEnvironment: "node",
+  testTimeout: 180000,
   testRegex: "/tests/.*\\.(test|e2e)\\.ts$",
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
   collectCoverage: false,

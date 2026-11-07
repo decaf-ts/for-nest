@@ -1,3 +1,8 @@
+import { fileURLToPath } from "url";
+import { jest } from "@jest/globals";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { it } from "@decaf-ts/for-testing";
 import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
@@ -25,7 +30,7 @@ import {
   UnsupportedError,
 } from "@decaf-ts/core";
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
-import { Model, ModelArg, model, required } from "@decaf-ts/decorator-validation";
+import { Model, type ModelArg, model, required } from "@decaf-ts/decorator-validation";
 import { uses, Metadata, DecorationKeys } from "@decaf-ts/decoration";
 import { AxiosHttpAdapter } from "@decaf-ts/for-http";
 import { RequestToContextTransformer } from "@decaf-ts/for-http/server";

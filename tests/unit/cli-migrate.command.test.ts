@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { resolveMigrateCommandConfig, buildFileVersionHandlers } from "../../src/cli-module";
 import fs from "fs";
 import os from "os";

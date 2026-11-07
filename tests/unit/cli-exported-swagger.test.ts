@@ -1,3 +1,5 @@
+import { fileURLToPath } from "url";
+import { it } from "@decaf-ts/for-testing";
 import fs from "fs";
 import path from "path";
 import { InternalError } from "@decaf-ts/db-decorators";
@@ -5,6 +7,8 @@ import { Metadata } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Product } from "./Product";
 import jestOpenAPI from "jest-openapi";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const specPath = path.join(
   __dirname,

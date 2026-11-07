@@ -14,7 +14,7 @@ import {
   minlength,
   Model,
   model,
-  ModelArg,
+  type ModelArg,
   pattern,
 } from "@decaf-ts/decorator-validation";
 import { composed, readonly } from "@decaf-ts/db-decorators";

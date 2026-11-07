@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import path from "path";
 
 import "./helpers/migrations";
@@ -34,7 +36,7 @@ const CLI_FIXTURE = path.join(
   "tests",
   "integration",
   "fixtures",
-  "cli-live-app.module.cjs"
+  "cli-live-app.module.mjs"
 );
 
 const envKeys = [

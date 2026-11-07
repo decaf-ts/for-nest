@@ -5,7 +5,7 @@ import { RamFlavour } from "@decaf-ts/core/ram";
 import {
   Model,
   model,
-  ModelArg,
+  type ModelArg,
   required,
   minlength,
   maxlength,

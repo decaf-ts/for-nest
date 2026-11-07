@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 /**
  * SSE requester fingerprints, connection claims and subscriptions, exercised
  * with raw streaming HTTP clients (independent of the for-http client).

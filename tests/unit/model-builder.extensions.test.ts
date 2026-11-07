@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import "reflect-metadata";
 import { ModelBuilder } from "@decaf-ts/decorator-validation";
 import { AUTH_META_KEY } from "../../src/auth/constants";

@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import {
   WebhookDelivery,
   WebhookEventRecord,
@@ -19,7 +21,7 @@ import {
 import { OperationKeys } from "@decaf-ts/db-decorators";
 import {
   Model,
-  ModelArg,
+  type ModelArg,
   model,
   required,
 } from "@decaf-ts/decorator-validation";
@@ -460,6 +462,7 @@ describe("Standalone webhook module live integration", () => {
       "webhook-live-test"
     );
 
+    await deliveryService.refreshEventStatus(event!.id, makeContext());
     await waitFor(async () => {
       const state = await deliveryService.events.read(event!.id, makeContext());
       return state.status === WebhookStatus.COMPLETED;

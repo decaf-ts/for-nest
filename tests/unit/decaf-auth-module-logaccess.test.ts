@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import { AUTH_HANDLER } from "../../src/auth/constants";
 
 type ProviderLike = {
@@ -6,12 +8,13 @@ type ProviderLike = {
   useClass?: unknown;
 };
 
-jest.doMock("../../src/auth/AuthInterceptor", () => ({}));
-jest.doMock("../../src/auth/AuthMiddleware", () => ({}));
-jest.doMock("../../src/types", () => ({ AuthHandler: class {} }));
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { DecafAuthModule } = require("../../src/auth/DecafAuthModule");
+await jest.unstable_mockModule("../../src/auth/AuthInterceptor", () => ({
+  AuthInterceptor: class {},
+}));
+await jest.unstable_mockModule("../../src/auth/AuthMiddleware", () => ({
+  AuthMiddleware: class {},
+}));
+const { DecafAuthModule } = await import("../../src/auth/DecafAuthModule");
 
 class FakeAuthHandler {
   public logAccess = false;

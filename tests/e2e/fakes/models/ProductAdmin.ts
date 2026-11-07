@@ -14,7 +14,7 @@ import {
   maxlength,
   minlength,
   model,
-  ModelArg,
+  type ModelArg,
   pattern,
 } from "@decaf-ts/decorator-validation";
 

@@ -1,7 +1,9 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import { Test } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { DecafExceptionFilter, DecafModule, DecafCoreModule } from "../../src";
-import { Adapter, ModelService, query, service } from "@decaf-ts/core";
+import { Adapter, ModelService, UnsupportedError, query, service } from "@decaf-ts/core";
 import {
   RamAdapter,
   RamContext,
@@ -15,7 +17,6 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { OpenAPIObject } from "@nestjs/swagger/dist/interfaces/index";
 import { Constructor } from "@decaf-ts/decoration";
 import { RamTransformer } from "@decaf-ts/for-http/server";
-import { UnsupportedError } from "@decaf-ts/db-decorators";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);

@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import { FromModelController } from "../../src/decaf-model";
 import {
   DecafWebhookModule,

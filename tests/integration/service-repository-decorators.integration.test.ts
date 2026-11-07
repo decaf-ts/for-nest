@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { Injectable } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import {
@@ -10,7 +11,7 @@ import {
   service,
 } from "@decaf-ts/core";
 import { RamAdapter, RamFlavour } from "@decaf-ts/core/ram";
-import { Model, ModelArg, model, required } from "@decaf-ts/decorator-validation";
+import { Model, type ModelArg, model, required } from "@decaf-ts/decorator-validation";
 import { DecorationKeys, Metadata, uses } from "@decaf-ts/decoration";
 import { RamTransformer } from "@decaf-ts/for-http/server";
 import { DecafModule } from "../../src/module";

@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import { Logging } from "@decaf-ts/logging";
 
 import { contextualizeRequestContext } from "../../src/request/contextualize";

@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { it } from "@decaf-ts/for-testing";
 import path from "path";
 import { buildOutputFilePath, resolveInputPath } from "../../src/cli-module";
 
