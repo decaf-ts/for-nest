@@ -74,6 +74,13 @@ export type DecafModuleOptions<
   controllerConfig?: Record<string, ModelControllerFactoryConfig>;
   observerOptions?: ObserverEventsOptions;
   aggregations?: boolean;
+  /**
+   * Default for every generated controller: create with the primary key in the URL
+   * (`POST /<table>/<pk...>`) instead of the REST default `POST /<table>`. Must match the
+   * HttpAdapter client's `idInUrl`. Per model it can be set with `@controllerConfig({ idInUrl })`
+   * or the `controllerConfig` option.
+   */
+  idInUrl?: boolean;
   handlers?: Type<DecafRequestHandler>[];
   initialization?: () => Promise<void>;
 };

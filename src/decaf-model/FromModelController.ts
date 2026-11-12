@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Param,
   Query,
@@ -514,6 +515,24 @@ export class FromModelController {
       );
     }
 
+    // create with the pk in the URL (`idInUrl`): POST /<table>/<pk...>
+    if (method === "POST" && normalizedPath === pkPath) {
+      const routeParams =
+        FromModelController.routeParamDecorators(normalizedPath);
+      return FromModelController.createRegistration(
+        "create",
+        handler,
+        FromModelController.createCreateDecorators(ModelConstr, modelClazzName),
+        [
+          { decorator: DecafBody() as any, index: 0 },
+          ...routeParams.map(({ decorator, index }) => ({
+            decorator,
+            index: index + 1,
+          })),
+        ]
+      );
+    }
+
     if (method === "GET" && normalizedPath === pkPath) {
       return FromModelController.createRegistration(
         "read",
@@ -594,6 +613,23 @@ export class FromModelController {
             normalizedPath
           ),
           routeParams
+        );
+      }
+      if (method === "POST") {
+        return FromModelController.createRegistration(
+          `createBy${suffix}`,
+          handler,
+          FromModelController.createCreateDecorators(
+            ModelConstr,
+            modelClazzName
+          ),
+          [
+            { decorator: DecafBody() as any, index: 0 },
+            ...routeParams.map(({ decorator, index }) => ({
+              decorator,
+              index: index + 1,
+            })),
+          ]
         );
       }
       if (method === "PUT") {
@@ -739,6 +775,12 @@ export class FromModelController {
           type: String,
         }));
 
+      // Custom @route methods: like for-express, write verbs receive the request body first,
+      // followed by the path params ([body, ...pathValues]); other verbs get the path params.
+      const takesBody =
+        method === "POST" || method === "PUT" || method === "PATCH";
+      const pathParamDecorators =
+        FromModelController.routeParamDecorators(normalizedPath);
       return FromModelController.createRegistration(
         methodName,
         handler,
@@ -750,7 +792,15 @@ export class FromModelController {
             description: "No content returned by the method.",
           }),
         ],
-        FromModelController.routeParamDecorators(normalizedPath)
+        takesBody
+          ? [
+              { decorator: Body() as any, index: 0 },
+              ...pathParamDecorators.map(({ decorator, index }) => ({
+                decorator,
+                index: index + 1,
+              })),
+            ]
+          : pathParamDecorators
       );
     }
 

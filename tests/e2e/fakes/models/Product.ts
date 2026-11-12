@@ -1,4 +1,4 @@
-import { uses } from "@decaf-ts/decoration";
+import { prop, uses } from "@decaf-ts/decoration";
 import {
   Cascade,
   column,
@@ -43,12 +43,15 @@ export class Product extends Model {
 
   @defaultQueryAttr()
   @column()
+  @prop()
   name!: string;
 
   @column()
+  @prop()
   country!: string;
 
   @column()
+  @prop()
   expiryDate!: number;
   //
   // @oneToOne(

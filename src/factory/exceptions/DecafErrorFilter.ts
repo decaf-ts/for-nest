@@ -1,17 +1,25 @@
 import {
   ArgumentsHost,
+  BadGatewayException,
   BadRequestException,
   Catch,
   ConflictException,
   ExceptionFilter,
   ForbiddenException,
+  GatewayTimeoutException,
   HttpException,
   Injectable,
+  InternalServerErrorException,
+  MethodNotAllowedException,
   NotAcceptableException,
   NotFoundException,
   Optional,
+  PayloadTooLargeException,
+  RequestTimeoutException,
+  ServiceUnavailableException,
   UnauthorizedException,
   UnprocessableEntityException,
+  UnsupportedMediaTypeException,
 } from "@nestjs/common";
 import { ContextIdFactory, ModuleRef } from "@nestjs/core";
 import {
@@ -24,13 +32,23 @@ import {
 import { LoggedEnvironment, Logging } from "@decaf-ts/logging";
 import {
   AuthorizationError,
+  ConnectionError,
   ForbiddenError,
   PersistenceKeys,
   UnsupportedError,
 } from "@decaf-ts/core";
-import { ToManyRequestsError } from "../errors/throttling";
+import {
+  BadGatewayError,
+  GatewayTimeoutError,
+  MethodNotAllowedError,
+  NotAcceptableError,
+  PayloadTooLargeError,
+  RequestTimeoutError,
+  TooManyRequestsError,
+  UnsupportedMediaTypeError,
+  type RequestLogger,
+} from "@decaf-ts/for-http/server";
 import { DecafRequestContext } from "../../request/DecafRequestContext";
-import type { RequestLogger } from "@decaf-ts/for-http/server";
 
 /**
  * @description Maps well-known NestJS `HttpException` subclasses (as guards, pipes, or
@@ -48,6 +66,15 @@ const HTTP_EXCEPTION_TO_DECAF_ERROR = new Map<
   [BadRequestException, (msg) => new BadRequestError(msg)],
   [ConflictException, (msg) => new ConflictError(msg)],
   [UnprocessableEntityException, (msg) => new ValidationError(msg)],
+  [MethodNotAllowedException, (msg) => new MethodNotAllowedError(msg)],
+  [NotAcceptableException, (msg) => new NotAcceptableError(msg)],
+  [RequestTimeoutException, (msg) => new RequestTimeoutError(msg)],
+  [PayloadTooLargeException, (msg) => new PayloadTooLargeError(msg)],
+  [UnsupportedMediaTypeException, (msg) => new UnsupportedMediaTypeError(msg)],
+  [InternalServerErrorException, (msg) => new InternalError(msg)],
+  [BadGatewayException, (msg) => new BadGatewayError(msg)],
+  [ServiceUnavailableException, (msg) => new ConnectionError(msg)],
+  [GatewayTimeoutException, (msg) => new GatewayTimeoutError(msg)],
 ]);
 
 @Catch()
@@ -67,14 +94,15 @@ export class DecafExceptionFilter implements ExceptionFilter {
       exception instanceof NotFoundException ||
       exception instanceof UnsupportedError
     ) {
-      exception = new NotAcceptableException(exception.message);
-      statusCode = (exception as NotAcceptableException).getStatus();
+      // deliberate: unknown routes / unsupported operations answer 406, keeping 404 for
+      // "record not found" (NotFoundError)
+      exception = new NotAcceptableError(exception.message);
     } else if (!(exception instanceof BaseError)) {
       const toDecafError = this.decafErrorFor(exception);
       if (toDecafError) {
         exception = toDecafError(exception.message);
       } else if ((exception as any).status === 429) {
-        exception = new ToManyRequestsError(exception.message);
+        exception = new TooManyRequestsError(exception.message);
       } else if (exception instanceof HttpException) {
         // A recognized but unmapped HttpException (e.g. thrown by a guard or
         // pipe) — preserve its real status instead of flattening it to 500.

@@ -1,4 +1,6 @@
-import { isArray, isUndefined, negate, pickBy } from "lodash";
+import lodash from "lodash";
+
+const { isArray, isUndefined, negate, pickBy } = lodash;
 import { DECORATORS } from "./constants";
 
 export const isConstructor = (val: any): boolean => val === "constructor";

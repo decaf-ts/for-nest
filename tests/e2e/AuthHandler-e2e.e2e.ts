@@ -263,6 +263,8 @@ describe("Authentication", () => {
       expect(productRes.raw.error).toContain(
         "Missing required roles: admin"
       );
+      // authenticated but lacking the role: forbidden
+      expect(productRes.status).toEqual(403);
 
       const token2 = "admin";
       const fakeRes = await FakeHttpRequest.get(token2, fake.id);
@@ -270,6 +272,8 @@ describe("Authentication", () => {
       expect(fakeRes.raw.error).toContain(
         "Missing required roles: partner"
       );
+      // authenticated but lacking the role: forbidden
+      expect(fakeRes.status).toEqual(403);
     });
   });
 
@@ -341,12 +345,16 @@ describe("Authentication", () => {
       expect(productRes.raw.error).toContain(
         "Missing required roles: admin"
       );
+      // authenticated but lacking the role: forbidden
+      expect(productRes.status).toEqual(403);
 
       const fakeRes = await FakeHttpRequest.delete("admin", fake.id);
 
       expect(fakeRes.raw.error).toContain(
         "Missing required roles: partner"
       );
+      // authenticated but lacking the role: forbidden
+      expect(fakeRes.status).toEqual(403);
     });
   });
 });

@@ -1,5 +1,7 @@
 import { Type } from "@nestjs/common";
-import { isString, negate, pickBy } from "lodash";
+import lodash from "lodash";
+
+const { isString, negate, pickBy } = lodash;
 import { DECORATORS } from "./constants";
 import { getTypeIsArrayTuple, METADATA_FACTORY_NAME } from "./helpers";
 import type {

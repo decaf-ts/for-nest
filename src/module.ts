@@ -36,6 +36,7 @@ export class DecafModule {
             controllerExposure: options.controllerExposure,
             controllerConfig: options.controllerConfig,
             aggregations: options.aggregations,
+            idInUrl: options.idInUrl,
           })
         );
       });

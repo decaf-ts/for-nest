@@ -54,7 +54,12 @@ class CustomProductRepository extends Repository<
 
   @route("POST", "metadata/for-product")
   async createMetadata(body: Product) {
-    return { ...body, id: `${body.productCode}` };
+    return { ...body, id: `${body.productCode}`, metadata: Math.random() };
+  }
+
+  @route("PUT", "metadata/for-product/:productCode")
+  async updateMetadata(body: { metadata: number }, productCode: string) {
+    return { productCode, metadata: body.metadata };
   }
 
   @route("GET", "metadata/for-product/:productCode")
@@ -206,20 +211,70 @@ describe("DecafModelModule CRUD", () => {
       const batchNumber = genStr(14);
       const res = await productHttpClient.put(
         {
-          ...created,
+          ...created.toJSON(),
+          id: `${productCode}:${batchNumber}`,
+          productCode,
+          batchNumber,
           name: "Nothing",
         },
         productCode,
         batchNumber
       );
 
-      // expect(res.status).toEqual(404);
+      expect(res.status).toEqual(404);
       expect(res.raw.error).toContain(
         `[NotFoundError][404] Record with id ${productCode}:${batchNumber} not found`
       );
     });
 
-    it.skip("should FAIL to UPDATE with invalid payload", async () => {
+    it("should FAIL to UPDATE a non-existing product when the payload omits the pk (filled from the URL)", async () => {
+      const productCode = genStr(14);
+      const batchNumber = genStr(14);
+      const res = await productHttpClient.put(
+        { name: "Nothing" },
+        productCode,
+        batchNumber
+      );
+
+      expect(res.status).toEqual(404);
+      expect(res.raw.error).toContain(
+        `[NotFoundError][404] Record with id ${productCode}:${batchNumber} not found`
+      );
+    });
+
+    it("should FAIL to UPDATE when a URL pk part does not match the payload", async () => {
+      const otherCode = genStr(14);
+      const res = await productHttpClient.put(
+        { ...created.toJSON(), name: "Nothing" },
+        otherCode,
+        created.data.batchNumber
+      );
+
+      expect(res.status).toEqual(400);
+      expect(res.raw.error).toContain(
+        `[BadRequestError][400] productCode in the URL (${otherCode}) does not match the payload (${created.data.productCode})`
+      );
+    });
+
+    it("should FAIL to UPDATE when the payload @pk does not match the URL key", async () => {
+      const res = await productHttpClient.put(
+        {
+          productCode: created.data.productCode,
+          batchNumber: created.data.batchNumber,
+          id: `${created.data.productCode}:OTHER`,
+          name: "Nothing",
+        },
+        created.data.productCode,
+        created.data.batchNumber
+      );
+
+      expect(res.status).toEqual(400);
+      expect(res.raw.error).toContain(
+        `[BadRequestError][400] id in the URL (${created.data.productCode}:${created.data.batchNumber}) does not match the payload (${created.data.productCode}:OTHER)`
+      );
+    });
+
+    it("should FAIL to UPDATE with invalid payload", async () => {
       const res = await productHttpClient.put(
         {
           name: 123,
@@ -228,7 +283,10 @@ describe("DecafModelModule CRUD", () => {
         created.data.batchNumber
       );
 
-      expect(res.status).toEqual(400);
+      expect(res.status).toEqual(422);
+      expect(res.raw.error).toContain(
+        "[ValidationError][422] name - Invalid type. Expected String, received number"
+      );
     });
   });
 
@@ -470,14 +528,29 @@ describe("DecafModelModule CRUD", () => {
     });
 
     describe("POST /metadata", () => {
-      it.skip("should return product metadata created", async () => {
+      it("should return product metadata created", async () => {
         const resp = await productHttpClient.post(
           { productCode: product.productCode },
           route
         );
-        expect(resp.status).toBe(200);
+        expect(resp.status).toBe(201);
         expect(resp.data.productCode).toEqual(product.productCode);
         expect(resp.raw.metadata).toBeDefined();
+      });
+    });
+
+    describe("PUT /metadata/:productCode", () => {
+      it("passes the body first, then the path params", async () => {
+        const resp = await productHttpClient.put(
+          { metadata: 42 },
+          route,
+          product.productCode
+        );
+        expect(resp.status).toBe(200);
+        expect(resp.raw).toEqual({
+          productCode: product.productCode,
+          metadata: 42,
+        });
       });
     });
 

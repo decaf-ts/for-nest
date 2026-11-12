@@ -67,6 +67,9 @@ export function getModuleFor(flavour: string) {
       if (options.aggregations === false) {
         globalDefaults.allowGroupingQueries = false;
       }
+      if (typeof options.idInUrl === "boolean") {
+        globalDefaults.idInUrl = options.idInUrl;
+      }
 
       const controllers = trackedModels.map((model) =>
         FromModelController.create(model, options.controllerConfig, globalDefaults)

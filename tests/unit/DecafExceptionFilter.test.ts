@@ -3,13 +3,25 @@ import { it } from "@decaf-ts/for-testing";
 import "reflect-metadata";
 import {
   ArgumentsHost,
+  BadGatewayException,
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  GatewayTimeoutException,
+  HttpException,
   ImATeapotException,
+  InternalServerErrorException,
+  MethodNotAllowedException,
+  NotAcceptableException,
+  NotFoundException,
+  PayloadTooLargeException,
+  RequestTimeoutException,
+  ServiceUnavailableException,
   UnauthorizedException,
   UnprocessableEntityException,
+  UnsupportedMediaTypeException,
 } from "@nestjs/common";
+import { parseHttpError } from "@decaf-ts/for-http";
 import { Logging } from "@decaf-ts/logging";
 import { DecafExceptionFilter } from "../../src/factory/exceptions/DecafErrorFilter";
 import { DecafRequestContext } from "../../src/request/DecafRequestContext";
@@ -170,6 +182,15 @@ describe("DecafExceptionFilter guard/pipe exception mapping", () => {
     [new BadRequestException("nope"), 400],
     [new ConflictException("nope"), 409],
     [new UnprocessableEntityException("nope"), 422],
+    [new MethodNotAllowedException("nope"), 405],
+    [new NotAcceptableException("nope"), 406],
+    [new RequestTimeoutException("nope"), 408],
+    [new PayloadTooLargeException("nope"), 413],
+    [new UnsupportedMediaTypeException("nope"), 415],
+    [new InternalServerErrorException("nope"), 500],
+    [new BadGatewayException("nope"), 502],
+    [new ServiceUnavailableException("nope"), 503],
+    [new GatewayTimeoutException("nope"), 504],
   ])(
     "maps %p to its decaf BaseError equivalent (status %i) instead of a generic 500",
     async (exception, expectedStatus) => {
@@ -185,6 +206,41 @@ describe("DecafExceptionFilter guard/pipe exception mapping", () => {
       );
     }
   );
+
+  it.each([
+    [new UnauthorizedException("nope"), "AuthorizationError", 401],
+    [new ForbiddenException("nope"), "ForbiddenError", 403],
+    [new NotFoundException("Cannot GET /nope"), "NotAcceptableError", 406],
+    [new HttpException("slow down", 429), "TooManyRequestsError", 429],
+    [new PayloadTooLargeException("too big"), "PayloadTooLargeError", 413],
+    [new ServiceUnavailableException("down"), "ConnectionError", 503],
+  ])(
+    "answers %p with a body the HttpAdapter client turns back into %s (%i)",
+    async (exception, errorName, expectedStatus) => {
+      const filter = new DecafExceptionFilter();
+      const host = hostFor({ method: "GET", url: "/x" });
+
+      await filter.catch(exception, host);
+
+      const response = host.switchToHttp().getResponse();
+      expect(response.status).toHaveBeenCalledWith(expectedStatus);
+      const body = (response.json as jest.Mock).mock.calls[0][0] as any;
+      expect(body.error).toContain(`[${errorName}]`);
+      const clientError = parseHttpError(expectedStatus, body);
+      expect(clientError.constructor.name).toBe(errorName);
+      expect(clientError.code).toBe(expectedStatus);
+    }
+  );
+
+  it("keeps the deliberate 406 for unknown routes (NotFoundException)", async () => {
+    const filter = new DecafExceptionFilter();
+    const host = hostFor({ method: "GET", url: "/nope" });
+
+    await filter.catch(new NotFoundException("Cannot GET /nope"), host);
+
+    const response = host.switchToHttp().getResponse();
+    expect(response.status).toHaveBeenCalledWith(406);
+  });
 
   it("preserves the real status of a recognized but unmapped HttpException", async () => {
     const filter = new DecafExceptionFilter();
