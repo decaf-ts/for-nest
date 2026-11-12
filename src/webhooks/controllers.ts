@@ -75,7 +75,7 @@ export class WebhookEventActionsController extends DecafController<DecafServerCt
       if (!events.length) throw error;
       event = events[0];
     }
-    let deliveries: any[] = [];
+    let deliveries: any[];
     try {
       deliveries = await collectPagedResults(
         () =>
