@@ -2,6 +2,7 @@ import { jest } from "@jest/globals";
 import { it } from "@decaf-ts/for-testing";
 import path from "path";
 import { TaskEventType, TaskStatus, TaskType } from "@decaf-ts/core";
+import { dateFromFormat } from "@decaf-ts/decorator-validation";
 import nest from "../../src/cli-module";
 import {
   CliFlakyHandler,
@@ -179,9 +180,9 @@ describe("nest cli task command", () => {
       "+1h"
     );
     expect(scheduled.status).toBe(TaskStatus.SCHEDULED);
-    expect(new Date(scheduled.scheduledTo).getTime()).toBeGreaterThan(
-      Date.now() + 59 * 60_000
-    );
+    expect(
+      dateFromFormat(scheduled.scheduledTo, "dd-MM-yyyy HH:mm:ss:S").getTime()
+    ).toBeGreaterThan(Date.now() + 59 * 60_000);
 
     const { json: listed } = await runTask(
       "list",
